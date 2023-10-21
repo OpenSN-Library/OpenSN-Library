@@ -2,8 +2,8 @@ FROM ubuntu_python:latest
 
 USER root
 
-# 添加run.bash
-ADD run.bash /etc
+# 替换workspace/start.sh
+COPY start.sh /workspace/start.sh
 
 # 拷贝satellite-node
 COPY ./satellite_node /satellite_node
@@ -31,6 +31,3 @@ RUN cd /satellite_node
 
 # 给bootstrap.sh加上可执行的权限
 RUN chmod +x satellite_node/bootstrap.sh
-
-# 运行satellite-node
-CMD /bin/bash /etc/run.bash
