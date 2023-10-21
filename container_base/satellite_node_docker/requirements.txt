@@ -1,0 +1,8 @@
+netifaces
+networkx
+pyfiglet
+PyInquirer
+NetfilterQueue == 1.1.0
+python-iptables == 1.0.1
+scapy == 2.5.0
+pexpect
