@@ -17,8 +17,8 @@ USER root
 COPY materials/sources.list /etc/apt/sources.list 
 
 # 安装依赖应用
-RUN apt-get update 
-RUN apt-get install -y \
+RUN apt-get update \
+    && apt-get install -y \
     build-essential \
     zlib1g-dev \
     libncurses5-dev  \
@@ -41,8 +41,8 @@ RUN apt-get install -y \
     xauth
 
 # 配置x11转发
-RUN touch /root/.Xauthority
-RUN xauth add unix:0.0 MIT-MAGIC-COOKIE-1  ed38891ce0eb40149fbdc76e11c94e76
+RUN touch /root/.Xauthority \
+    && xauth add unix:0.0 MIT-MAGIC-COOKIE-1  ed38891ce0eb40149fbdc76e11c94e76
 
 # 添加frr守护进程配置
 COPY materials/daemons /etc/frr/daemons
@@ -52,19 +52,24 @@ RUN echo "net.ipv4.ip_forward = 1" >> /etc/sysctl.conf && sysctl -p
 
 # 从源代码安装Python3.6.9
 COPY materials/Python-3.6.9.tgz /
-RUN tar xvf Python-3.6.9.tgz
-RUN cd Python-3.6.9 && ./configure && make && make install
-RUN cd ..
-RUN rm -rf Python-3.6.9.tgz
-RUN ln -s /usr/local/bin/python3 /usr/bin/python
-RUN ln -s /usr/local/bin/pip3 /usr/bin/pip
+RUN tar xvf Python-3.6.9.tgz \
+    && cd Python-3.6.9 && ./configure && make && make install \
+    && cd .. \
+    && rm -rf Python-3.6.9.tgz \
+    && ln -s /usr/local/bin/python3 /usr/bin/python \
+    && ln -s /usr/local/bin/pip3 /usr/bin/pip
 # 配置pypi 清华源
 RUN pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple
 
 # 安装pip依赖
 COPY requirements.txt /
-RUN python -m pip install --upgrade pip
-RUN pip install -r requirements.txt --verbose
+RUN python -m pip install --upgrade pip \
+    && pip install -r requirements.txt --verbose
 
 COPY container-scripts/init.sh /
 COPY container-scripts/start.sh /workspace/start.sh
+
+RUN chmod +x /init.sh \
+    && chmod +x /workspace/start.sh
+
+ENTRYPOINT [ "/init.sh" ]
