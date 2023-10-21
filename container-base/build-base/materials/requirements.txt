@@ -1,0 +1,15 @@
+opencv-python==3.4.9.31
+netifaces
+networkx
+imutils
+numpy
+pexpect
+pyfiglet
+PyInquirer
+loguru
+netifaces
+NetfilterQueue
+python-iptables
+scapy
+pexpect
+websockets
