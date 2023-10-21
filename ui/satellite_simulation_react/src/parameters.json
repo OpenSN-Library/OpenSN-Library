@@ -1,0 +1,11 @@
+{
+  "camera_distance": 400,
+  "earth_radius": 80,
+  "earth_segment": 80,
+  "satellite_radius": 1.2,
+  "satellite_segment": 10,
+  "satellite_name": "node_",
+  "console_print": false,
+  "url": "http://10.134.180.190:8080",
+  "ws_url": "ws://10.134.180.190"
+}

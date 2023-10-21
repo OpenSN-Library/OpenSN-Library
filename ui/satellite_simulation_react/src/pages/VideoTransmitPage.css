@@ -1,0 +1,31 @@
+img {
+    object-fit: contain;
+}
+
+.videoPlayerSrc {
+    position: absolute;
+    width: 25%;
+    height: 25%;
+    margin-top: 15%;
+}
+
+.videoPlayerTcpDst {
+    position: absolute;
+    width: 25%;
+    height: 25%;
+    top: 3%;
+    right: 0;
+}
+
+.videoPlayerMyDst {
+    position: absolute;
+    width: 25%;
+    height: 25%;
+    bottom: 15%;
+    right:0;
+}
+
+.videoTitle {
+    color: #185c9d;
+    margin-left: 35px;
+}

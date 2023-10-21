@@ -1,0 +1,88 @@
+.App {
+    text-align: center;
+}
+
+.App-logo {
+    height: 40vmin;
+    pointer-events: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+    .App-logo {
+        animation: App-logo-spin infinite 20s linear;
+    }
+}
+
+.App-header {
+    background-color: #282c34;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-size: calc(10px + 2vmin);
+    color: white;
+}
+
+.App-link {
+    color: #61dafb;
+}
+
+@keyframes App-logo-spin {
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.html .body {
+    height: 100%;
+    width: 100%;
+}
+
+/* label标签css属性 */
+.label {
+    color: white;
+    font-size: small;
+}
+
+#components-layout-demo-custom-trigger .trigger {
+    width: 500px;
+    padding: 0 24px;
+    font-size: 18px;
+    line-height: 64px;
+    cursor: pointer;
+    transition: color 0.3s;
+}
+
+#components-layout-demo-custom-trigger .trigger:hover {
+    color: #1890ff;
+}
+
+:where(.css-dev-only-do-not-override-mxhywb).ant-menu-inline.ant-menu-root .ant-menu-item >*{
+    margin-left: 30px;
+}
+
+.logo {
+    height: 100px;
+    width: 120px;
+    margin-top: 30px;
+    margin-left: 38px;
+}
+
+.menu {
+    margin-top: 30px;
+}
+
+.medal_box {
+    height: 100%;
+    width: 100%;
+    background-color: #1d1d1d;
+}
+
+.data_table {
+    margin-top: 30%;
+    width: 400px;
+}

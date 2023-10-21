@@ -1,0 +1,93 @@
+:where(.css-dev-only-do-not-override-mxhywb).ant-select:not(.ant-select-customize-input) .ant-select-selector {
+    background-color: #00152A;
+}
+
+:where(.css-dev-only-do-not-override-mxhywb).ant-select-single .ant-select-selector {
+    color: #fff;
+}
+
+:where(.css-dev-only-do-not-override-mxhywb).ant-select .ant-select-arrow {
+    color: #fff;
+}
+
+:where(.css-dev-only-do-not-override-mxhywb).ant-card .ant-card-head {
+    color: #fff;
+}
+
+:where(.css-dev-only-do-not-override-mxhywb).ant-card {
+    color: #fff;
+    background: #00152A;
+}
+
+img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+.route_card {
+    display: flex;
+    flex-flow: column;
+}
+
+.route_select {
+    display: flex;
+    flex: 1;
+    margin-bottom: 30px;
+    width: 200px;
+    margin-left: 30px;
+}
+
+.route_button_display, .route_button_clear, .video_transmit_start, .video_transmit_end {
+    width: 120px;
+    display: flex;
+    flex: 1;
+    margin-left: 70px;
+    padding-left: 30px;
+    background-color: #00152A;
+    color: white;
+}
+
+.route_button_display, .video_transmit_start{
+    margin-top: 50px;
+    margin-bottom: 30px;
+}
+
+.route_path_card {
+    position: absolute;
+    bottom: 0;
+    width: 100%;
+}
+
+
+.sate_select {
+    width: 200px;
+    margin-left: 30px;
+}
+
+.sate_location_card {
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    width: 100%;
+}
+
+p.sate_connect_p {
+    line-height: 170%;
+    margin-top: -3px;
+    font-size: 13px;
+}
+
+.linkSet_div {
+    color: white;
+    margin-top: 30px;
+    margin-left: 40px;
+}
+
+.linkSet_switch {
+    margin-left: 40px;
+}
+
+.linkSet_switch_connect {
+    margin-left: 26px;
+}
