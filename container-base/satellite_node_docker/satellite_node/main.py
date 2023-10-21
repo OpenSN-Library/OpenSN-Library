@@ -9,7 +9,7 @@ from tools import get_ip_address, get_interface_address
 logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s %(filename)s[line:%(lineno)d] %(levelname)s %(message)s',
                     datefmt='%Y-%m-%d %H:%M:%S',
-                    filename='log.log',
+                    filename=os.getenv("NODE_ID", "no_id")+'.log',
                     filemode='w')
 
 IP_TABLE_BASE = '/configuration/ip_tables/'
