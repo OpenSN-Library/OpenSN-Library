@@ -1,0 +1,21 @@
+#[Network Login SideEffect]
+**/cookies.txt
+
+#[IDE Config]
+**/.idea
+**/.vscode
+
+#[NodeJs Dependencies]
+**/node_modules
+
+#[Runtime Temperary Files]
+**/tmp
+
+#[Build Mid-Files]
+**/cmake-build-debug
+**/__pycache__
+
+#[Binary Files]
+*.mp4
+.DS_Store
+*.zip
