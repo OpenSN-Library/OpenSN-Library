@@ -104,10 +104,11 @@ npm run start
 `dev-type`类型
 
 1. feat: 功能开发分支，即feature
-2. refactor: 重构，例如重命名等
-3. test: 测试样例分支，如果有的话
-3. doc: 文档分支，撰写部分文档
-4. chore: 其他分支，写gitignore啥的
+2. fix: 修复bug
+3. refactor: 重构，例如重命名等
+4. test: 测试样例分支，如果有的话
+5. doc: 文档分支，撰写部分文档
+6. chore: 其他分支，写gitignore啥的
 
 ### 2.2 commit格式约定
 
