@@ -25,8 +25,15 @@ TLE_2 -> TLE_LINE2
 
 '''
 
+INS_TYPE_FIELD = "type"
+INS_NS_FIELD = "namespace"
+INS_EXTRA_FIELD = "extra"
+EX_TLE0_KEY = "TLE_0"
+EX_TLE1_KEY = "TLE_1"
+EX_TLE2_KEY = "TLE_2"
 
-def ParseEtcdResult(info : dict[bytes,bytes]):
+
+def ParseEtcdResult(ns_info: list[bytes], info : dict[bytes,bytes]):
     add_key : list[bytes] = []
     del_key : list[bytes] = []
     for remote_key in info.keys():
@@ -41,6 +48,9 @@ def ParseEtcdResult(info : dict[bytes,bytes]):
     for key in add_key:
         obj_map = json.loads(info[key])
         if obj_map["type"] == ["Satellite"]:
+            obj_ns = obj_map[INS_NS_FIELD]
+            if obj_map[obj_ns] not in MovingInstances.keys():
+                MovingInstances[obj_ns] = {}
             inst = Instance(
                     key.decode(),
                     [
@@ -49,7 +59,7 @@ def ParseEtcdResult(info : dict[bytes,bytes]):
                         obj_map["extra"]["TLE_1"]
                     ]
                 )
-            MovingInstances[key]=inst
+            MovingInstances[obj_ns][key]=inst
         
 
 def watch_instance():
@@ -57,7 +67,7 @@ def watch_instance():
     redis_client = redis.Redis(host=REDIS_ADDR,port=REDIS_PORT,password=REDIS_PASSWORD)
     while True:
         try:
-            etcd_client.watch(NODE_INS_WATCH_KEY)
+            etcd_client.watch(NODE_NS_LIST_KEY)
             infos = redis_client.get(NODE_INS_INFO_KEY)
             ParseEtcdResult(infos)
         except etcd.EtcdKeyNotFound as e:
