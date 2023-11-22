@@ -1,3 +1,4 @@
 ephem
-python-etcd
+etcd
 loguru
+redis
