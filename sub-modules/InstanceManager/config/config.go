@@ -13,7 +13,7 @@ var (
 	RedisDBIndex   = 0
 	RedisPassword  = ""
 	DockerSockPath = ""
-	NodeIndex      = ""
+	NodeIndex      = 0
 )
 
 func init() {
@@ -24,5 +24,5 @@ func init() {
 	RedisPassword = os.Getenv("REDIS_PASSWORD")
 	RedisDBIndex, _ = strconv.Atoi(os.Getenv("REDIS_DB_INDEX"))
 	DockerSockPath = os.Getenv("DOCKER_SOCK_PATH")
-	NodeIndex = os.Getenv("NODE_INDEX")
+	NodeIndex,_ = strconv.Atoi(os.Getenv("NODE_INDEX"))
 }
