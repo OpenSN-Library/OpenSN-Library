@@ -11,8 +11,8 @@ var DockerClient *dockerClient.Client
 
 func init() {
 
-	cli, err := dockerClient.NewClientWithOpts(dockerClient.WithHost(config.DockerSockPath))
-
+	cli, err := dockerClient.NewClientWithOpts(dockerClient.WithHost(config.DockerHost))
+	
 	if err != nil {
 		logrus.Error("Init Docker Client Error:", err.Error())
 		panic(err)

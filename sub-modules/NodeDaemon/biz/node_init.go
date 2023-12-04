@@ -16,11 +16,6 @@ import (
 	"github.com/vishvananda/netlink"
 )
 
-const (
-	MasterNode  = "master"
-	ServantNode = "servant"
-)
-
 type Parameter struct {
 	BindInterfaceName string
 	MasterNodeAddr    string
@@ -86,7 +81,7 @@ func UpdateNodeIndexList() error {
 }
 
 func byteSeqEncode(b []byte) (ret uint64) {
-	for i:=0; i < len(b) ; i++ {
+	for i := 0; i < len(b); i++ {
 		ret <<= 2
 		if i < len(b) {
 			ret |= (uint64(b[i]) & 0xff)
@@ -118,15 +113,15 @@ func getInterfaceInfo(ifName string, target *model.Node) error {
 		}
 	}
 	target.L2Addr = byteSeqEncode(link.Attrs().HardwareAddr)
-	linkV4Addrs,err := netlink.AddrList(link,4)
+	linkV4Addrs, err := netlink.AddrList(link, 4)
 	if err != nil {
 		return err
 	}
 	if len(linkV4Addrs) > 0 {
 		target.L3AddrV4 = uint32(byteSeqEncode(linkV4Addrs[0].IP))
 	}
-	
-	linkV6Addrs,err := netlink.AddrList(link,6)
+
+	linkV6Addrs, err := netlink.AddrList(link, 6)
 	if err != nil {
 		return err
 	}
@@ -136,12 +131,20 @@ func getInterfaceInfo(ifName string, target *model.Node) error {
 	return nil
 }
 
-func NodeInit(para Parameter) error {
+func NodeInit() error {
 
-	if para.NodeMode == MasterNode {
+	if config.StartMode == config.MasterNode {
 		data.NodeIndex = 0
+		err := config.InitConfigMasterMode()
+		if err != nil {
+			return err
+		}
 	} else {
-		err := allocNodeIndex()
+		err := config.InitConfigServantMode(config.MasterAddress)
+		if err != nil {
+			return err
+		}
+		err = allocNodeIndex()
 		if err != nil {
 			return fmt.Errorf("alloc node index error: %s", err.Error())
 		}
@@ -149,22 +152,26 @@ func NodeInit(para Parameter) error {
 
 	selfInfo := &model.Node{
 		NodeID:        uint32(data.NodeIndex),
-		FreeInstance:  128,
+		FreeInstance:  model.MAX_INSTANCE_NODE,
 		IsMasterNode:  data.NodeIndex == 0,
 		NsInstanceMap: map[string]string{},
 		NsLinkMap:     map[string]string{},
 	}
 
-	err := getInterfaceInfo(para.BindInterfaceName, selfInfo)
+	if data.NodeIndex == 0 {
+		selfInfo.FreeInstance -= model.MASTER_NODE_MAKEUP
+	}
+
+	err := getInterfaceInfo(config.InterfaceName, selfInfo)
 
 	if err != nil {
 		return fmt.Errorf("get interface info error: %s", err.Error())
 	}
 
-	selfInfoBytes,err := json.Marshal(selfInfo)
+	selfInfoBytes, err := json.Marshal(selfInfo)
 
 	if err != nil {
-		return fmt.Errorf("marshal node info error: %s",err.Error())
+		return fmt.Errorf("marshal node info error: %s", err.Error())
 	}
 
 	setResp := utils.RedisClient.HSet(
@@ -175,7 +182,7 @@ func NodeInit(para Parameter) error {
 	)
 
 	if setResp.Err() != nil {
-		return fmt.Errorf("update node info error: %s",setResp.Err().Error())
+		return fmt.Errorf("update node info error: %s", setResp.Err().Error())
 	}
 
 	err = UpdateNodeIndexList()

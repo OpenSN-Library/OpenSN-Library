@@ -25,14 +25,15 @@ func init() {
 		panic(err)
 	}
 
+	EtcdClient = cli
+}
+
+func CheckEtcdServe() bool {
+	if EtcdClient == nil {
+			return false
+	}
 	timeoutCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
-	_, err = cli.Status(timeoutCtx, cliConfig.Endpoints[0])
-
-	if err != nil {
-		logrus.Error("Init Etcd Client Err: ", err.Error())
-		panic(err)
-	}
-
-	EtcdClient = cli
+	_, err := EtcdClient.Status(timeoutCtx, EtcdClient.Endpoints()[0])
+	return err == nil
 }

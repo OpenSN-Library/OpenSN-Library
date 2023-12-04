@@ -17,33 +17,33 @@ type Module interface {
 }
 
 type ModuleBase struct {
-	sigChan chan int
-	errChan chan error
-	runing bool
+	sigChan    chan int
+	errChan    chan error
+	runing     bool
 	daemonFunc func(sigChann chan int, errChann chan error)
-	wg *sync.WaitGroup
+	wg         *sync.WaitGroup
 }
 
-func (m *ModuleBase)Run() {
+func (m *ModuleBase) Run() {
 	if m.IsRunning() {
 		return
 	}
 	m.runing = true
 	m.wg.Add(1)
 	go func() {
-		m.daemonFunc(m.sigChan,m.errChan)
+		m.daemonFunc(m.sigChan, m.errChan)
 		m.runing = false
 		m.wg.Done()
 	}()
 }
 
-func (m *ModuleBase)Stop() {
+func (m *ModuleBase) Stop() {
 	m.sigChan <- config.STOP_SIGNAL
 }
 
-func (m *ModuleBase)CheckError() error {
+func (m *ModuleBase) CheckError() error {
 	select {
-	case res := <- m.errChan:
+	case res := <-m.errChan:
 		m.errChan <- res
 		return res
 	default:
@@ -51,12 +51,10 @@ func (m *ModuleBase)CheckError() error {
 	}
 }
 
-func (m *ModuleBase)IsRunning() bool {
+func (m *ModuleBase) IsRunning() bool {
 	return m.runing
 }
 
-func (m *ModuleBase)Wait(){
+func (m *ModuleBase) Wait() {
 	m.wg.Wait()
 }
-
-

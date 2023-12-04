@@ -22,6 +22,17 @@ func init() {
 	RedisClient = rdb
 }
 
+func CheckRedisServe() bool {
+	if RedisClient == nil {
+			return false
+	}
+	resp := RedisClient.ClientList(context.Background())
+	if resp.Err() != nil {
+			return false
+	}
+	return true
+}
+
 func LockKeyWithTimeout(key string,timeout time.Duration) bool {
 	lockKey := fmt.Sprintf("Lock_%s",key)
 	successChann := make(chan bool)
