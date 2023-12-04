@@ -26,18 +26,20 @@ func redisDaemonFunc(sigChann chan int, errChann chan error) {
 		Image: config.RedisImageName,
 	}
 	hostConfig := &container.HostConfig{
-		NetworkMode: "bridge",
+		NetworkMode: "host",
 		AutoRemove:  true,
 	}
 
 	containerInfo, err := utils.DockerClient.ContainerCreate(context.Background(), containerConfig, hostConfig, nil, nil, RedisModuleContainerName)
 	if err != nil {
+		logrus.Error("Create redis Container Error: ", err.Error())
 		errChann <- err
 		return
 	}
 	err = utils.DockerClient.ContainerStart(context.Background(), containerInfo.ID, types.ContainerStartOptions{})
 
 	if err != nil {
+		logrus.Error("Start redis Container Error: ", err.Error())
 		errChann <- err
 		return
 	}

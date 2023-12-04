@@ -10,6 +10,10 @@ func CreateNsHandler(ctx *gin.Context) {
 
 }
 
+func UpdateNsHandler(ctx *gin.Context) {
+	
+}
+
 func StartNsHandler(ctx *gin.Context) {
 
 }

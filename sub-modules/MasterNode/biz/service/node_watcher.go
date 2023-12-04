@@ -56,46 +56,51 @@ func parseNodeChange(nodeList []int) error {
 		delete(data.NodeMap, v)
 	}
 
-	err := utils.DoWithRetry(func() error {
-		deleteResp := utils.RedisClient.HDel(context.Background(), data.NodesKey, delIndexListStr...)
-		if deleteResp.Err() != nil {
-			errMsg := fmt.Sprintf("Delete Keys %v Error: %s", delIndexListStr, deleteResp.Err().Error())
-			logrus.Error(errMsg)
-			return errors.New(errMsg)
-		}
-		return nil
-	}, 3)
+	if len(delIndexListStr) > 0 {
+		err := utils.DoWithRetry(func() error {
+			deleteResp := utils.RedisClient.HDel(context.Background(), data.NodesKey, delIndexListStr...)
+			if deleteResp.Err() != nil {
+				errMsg := fmt.Sprintf("Delete Keys %v Error: %s", delIndexListStr, deleteResp.Err().Error())
+				logrus.Error(errMsg)
+				return errors.New(errMsg)
+			}
+			return nil
+		}, 3)
 
-	if err != nil {
-		return err
+		if err != nil {
+			return err
+		}
 	}
 
-	err = utils.DoWithRetry(func() error {
-		getResp := utils.RedisClient.HMGet(context.Background(), data.NodesKey, addIndexListStr...)
-		if getResp.Err() != nil {
-			errMsg := fmt.Sprintf("Get New Node Infos %v Error: %s", delIndexListStr, getResp.Err().Error())
-			logrus.Error(errMsg)
-			return errors.New(errMsg)
-		}
-
-		for i, v := range getResp.Val() {
-			if v != nil {
-				infoStr := v.(string)
-				newNodeInfo := new(model.Node)
-				err := json.Unmarshal([]byte(infoStr), newNodeInfo)
-				if err != nil {
-					errMsg := fmt.Sprintf("Parse Node Info of %s to Struct Error : %s ", addIndexListStr[i], err.Error())
-					logrus.Error(errMsg)
-					continue
-				}
-				data.NodeMap[int(newNodeInfo.NodeID)] = newNodeInfo
+	if len(addIndexListStr) > 0 {
+		err := utils.DoWithRetry(func() error {
+			getResp := utils.RedisClient.HMGet(context.Background(), data.NodesKey, addIndexListStr...)
+			if getResp.Err() != nil {
+				errMsg := fmt.Sprintf("Get New Node Infos %v Error: %s", delIndexListStr, getResp.Err().Error())
+				logrus.Error(errMsg)
+				return errors.New(errMsg)
 			}
-		}
 
-		return nil
-	}, 3)
+			for i, v := range getResp.Val() {
+				if v != nil {
+					infoStr := v.(string)
+					newNodeInfo := new(model.Node)
+					err := json.Unmarshal([]byte(infoStr), newNodeInfo)
+					if err != nil {
+						errMsg := fmt.Sprintf("Parse Node Info of %s to Struct Error : %s ", addIndexListStr[i], err.Error())
+						logrus.Error(errMsg)
+						continue
+					}
+					data.NodeMap[int(newNodeInfo.NodeID)] = newNodeInfo
+				}
+			}
 
-	return err
+			return nil
+		}, 3)
+
+		return err
+	}
+	return nil
 }
 
 func watchNodeChange(sigChan chan int, errChan chan error) {
@@ -126,7 +131,7 @@ func watchNodeChange(sigChan chan int, errChan chan error) {
 			}
 			err = parseNodeChange(nodeList)
 			if err != nil {
-				errMsg := fmt.Sprintf("Parse Node Change Error: %s", nodeListStr)
+				errMsg := fmt.Sprintf("Parse Node Change Error: %s", err.Error())
 				logrus.Error(errMsg)
 			}
 		case sig := <-sigChan:

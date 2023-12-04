@@ -28,7 +28,6 @@ func init() {
 	EtcdClient = cli
 }
 
-
 func CheckEtcdServe() bool {
 	if EtcdClient == nil {
 		return false
@@ -36,8 +35,5 @@ func CheckEtcdServe() bool {
 	timeoutCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 	_, err := EtcdClient.Status(timeoutCtx, EtcdClient.Endpoints()[0])
-	if err != nil {
-		return false
-	}
-	return true
+	return err == nil
 }

@@ -13,7 +13,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-const EtcdModuleContainerName = "emulator_redis"
+const EtcdModuleContainerName = "emulator_etcd"
 
 var EtcdInitVal = map[string]interface{}{}
 
@@ -26,18 +26,20 @@ func etcdDaemonFunc(sigChann chan int, errChann chan error) {
 		Image: config.EtcdImageName,
 	}
 	hostConfig := &container.HostConfig{
-		NetworkMode: "bridge",
+		NetworkMode: "host",
 		AutoRemove:  true,
 	}
 
 	containerInfo, err := utils.DockerClient.ContainerCreate(context.Background(), containerConfig, hostConfig, nil, nil, EtcdModuleContainerName)
 	if err != nil {
+		logrus.Error("Create etcd Container Error: ",err.Error())
 		errChann <- err
 		return
 	}
 	err = utils.DockerClient.ContainerStart(context.Background(), containerInfo.ID, types.ContainerStartOptions{})
 
 	if err != nil {
+		logrus.Error("Start etcd Container Error: ",err.Error())
 		errChann <- err
 		return
 	}
@@ -75,8 +77,9 @@ func CreateEtcdModuleTask() *RedisModule {
 			sigChan:    make(chan int),
 			errChan:    make(chan error),
 			runing:     false,
-			daemonFunc: redisDaemonFunc,
+			daemonFunc: etcdDaemonFunc,
 			wg:         new(sync.WaitGroup),
 		},
 	}
 }
+
