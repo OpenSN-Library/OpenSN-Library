@@ -54,6 +54,15 @@ test_env_clean:
 	sudo ip link del veth0
 	sudo ip link del veth2
 	sudo ip netns del test_0
-
+build:
+	sudo docker run --rm -v `pwd`:/workspace golang:1.21 sh -c "cd /workspace && go env -w GOPROXY=https://goproxy.cn,direct && go mod tidy && go build"
+wrap:
+	sudo docker build . -t satellite_emulator/link-manager
+run:
+	sudo docker run \
+		--rm \
+		--privileged=true \
+		-v /var/run/docker.sock:/var/run/docker.sock \
+		satellite_emulator/link-manager
 # sudo nsenter --net=/var/run/netns/test_0 tc qdisc add dev veth3 clsact
 # sudo nsenter --net=/var/run/netns/test_0 tc filter add dev veth3 egress bpf da obj tc_veth_redirect.o sec egress
