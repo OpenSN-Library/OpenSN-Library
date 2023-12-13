@@ -7,7 +7,7 @@ import os
 import math
 import time
 from multiprocessing import Process, Pipe
-from laser_simulator import judge_connect
+from laser_simulator import judge_connect,init_interface_conn
 from data_updater import DataUpdater
 from const_var import *
 from caller import previous_config
@@ -51,6 +51,7 @@ def listen_worker(port, buffer_size, node_id, threshold, updater) -> None:
         if "config" in data:
             if data["config"] == "set the source routing table":
                 interface_map = read_interface_from_config()
+                init_interface_conn(interface_map)
                 # print(interface_map, flush=True)
                 previous_config()
             continue
@@ -63,40 +64,29 @@ def listen_worker(port, buffer_size, node_id, threshold, updater) -> None:
         logging.info("self.node_id is %s, self.Latitude is %f, Longitude is %f, Sea level height is %f" % (
             node_id, latitude, longitude, height))
         # judge the connection state
-        next_conn_state = judge_connect(latitude, threshold)
+        next_conn_state = judge_connect(latitude,interface_map,0.5)
 
         # change the interface state
-        if next_conn_state:
-            # execute command to change the interface state
-            for interface in interface_map.keys():
-                if interface_map[interface] == "inter-orbit-link":
-                    command = f"ifconfig {interface} up"
-                    logging.info(f"Exec '{command}'")
-                    os.system(command)
+        for ifname in next_conn_state.keys():
+            state = True
+            if not next_conn_state[ifname]:
+                state = False
+                command = f"ifconfig {ifname} down"
+                logging.info(f"Exec '{command}'")
+                os.system(command)
+            else:
+                command = f"ifconfig {ifname} up"
+                logging.info(f"Exec '{command}'")
+                os.system(command)
             status_str = json.dumps({
                 "node_id": node_id,
-                "state": True
+                "state": state
             })
             # broadcast the status to the backend
-            random_time_to_sleep_before_broadcast = random.uniform(0, 1)
-            process = Process(target=broadcast_with_timer,
-                              args=(updater, status_str, random_time_to_sleep_before_broadcast))
-            process.start()
-        else:
-            for interface in interface_map.keys():
-                if interface_map[interface] == "inter-orbit-link":
-                    command = "ifconfig %s down" % interface
-                    logging.info(f"Exec '{command}'")
-                    os.system(command)
-            status_str = json.dumps({
-                "node_id": node_id,
-                "state": False
-            })
-            # broadcast the status to the backend
-            random_time_to_sleep_before_broadcast = random.uniform(0, 1)
-            process = Process(target=broadcast_with_timer,
-                              args=(updater, status_str, random_time_to_sleep_before_broadcast))
-            process.start()
+        random_time_to_sleep_before_broadcast = random.uniform(0, 1)
+        process = Process(target=broadcast_with_timer,
+                            args=(updater, status_str, random_time_to_sleep_before_broadcast))
+        process.start()
 
 
 def satellite_simulator(broad_port: int, node_id: str, threshold: float):

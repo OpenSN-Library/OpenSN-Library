@@ -1,4 +1,4 @@
-FROM ubuntu_python:latest
+FROM satellite-base:latest
 
 USER root
 
@@ -28,6 +28,8 @@ COPY video_trans /video_trans
 
 # 进入satellite-node目录
 RUN cd /satellite_node
+
+RUN chmod +x /workspace/start.sh
 
 # 给bootstrap.sh加上可执行的权限
 RUN chmod +x satellite_node/bootstrap.sh

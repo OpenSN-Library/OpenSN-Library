@@ -1,2 +1,2 @@
 #!/bin/bash -er
-docker build -t satellite-node:latest .
+sudo docker build -t satellite-node:latest .

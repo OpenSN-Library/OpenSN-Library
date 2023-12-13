@@ -1,6 +1,7 @@
 build:
-	docker build -t satellite-base:latest .
+	-sudo docker rmi satellite-base
+	sudo docker build -t satellite-base:latest .
 push: build
 	echo "Not implemented yet"
 clean:
-	docker builder prune
+	sudo docker builder prune

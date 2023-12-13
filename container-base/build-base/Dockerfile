@@ -62,7 +62,7 @@ RUN tar xvf Python-3.6.9.tgz \
 RUN pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple
 
 # 安装pip依赖
-COPY requirements.txt /
+COPY materials/requirements.txt /
 RUN python -m pip install --upgrade pip \
     && pip install -r requirements.txt --verbose
 
@@ -72,4 +72,4 @@ COPY container-scripts/start.sh /workspace/start.sh
 RUN chmod +x /init.sh \
     && chmod +x /workspace/start.sh
 
-ENTRYPOINT [ "/init.sh" ]
+CMD /init.sh
