@@ -81,7 +81,7 @@ def print_and_store_interface_map(interface_map_tmp):
     for node_id in interface_map_tmp.keys():
         logger.success(f"node id: {node_id} interfaces: {interface_map_tmp[node_id]['interface']}")
     for node_id in interface_map_tmp.keys():
-        storage = f"/home/satellite-2/Workspace/distributed_simulation/satellite-source-routing/configuration/interface_table" \
+        storage = f"../configuration/interface_table" \
                   f"/node{node_id}_interface_table.conf"
         with open(storage, "w") as f:
             for interface in interface_map_tmp[node_id]["interface"]:

@@ -113,7 +113,7 @@ def loadAndTest():
 
 
 def writeIntoRRF(host_name, network_list, prefix_list):
-    with open(f"/home/satellite-2/Workspace/distributed_simulation/satellite-source-routing/configuration/frr/"
+    with open(f"../configuration/frr/"
               f"{host_name}.conf", "w") as f:
         full_str = \
             f"""frr version 7.2.1 
