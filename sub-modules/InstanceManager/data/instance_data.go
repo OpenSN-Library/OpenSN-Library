@@ -2,7 +2,7 @@ package data
 
 import "InstanceManager/model"
 
-var Namespaces []string
+var NamespacesMap map[string]string
 var InstanceMap map[string]*model.Instance
 
 func init() {

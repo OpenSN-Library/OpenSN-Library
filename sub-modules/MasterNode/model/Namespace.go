@@ -12,7 +12,7 @@ type InstanceConfig struct {
 	Type               string            `json:"type"`
 	PositionChangeable bool              `json:"position_changeable"`
 	Extra              map[string]string `json:"extra"`
-	LinkIDs            []string
+	LinkIDs            []string          `json:"link_ids"`
 }
 
 type LinkConfig struct {
