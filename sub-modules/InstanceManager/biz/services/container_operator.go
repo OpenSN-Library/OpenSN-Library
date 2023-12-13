@@ -14,7 +14,20 @@ import (
 
 var StopTimeoutSecond = 3
 
-func AddContainers(addList []string) {
+func init() {
+	hsetResp := utils.RedisClient.HSet(
+		context.Background(),
+		data.NodeInstancesKey,
+	)
+
+	if hsetResp.Err() != nil {
+		errMsg := fmt.Sprintf("Init Node Instance Info %s Error: %s", data.NodeInstancesKey, hsetResp.Err().Error())
+		logrus.Error(errMsg)
+		panic(errMsg)
+	}
+}
+
+func AddContainers(addList []string) error {
 	for _, v := range addList {
 		instance, ok := data.InstanceMap[v]
 		if ok {
@@ -59,6 +72,7 @@ func AddContainers(addList []string) {
 			}, 2)
 		}
 	}
+	return nil
 }
 
 func DelContainers(delList []*model.Instance) error {
@@ -68,7 +82,7 @@ func DelContainers(delList []*model.Instance) error {
 				err := utils.DockerClient.ContainerStop(context.Background(), v.ContainerID, container.StopOptions{})
 				if err != nil {
 					errMsg := fmt.Sprintf(
-						"Stop Container of Instance %s Error, Container id is %s, err: ",
+						"Stop Container of Instance %s Error, Container id is %s, err: %s",
 						v.InstanceID,
 						v.ContainerID,
 						err.Error(),
@@ -81,7 +95,7 @@ func DelContainers(delList []*model.Instance) error {
 				err := utils.DockerClient.ContainerRemove(context.Background(), v.ContainerID, types.ContainerRemoveOptions{Force: true})
 				if err != nil {
 					errMsg := fmt.Sprintf(
-						"Remove Container of Instance %s Error, Container id is %s, err: ",
+						"Remove Container of Instance %s Error, Container id is %s, err: %s",
 						v.InstanceID,
 						v.ContainerID,
 						err.Error(),
