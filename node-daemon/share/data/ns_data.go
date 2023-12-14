@@ -1,7 +1,7 @@
 package data
 
 import (
-	"MasterNode/model"
+	"NodeDaemon/model"
 	"sync"
 )
 

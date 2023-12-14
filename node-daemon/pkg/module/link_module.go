@@ -1,4 +1,4 @@
-package biz
+package module
 
 import (
 	"NodeDaemon/share/signal"
@@ -9,7 +9,7 @@ import (
 const LinkModuleContainerName = "link_manager"
 
 type LinkModule struct {
-	ModuleBase
+	Base
 }
 
 func linkDaemonFunc(sigChann chan int, errChann chan error) {
@@ -26,12 +26,13 @@ watchLoop:
 
 func CreateLinkModuleTask() *LinkModule {
 	return &LinkModule{
-		ModuleBase{
+		Base{
 			sigChan:    make(chan int),
 			errChan:    make(chan error),
-			runing:     false,
+			running:    false,
 			daemonFunc: linkDaemonFunc,
 			wg:         new(sync.WaitGroup),
+			ModuleName: "LinkManage",
 		},
 	}
 }

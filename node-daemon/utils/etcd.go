@@ -12,7 +12,7 @@ import (
 
 var EtcdClient *clientv3.Client
 
-func init() {
+func InitEtcdClient() {
 	cliConfig := clientv3.Config{
 		Endpoints: []string{
 			fmt.Sprintf("%s:%d", config.EtcdAddr, config.EtcdPort),
@@ -30,7 +30,7 @@ func init() {
 
 func CheckEtcdServe() bool {
 	if EtcdClient == nil {
-			return false
+		return false
 	}
 	timeoutCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()

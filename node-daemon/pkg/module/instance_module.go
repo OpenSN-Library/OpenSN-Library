@@ -1,11 +1,10 @@
-package biz
+package module
 
 import (
+	"NodeDaemon/model"
 	"NodeDaemon/share/data"
 	"NodeDaemon/share/key"
-	"NodeDaemon/model"
 	"NodeDaemon/utils"
-	"NodeDaemon/utils/tools"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -19,21 +18,21 @@ import (
 func init() {
 	getResp, err := utils.EtcdClient.Get(
 		context.Background(),
-		key.NodeInstanceListKey,
+		key.NodeInstanceListKeySelf,
 	)
 	if err != nil {
-		errMsg := fmt.Sprintf("Check Node Instance List Initialized%s Error: %s", key.NodeInstancesKey, err.Error())
+		errMsg := fmt.Sprintf("Check Node Instance List Initialized %s Error: %s", key.NodeInstancesKeySelf, err.Error())
 		logrus.Error(errMsg)
 		panic(errMsg)
 	}
 	if len(getResp.Kvs) <= 0 {
 		_, err := utils.EtcdClient.Put(
 			context.Background(),
-			key.NodeInstanceListKey,
+			key.NodeInstanceListKeySelf,
 			"[]",
 		)
 		if err != nil {
-			errMsg := fmt.Sprintf("Init Node Instance List %s Error: %s", key.NodeInstancesKey, err.Error())
+			errMsg := fmt.Sprintf("Init Node Instance List %s Error: %s", key.NodeInstancesKeySelf, err.Error())
 			logrus.Error(errMsg)
 			panic(errMsg)
 		}
@@ -46,9 +45,9 @@ func AddContainers(addList []string) error {
 	for _, v := range addList {
 		instance, ok := data.InstanceMap[v]
 		if ok {
-			tools.DoWithRetry(func() error {
+			utils.DoWithRetry(func() error {
 				containerConfig := &container.Config{
-					Hostname:    instance.Name,
+					Hostname:    instance.Config.Name,
 					Image:       "ubuntu:22.04",
 					Env:         []string{},
 					StopTimeout: &StopTimeoutSecond,
@@ -64,7 +63,7 @@ func AddContainers(addList []string) error {
 					hostConfig,
 					nil,
 					nil,
-					instance.Name,
+					instance.Config.Name,
 				)
 				if err != nil {
 					logrus.Error("Create Container Error: ", err.Error())
@@ -75,7 +74,7 @@ func AddContainers(addList []string) error {
 		}
 
 		for _, v := range addList {
-			tools.DoWithRetry(func() error {
+			utils.DoWithRetry(func() error {
 				err := utils.DockerClient.ContainerStart(
 					context.Background(),
 					data.InstanceMap[v].ContainerID,
@@ -94,12 +93,12 @@ func AddContainers(addList []string) error {
 func DelContainers(delList []*model.Instance) error {
 	for _, v := range delList {
 		if v.ContainerID != "" {
-			tools.DoWithRetry(func() error {
+			utils.DoWithRetry(func() error {
 				err := utils.DockerClient.ContainerStop(context.Background(), v.ContainerID, container.StopOptions{})
 				if err != nil {
 					errMsg := fmt.Sprintf(
 						"Stop Container of Instance %s Error, Container id is %s, err: %s",
-						v.InstanceID,
+						v.Config.InstanceID,
 						v.ContainerID,
 						err.Error(),
 					)
@@ -107,12 +106,12 @@ func DelContainers(delList []*model.Instance) error {
 				}
 				return err
 			}, 2)
-			tools.DoWithRetry(func() error {
+			utils.DoWithRetry(func() error {
 				err := utils.DockerClient.ContainerRemove(context.Background(), v.ContainerID, types.ContainerRemoveOptions{Force: true})
 				if err != nil {
 					errMsg := fmt.Sprintf(
 						"Remove Container of Instance %s Error, Container id is %s, err: %s",
-						v.InstanceID,
+						v.Config.InstanceID,
 						v.ContainerID,
 						err.Error(),
 					)
@@ -121,7 +120,7 @@ func DelContainers(delList []*model.Instance) error {
 				return err
 			}, 2)
 		} else {
-			errMsg := fmt.Sprintf("Container id of Instance %s is Empty, Skipping...", v.InstanceID)
+			errMsg := fmt.Sprintf("Container id of Instance %s is Empty, Skipping...", v.Config.InstanceID)
 			logrus.Error(errMsg)
 		}
 	}
@@ -131,7 +130,7 @@ func DelContainers(delList []*model.Instance) error {
 const InstanceModuleContainerName = "instance_manager"
 
 type InstanceModule struct {
-	ModuleBase
+	Base
 }
 
 func parseResult(updateIDMap map[string]string) (addList []string, delList []*model.Instance, err error) {
@@ -153,7 +152,7 @@ func parseResult(updateIDMap map[string]string) (addList []string, delList []*mo
 		delete(data.InstanceMap, v)
 	}
 
-	redisResponse := utils.RedisClient.HMGet(context.Background(), key.NodeInstanceListKey, addList...)
+	redisResponse := utils.RedisClient.HMGet(context.Background(), key.NodeInstanceListKeySelf, addList...)
 
 	if redisResponse.Err() != nil {
 		err = redisResponse.Err()
@@ -181,7 +180,7 @@ func parseResult(updateIDMap map[string]string) (addList []string, delList []*mo
 func watchInstanceDaemon(sigChan chan int, errChan chan error) {
 watchLoop:
 	for {
-		watchChan := utils.EtcdClient.Watch(context.Background(), key.NodeNsKey)
+		watchChan := utils.EtcdClient.Watch(context.Background(), key.NodeNsKeySelf)
 		select {
 		case res := <-watchChan:
 			if len(res.Events) < 1 {
@@ -219,12 +218,13 @@ watchLoop:
 
 func CreateInstanceModuleTask() *InstanceModule {
 	return &InstanceModule{
-		ModuleBase{
+		Base{
 			sigChan:    make(chan int),
 			errChan:    make(chan error),
-			runing:     false,
+			running:    false,
 			daemonFunc: watchInstanceDaemon,
 			wg:         new(sync.WaitGroup),
+			ModuleName: "InstanceManage",
 		},
 	}
 }

@@ -1,8 +1,8 @@
 package handler
 
 import (
-	"MasterNode/config"
-	"MasterNode/model/ginmodel"
+	"NodeDaemon/config"
+	"NodeDaemon/model/ginmodel"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -10,36 +10,36 @@ import (
 
 func GetEtcdAddressHandler(ctx *gin.Context) {
 	resp := ginmodel.JsonResp{
-		Code: 0,
+		Code:    0,
 		Message: "success",
-		Data: ginmodel.EtcdConfiguration {
-			Address: config.EtcdAddr,
-			Port: config.EtcdPort,
+		Data: ginmodel.EtcdConfiguration{
+			Address: config.GlobalConfig.Dependency.EtcdAddr,
+			Port:    config.GlobalConfig.Dependency.EtcdPort,
 		},
 	}
-	ctx.JSON(http.StatusOK,resp)
+	ctx.JSON(http.StatusOK, resp)
 }
 
 func GetRedisAddressHandler(ctx *gin.Context) {
 	resp := ginmodel.JsonResp{
-		Code: 0,
+		Code:    0,
 		Message: "success",
-		Data: ginmodel.RedisConfiguration {
-			Address: config.RedisAddr,
-			Port: config.RedisPort,
-			Index: config.RedisDBIndex,
-			Password: config.RedisPassword,
+		Data: ginmodel.RedisConfiguration{
+			Address:  config.GlobalConfig.Dependency.RedisAddr,
+			Port:     config.GlobalConfig.Dependency.RedisPort,
+			Index:    config.GlobalConfig.Dependency.RedisDBIndex,
+			Password: config.GlobalConfig.Dependency.RedisPassword,
 		},
 	}
-	ctx.JSON(http.StatusOK,resp)
+	ctx.JSON(http.StatusOK, resp)
 }
 
 func GetPlatformStatus(ctx *gin.Context) {
 	resp := ginmodel.JsonResp{
-		Code: 0,
+		Code:    0,
 		Message: "ok",
-		Data: nil,
+		Data:    nil,
 	}
-	ctx.JSON(http.StatusOK,resp)
+	ctx.JSON(http.StatusOK, resp)
 
 }

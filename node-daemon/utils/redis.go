@@ -10,10 +10,11 @@ import (
 )
 
 var RedisClient *redis.Client
-const DefaultLockTime = 2*time.Second
-const DefaultLockGap = 500*time.Millisecond
 
-func init() {
+const DefaultLockTime = 2 * time.Second
+const DefaultLockGap = 500 * time.Millisecond
+
+func InitRedisClient() {
 	rdb := redis.NewClient(&redis.Options{
 		Addr:     fmt.Sprintf("%s:%d", config.RedisAddr, config.RedisPort),
 		Password: config.RedisPassword, // no password set
@@ -24,20 +25,20 @@ func init() {
 
 func CheckRedisServe() bool {
 	if RedisClient == nil {
-			return false
+		return false
 	}
 	resp := RedisClient.ClientList(context.Background())
 	if resp.Err() != nil {
-			return false
+		return false
 	}
 	return true
 }
 
-func LockKeyWithTimeout(key string,timeout time.Duration) bool {
-	lockKey := fmt.Sprintf("Lock_%s",key)
+func LockKeyWithTimeout(key string, timeout time.Duration) bool {
+	lockKey := fmt.Sprintf("Lock_%s", key)
 	successChann := make(chan bool)
-	go func () {
-		redisResp := RedisClient.SetNX(context.Background(),lockKey,"1",DefaultLockTime)
+	go func() {
+		redisResp := RedisClient.SetNX(context.Background(), lockKey, "1", DefaultLockTime)
 		if redisResp.Err() == nil {
 			successChann <- redisResp.Val()
 		}
@@ -45,9 +46,9 @@ func LockKeyWithTimeout(key string,timeout time.Duration) bool {
 	}()
 
 	select {
-	case success := <- successChann:
+	case success := <-successChann:
 		return success
-	case <- time.After(timeout):
+	case <-time.After(timeout):
 		return false
 	}
 }

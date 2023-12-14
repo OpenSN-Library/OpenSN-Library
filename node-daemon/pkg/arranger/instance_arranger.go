@@ -1,9 +1,9 @@
 package arranger
 
 import (
-	"MasterNode/data"
-	"MasterNode/model"
-	"MasterNode/utils"
+	"NodeDaemon/model"
+	"NodeDaemon/share/data"
+	"NodeDaemon/utils"
 	"errors"
 	"fmt"
 )

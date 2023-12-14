@@ -2,9 +2,10 @@ package config
 
 import (
 	"NodeDaemon/model/ginmodel"
-	"NodeDaemon/utils/tools"
+	"NodeDaemon/utils"
 	"encoding/json"
 	"fmt"
+	"github.com/go-ini/ini"
 	"net/http"
 	"os"
 	"strconv"
@@ -13,41 +14,33 @@ import (
 	"github.com/vishvananda/netlink"
 )
 
-/*
-* ETCD_ADDR 由MasterNode获取，http接口传递给其他模块
-* ETCD_PORT 由NodeDaemon向MasterNode配置，传递给其他模块，默认2379
-* REDIS_ADDR 由MasterNode获取，http接口传递给其他模块
-* REDIS_PORT 由NodeDaemon向MasterNode配置，http传递给其他模块，默认6379
-* REDIS_PASSWORD 由NodeDaemon向MasterNode配置，http传递给其他模块，默认1145141919810
-* REDIS_DB_INDEX 由NodeDaemon向MasterNode配置，http传递给其他模块，默认0
-* DOCKER_HOST 由用户向NodeDaemon指派，传递给其他模块
- */
-
-const (
-	MasterNode  = "master"
-	ServantNode = "servant"
-)
-
 const (
 	RedisConfigurationUrl = "/api/platform/address/redis"
 	EtcdConfigurationUrl  = "/api/platform/address/etcd"
 )
 
-var (
-	StartMode            = MasterNode
-	MasterAddress        = "127.0.0.1"
-	InterfaceName        = "lo"
-	
-	EtcdAddr             = "127.0.0.1"
-	EtcdPort             = 2379
-	RedisAddr            = "127.0.0.1"
-	RedisPort            = 6379
-	RedisDBIndex         = 0
-	RedisPassword        = "1145141919810"
-	DockerHost           = "unix:///var/run/docker.sock"
-	RedisImage           = "satellite_emulator/redis"
-	EtcdImage            = "satellite_emulator/etcd"
-)
+type AppConfigType struct {
+	IsServant     bool   `ini:"IsServant"`
+	MasterAddress string `ini:"MasterAddress"`
+	InterfaceName string `ini:"InterfaceName"`
+}
+
+type DependencyConfigType struct {
+	EtcdAddr       string `ini:"EtcdAddr"`
+	EtcdPort       int    `ini:"EtcdPort"`
+	RedisAddr      string `ini:"RedisAddr"`
+	RedisPort      int    `ini:"RedisPort"`
+	RedisDBIndex   int    `ini:"RedisDBIndex"`
+	RedisPassword  string `ini:"RedisPassword"`
+	DockerHostPath string `ini:"DockerHostPath"`
+}
+
+type GlobalConfigType struct {
+	App        AppConfigType        `ini:"App"`
+	Dependency DependencyConfigType `ini:"Dependency"`
+}
+
+var GlobalConfig GlobalConfigType
 
 func GetConfigEnvNumber(name string, defaultVal int) int {
 	env := os.Getenv(name)
@@ -66,51 +59,69 @@ func GetConfigEnvString(name string, defaultVal string) string {
 	return env
 }
 
-func init() {
-	DockerHost = GetConfigEnvString("DOCKER_HOST", DockerHost)
-	StartMode = GetConfigEnvString("MODE", StartMode)
-	InterfaceName = GetConfigEnvString("INTERFACE", InterfaceName)
-	RedisImage = GetConfigEnvString("REDIS_IMAGE", RedisImage)
-	EtcdImage = GetConfigEnvString("ETCD_IMAGE", EtcdImage)
-	if StartMode == MasterNode {
-		link, err := netlink.LinkByName(InterfaceName)
+func GetConfigEnvBool(name string, defaultVal bool) bool {
+	env, err := strconv.ParseBool(os.Getenv(name))
+	if err != nil {
+		return defaultVal
+	}
+	return env
+}
+
+func InitConfig(iniPath string) {
+	cfg, err := ini.Load(iniPath)
+	if err != nil {
+		errMsg := fmt.Sprintf("Load INI Config File in %s Error %s", iniPath, err.Error())
+		logrus.Error(errMsg)
+		panic(errMsg)
+	}
+	err = cfg.MapTo(&GlobalConfig)
+	if err != nil {
+		errMsg := fmt.Sprintf("Map INI Config File to Struct Error %s", err.Error())
+		logrus.Error(errMsg)
+		panic(errMsg)
+	}
+	GlobalConfig.Dependency.DockerHostPath = GetConfigEnvString("DOCKER_HOST", GlobalConfig.Dependency.DockerHostPath)
+	GlobalConfig.App.IsServant = GetConfigEnvBool("IS_SERVANT", GlobalConfig.App.IsServant)
+	GlobalConfig.App.InterfaceName = GetConfigEnvString("INTERFACE", GlobalConfig.App.InterfaceName)
+	if !GlobalConfig.App.IsServant {
+		link, err := netlink.LinkByName(GlobalConfig.App.InterfaceName)
 		if err != nil {
-			errMsg := fmt.Sprintf("Unable to find Interface By Name %s: %s", InterfaceName, err.Error())
+			errMsg := fmt.Sprintf("Unable to find Interface By Name %s: %s", GlobalConfig.App.InterfaceName, err.Error())
 			logrus.Error(errMsg)
 			panic(errMsg)
 		}
-		addrs, err := netlink.AddrList(link, netlink.FAMILY_V4)
+		addresses, err := netlink.AddrList(link, netlink.FAMILY_V4)
 		if err != nil {
-			errMsg := fmt.Sprintf("Unable to list addresses of %s: %s", InterfaceName, err.Error())
+			errMsg := fmt.Sprintf("Unable to list addresses of %s: %s", GlobalConfig.App.InterfaceName, err.Error())
 			logrus.Error(errMsg)
 			panic(errMsg)
 		}
-		if len(addrs) <= 0 {
-			errMsg := fmt.Sprintf("%s has no ipv4 address", InterfaceName)
+		if len(addresses) <= 0 {
+			errMsg := fmt.Sprintf("%s has no ipv4 address", GlobalConfig.App.InterfaceName)
 			logrus.Error(errMsg)
 			panic(errMsg)
 		}
-		MasterAddress = addrs[0].IP.String()
-		EtcdAddr = MasterAddress
-		RedisAddr = MasterAddress
+		GlobalConfig.App.MasterAddress = addresses[0].IP.String()
+		GlobalConfig.Dependency.EtcdAddr = GlobalConfig.App.MasterAddress
+		GlobalConfig.Dependency.RedisAddr = GlobalConfig.App.MasterAddress
 	} else {
-		MasterAddress = GetConfigEnvString("MASTER_ADDRESS", MasterAddress)
+		GlobalConfig.App.MasterAddress = GetConfigEnvString("MASTER_ADDRESS", GlobalConfig.App.MasterAddress)
 	}
 }
 
 func InitConfigMasterMode() error {
 
-	EtcdPort = GetConfigEnvNumber("ETCD_PORT", EtcdPort)
-	RedisPort = GetConfigEnvNumber("REDIS_PORT", RedisPort)
-	RedisPassword = GetConfigEnvString("REDIS_PASSWORD", RedisPassword)
-	RedisDBIndex = GetConfigEnvNumber("REDIS_DB_INDEX", RedisDBIndex)
+	GlobalConfig.Dependency.EtcdPort = GetConfigEnvNumber("ETCD_PORT", GlobalConfig.Dependency.EtcdPort)
+	GlobalConfig.Dependency.RedisPort = GetConfigEnvNumber("REDIS_PORT", GlobalConfig.Dependency.RedisPort)
+	GlobalConfig.Dependency.RedisPassword = GetConfigEnvString("REDIS_PASSWORD", GlobalConfig.Dependency.RedisPassword)
+	GlobalConfig.Dependency.RedisDBIndex = GetConfigEnvNumber("REDIS_DB_INDEX", GlobalConfig.Dependency.RedisDBIndex)
 	return nil
 }
 
 func InitConfigServantMode(masterAddr string) error {
 	redisReqUrl := fmt.Sprintf("http://%s:8080%s", masterAddr, RedisConfigurationUrl)
 	etcdReqUrl := fmt.Sprintf("http://%s:8080%s", masterAddr, EtcdConfigurationUrl)
-	err := tools.DoWithRetry(func() error {
+	err := utils.DoWithRetry(func() error {
 		var obj ginmodel.JsonResp
 		redisResp, err := http.Get(redisReqUrl)
 		if err != nil {
@@ -123,10 +134,10 @@ func InitConfigServantMode(masterAddr string) error {
 			return err
 		}
 
-		RedisAddr = obj.Data.(map[string]interface{})["address"].(string)
-		RedisPort = int(obj.Data.(map[string]interface{})["port"].(float64))
-		RedisDBIndex = int(obj.Data.(map[string]interface{})["index"].(float64))
-		RedisPassword = obj.Data.(map[string]interface{})["password"].(string)
+		GlobalConfig.Dependency.RedisAddr = obj.Data.(map[string]interface{})["address"].(string)
+		GlobalConfig.Dependency.RedisPort = int(obj.Data.(map[string]interface{})["port"].(float64))
+		GlobalConfig.Dependency.RedisDBIndex = int(obj.Data.(map[string]interface{})["index"].(float64))
+		GlobalConfig.Dependency.RedisPassword = obj.Data.(map[string]interface{})["password"].(string)
 		return nil
 	}, 4)
 
@@ -136,7 +147,7 @@ func InitConfigServantMode(masterAddr string) error {
 		return err
 	}
 
-	err = tools.DoWithRetry(func() error {
+	err = utils.DoWithRetry(func() error {
 		var obj ginmodel.JsonResp
 		etcdResp, err := http.Get(etcdReqUrl)
 		if err != nil {
@@ -147,8 +158,8 @@ func InitConfigServantMode(masterAddr string) error {
 			return err
 		}
 
-		EtcdAddr = obj.Data.(map[string]interface{})["address"].(string)
-		EtcdPort = int(obj.Data.(map[string]interface{})["port"].(float64))
+		GlobalConfig.Dependency.EtcdAddr = obj.Data.(map[string]interface{})["address"].(string)
+		GlobalConfig.Dependency.EtcdPort = int(obj.Data.(map[string]interface{})["port"].(float64))
 		return nil
 	}, 4)
 

@@ -1,17 +1,16 @@
 package handler
 
 import (
-	"MasterNode/biz/arranger"
-	"MasterNode/data"
-	"MasterNode/model"
-	"MasterNode/model/ginmodel"
-	"MasterNode/utils"
+	"NodeDaemon/model"
+	"NodeDaemon/model/ginmodel"
+	"NodeDaemon/pkg/arranger"
+	"NodeDaemon/share/data"
+	"NodeDaemon/share/key"
+	"NodeDaemon/utils"
 	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"strconv"
-	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -22,34 +21,34 @@ func GetNsListHandler(ctx *gin.Context) {
 	var list []model.Namespace
 	data.NamespaceMapLock.RLock()
 	defer data.NamespaceMapLock.RUnlock()
-	for _,v := range data.NamespaceMap {
+	for _, v := range data.NamespaceMap {
 		list = append(list, *v)
 	}
-	resp := ginmodel.JsonResp {
-		Code: 0,
+	resp := ginmodel.JsonResp{
+		Code:    0,
 		Message: "Success",
-		Data: list,
+		Data:    list,
 	}
 
-	ctx.JSON(http.StatusOK,resp)
+	ctx.JSON(http.StatusOK, resp)
 }
 
 func GetNsInfoHandler(ctx *gin.Context) {
 	name := ctx.Param("name")
-	info,ok := data.NamespaceMap[name]
+	info, ok := data.NamespaceMap[name]
 	if !ok {
-		errMsg := fmt.Sprintf("Namespace %s Not Found",name)
+		errMsg := fmt.Sprintf("Namespace %s Not Found", name)
 		logrus.Error(errMsg)
 		resp := ginmodel.JsonResp{
-			Code: -1,
+			Code:    -1,
 			Message: errMsg,
 		}
-		ctx.JSON(http.StatusNotFound,resp)
+		ctx.JSON(http.StatusNotFound, resp)
 	}
-	infoData := ginmodel.NamespaceInfoData {
+	infoData := ginmodel.NamespaceInfoData{
 		Name: info.Name,
 	}
-	ctx.JSON(http.StatusOK,infoData)
+	ctx.JSON(http.StatusOK, infoData)
 	return
 }
 
@@ -117,8 +116,8 @@ func CreateNsHandler(ctx *gin.Context) {
 	data.NamespaceMapLock.Lock()
 	data.NamespaceMap[namespace.Name] = namespace
 	data.NamespaceMapLock.Unlock()
-	utils.LockKeyWithTimeout(data.NamespacesKey, 6*time.Second)
-	setResp := utils.RedisClient.HSet(context.Background(), data.NamespacesKey, map[string]interface{}{
+	utils.LockKeyWithTimeout(key.NamespacesKey, 6*time.Second)
+	setResp := utils.RedisClient.HSet(context.Background(), key.NamespacesKey, map[string]interface{}{
 		namespace.Name: string(nsBytes),
 	})
 	if setResp.Err() != nil {
@@ -147,28 +146,28 @@ func CreateNsHandler(ctx *gin.Context) {
 func UpdateNsHandler(ctx *gin.Context) {
 	var req ginmodel.UpdateNamespaceReq
 	name := ctx.Param("name")
-	info,ok := data.NamespaceMap[name]
+	info, ok := data.NamespaceMap[name]
 	if !ok {
-		errMsg := fmt.Sprintf("Namespace %s Not Found",name)
+		errMsg := fmt.Sprintf("Namespace %s Not Found", name)
 		logrus.Error(errMsg)
 		resp := ginmodel.JsonResp{
-			Code: -1,
+			Code:    -1,
 			Message: errMsg,
 		}
-		ctx.JSON(http.StatusNotFound,resp)
+		ctx.JSON(http.StatusNotFound, resp)
 	}
 	if info.Running {
-		errMsg := fmt.Sprintf("Namespace %s is Running",name)
+		errMsg := fmt.Sprintf("Namespace %s is Running", name)
 		logrus.Error(errMsg)
 		resp := ginmodel.JsonResp{
-			Code: -1,
+			Code:    -1,
 			Message: errMsg,
 		}
-		ctx.JSON(http.StatusBadRequest,resp)
+		ctx.JSON(http.StatusBadRequest, resp)
 	}
 	err := ctx.Bind(req)
 	if err != nil {
-		
+
 	}
 }
 
@@ -202,7 +201,7 @@ func StartNsHandler(ctx *gin.Context) {
 		var list []string
 		etcdResp, err := utils.EtcdClient.Get(
 			context.Background(),
-			fmt.Sprintf(data.NodeInstanceListKey, index),
+			fmt.Sprintf(key.NodeInstanceListKeyTemplate, index),
 		)
 
 		if err != nil {
@@ -249,7 +248,7 @@ func StartNsHandler(ctx *gin.Context) {
 			}
 			setResp := utils.RedisClient.HSet(
 				context.Background(),
-				fmt.Sprintf(data.NodeInstanceInfoKey, index),
+				fmt.Sprintf(key.NodeInstancesKeyTemplate, index),
 				[]string{
 					info.Config.InstanceID,
 					string(infoBytes),
@@ -279,7 +278,7 @@ func StartNsHandler(ctx *gin.Context) {
 		}
 		_, err = utils.EtcdClient.Put(
 			context.Background(),
-			fmt.Sprintf(data.NodeInstanceListKey, index),
+			fmt.Sprintf(key.NodeInstanceListKeyTemplate, index),
 			string(newListStr),
 		)
 		if err != nil {
@@ -305,55 +304,54 @@ func stopInstances(name string) error {
 	data.NamespaceMapLock.Lock()
 	defer data.NamespaceMapLock.Unlock()
 	info := data.NamespaceMap[name]
-	
-	for k,v := range info.InstanceAllocInfo {
-		key := fmt.Sprintf(data.NodeInstanceInfoKey,k)
+
+	for k, v := range info.InstanceAllocInfo {
+		instKey := fmt.Sprintf(key.NodeInstancesKeyTemplate, k)
 		delResp := utils.RedisClient.HDel(
 			context.Background(),
-			key,
-			v...
+			instKey,
+			v...,
 		)
 		if delResp.Err() != nil {
-			errMsg := fmt.Sprintf("Remove Running Instance of Node %d Error: %s",k,delResp.Err().Error())
+			errMsg := fmt.Sprintf("Remove Running Instance of Node %d Error: %s", k, delResp.Err().Error())
 			logrus.Error(errMsg)
 			return delResp.Err()
 		}
 		delSet := make(map[string]bool)
-		for _,item := range v {
+		for _, item := range v {
 			delSet[item] = true
 		}
 		var oldList []string
 		var newList []string
-		listKey := fmt.Sprintf(data.NodeInstanceListKey,k)
-		getResp,err := utils.EtcdClient.Get(context.Background(),listKey)
+		listKey := fmt.Sprintf(key.NodeInstanceListKeyTemplate, k)
+		getResp, err := utils.EtcdClient.Get(context.Background(), listKey)
 		if err != nil {
 
 		}
 		if len(getResp.Kvs) <= 0 {
 
 		}
-		err = json.Unmarshal(getResp.Kvs[0].Value,&oldList)
+		err = json.Unmarshal(getResp.Kvs[0].Value, &oldList)
 		if err != nil {
-			
+
 		}
 
-		for _,item := range oldList {
+		for _, item := range oldList {
 			if !delSet[item] {
 				newList = append(newList, item)
 			}
 		}
-		newListBytes,err := json.Marshal(newList)
+		newListBytes, err := json.Marshal(newList)
 
 		if err != nil {
 
 		}
-		putResp,err := utils.EtcdClient.Put(context.Background(),listKey,string(newListBytes))
+		_, err = utils.EtcdClient.Put(context.Background(), listKey, string(newListBytes))
 
 		if err != nil {
 
 		}
 
-		putResp
 	}
 	return nil
 }
@@ -367,61 +365,61 @@ func removeLinks(name string) error {
 
 func StopNsHandler(ctx *gin.Context) {
 	name := ctx.Param("name")
-	info,ok := data.NamespaceMap[name]
+	info, ok := data.NamespaceMap[name]
 	if !ok {
-		errMsg := fmt.Sprintf("Namespace %s Not Found",name)
+		errMsg := fmt.Sprintf("Namespace %s Not Found", name)
 		logrus.Error(errMsg)
 		resp := ginmodel.JsonResp{
-			Code: -1,
+			Code:    -1,
 			Message: errMsg,
 		}
-		ctx.JSON(http.StatusNotFound,resp)
+		ctx.JSON(http.StatusNotFound, resp)
 	}
 	err := stopInstances(name)
 
 	if err != nil {
-		errMsg := fmt.Sprintf("Remove Instance Error: %s",err.Error())
-		resp := ginmodel.JsonResp {
-			Code: -1,
+		errMsg := fmt.Sprintf("Remove Instance Error: %s", err.Error())
+		resp := ginmodel.JsonResp{
+			Code:    -1,
 			Message: errMsg,
 		}
-		ctx.JSON(http.StatusInternalServerError,resp)
+		ctx.JSON(http.StatusInternalServerError, resp)
 		return
 	}
 
 	err = removeLinks(name)
 
 	if err != nil {
-		errMsg := fmt.Sprintf("Remove Link Error: %s",err.Error())
-		resp := ginmodel.JsonResp {
-			Code: -1,
+		errMsg := fmt.Sprintf("Remove Link Error: %s", err.Error())
+		resp := ginmodel.JsonResp{
+			Code:    -1,
 			Message: errMsg,
 		}
-		ctx.JSON(http.StatusInternalServerError,resp)
+		ctx.JSON(http.StatusInternalServerError, resp)
 		return
 	}
 
 	info.Running = false
-	infoBytes,err := json.Marshal(info)
+	infoBytes, err := json.Marshal(info)
 	if err != nil {
-		errMsg := fmt.Sprintf("Serialize Namespace Info Error: %s",err.Error())
-		resp := ginmodel.JsonResp {
-			Code: -1,
+		errMsg := fmt.Sprintf("Serialize Namespace Info Error: %s", err.Error())
+		resp := ginmodel.JsonResp{
+			Code:    -1,
 			Message: errMsg,
 		}
-		ctx.JSON(http.StatusInternalServerError,resp)
+		ctx.JSON(http.StatusInternalServerError, resp)
 		return
 	}
-	state := utils.LockKeyWithTimeout(data.NamespacesKey,30*time.Second)
+	state := utils.LockKeyWithTimeout(key.NamespacesKey, 30*time.Second)
 	if state {
-		setResp := utils.RedisClient.HSet(context.Background(),data.NamespacesKey,name,string(infoBytes))
-		if setResp.Err()!= nil {
-			errMsg := fmt.Sprintf("Remove Instance Error: %s",err.Error())
-			resp := ginmodel.JsonResp {
-				Code: -1,
+		setResp := utils.RedisClient.HSet(context.Background(), key.NamespacesKey, name, string(infoBytes))
+		if setResp.Err() != nil {
+			errMsg := fmt.Sprintf("Remove Instance Error: %s", err.Error())
+			resp := ginmodel.JsonResp{
+				Code:    -1,
 				Message: errMsg,
 			}
-			ctx.JSON(http.StatusInternalServerError,resp)
+			ctx.JSON(http.StatusInternalServerError, resp)
 			return
 		}
 	}
@@ -430,33 +428,33 @@ func StopNsHandler(ctx *gin.Context) {
 
 func DeleteNsHandler(ctx *gin.Context) {
 	name := ctx.Param("name")
-	info,ok := data.NamespaceMap[name]
+	info, ok := data.NamespaceMap[name]
 	if !ok {
-		errMsg := fmt.Sprintf("Namespace %s Not Found",name)
+		errMsg := fmt.Sprintf("Namespace %s Not Found", name)
 		logrus.Error(errMsg)
 		resp := ginmodel.JsonResp{
-			Code: -1,
+			Code:    -1,
 			Message: errMsg,
 		}
-		ctx.JSON(http.StatusNotFound,resp)
+		ctx.JSON(http.StatusNotFound, resp)
 	}
 	if info.Running {
-		errMsg := fmt.Sprintf("Namespace %s is Running",name)
-		resp := ginmodel.JsonResp {
-			Code: -1,
+		errMsg := fmt.Sprintf("Namespace %s is Running", name)
+		resp := ginmodel.JsonResp{
+			Code:    -1,
 			Message: errMsg,
 		}
-		ctx.JSON(http.StatusBadRequest,resp)
+		ctx.JSON(http.StatusBadRequest, resp)
 		return
 	}
-	delResp := utils.RedisClient.HDel(context.Background(),data.NamespacesKey,name)
+	delResp := utils.RedisClient.HDel(context.Background(), key.NamespacesKey, name)
 	if delResp.Err() != nil {
-		errMsg := fmt.Sprintf("Delete Namespace %s Info Error:%s",name,delResp.Err().Error())
-		resp := ginmodel.JsonResp {
-			Code: -1,
+		errMsg := fmt.Sprintf("Delete Namespace %s Info Error:%s", name, delResp.Err().Error())
+		resp := ginmodel.JsonResp{
+			Code:    -1,
 			Message: errMsg,
 		}
-		ctx.JSON(http.StatusInternalServerError,resp)
+		ctx.JSON(http.StatusInternalServerError, resp)
 		return
 	}
 }

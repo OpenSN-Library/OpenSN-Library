@@ -1,10 +1,9 @@
-package tools
+package utils
 
 import (
 	"errors"
 	"time"
 )
-
 
 func DoWithRetry(thing func() error, maxTime int) error {
 	var err error
@@ -17,13 +16,13 @@ func DoWithRetry(thing func() error, maxTime int) error {
 	return err
 }
 
-func WaitSuccess(call func()bool, timeout time.Duration, checkGap time.Duration) error {
+func WaitSuccess(call func() bool, timeout time.Duration, checkGap time.Duration) error {
 	timeoutChan := time.After(timeout)
 	for {
 		select {
-		case <- timeoutChan:
+		case <-timeoutChan:
 			return errors.New("wait timeout")
-		case <- time.After(checkGap):
+		case <-time.After(checkGap):
 			if call() {
 				return nil
 			}

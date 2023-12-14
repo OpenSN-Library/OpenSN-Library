@@ -1,9 +1,9 @@
 package main
 
 import (
-	"NodeDaemon/biz"
 	"NodeDaemon/config"
-	"NodeDaemon/utils/tools"
+	"NodeDaemon/pkg/initializer"
+	"NodeDaemon/pkg/module"
 	"time"
 
 	"fmt"
@@ -14,7 +14,9 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func signalHandler(sigChan chan os.Signal, modules []biz.Module) {
+const DefaultConfigPath = "config/config.ini"
+
+func signalHandler(sigChan chan os.Signal, modules []module.Module) {
 	sig := <-sigChan
 	infoMsg := fmt.Sprintf("Signal %v Detected Gracefully Dying...", sig)
 	logrus.Info(infoMsg)
@@ -25,23 +27,28 @@ func signalHandler(sigChan chan os.Signal, modules []biz.Module) {
 
 func main() {
 
-	modules := []biz.Module{
-		biz.CreateInstanceModuleTask(),
-		biz.CreateLinkModuleTask(),
-		biz.CreateStatusUpdateModule(),
+	if len(os.Args) > 2 {
+		config.InitConfig(os.Args[1])
+	} else {
+		config.InitConfig(DefaultConfigPath)
 	}
-	if config.StartMode == config.MasterNode {
-		masterNodeModule := biz.CreateMasterNodeModuleTask()
-		masterNodeModule.Run()
-		tools.WaitSuccess(masterNodeModule.IsSetupFinish, 3*time.Minute, 10*time.Second)
-		logrus.Info("Master Node Init Success.")
-		modules = append(modules, masterNodeModule)
-	}
-	err := biz.NodeInit()
+
+	err := initializer.NodeInit()
 	if err != nil {
 		errMsg := fmt.Sprintf("Init Node Error: %s", err.Error())
 		logrus.Error(errMsg)
 		panic(err)
+	}
+	modules := []module.Module{
+		module.CreateInstanceModuleTask(),
+		module.CreateLinkModuleTask(),
+		module.CreateStatusUpdateModule(),
+		module.CreateHealthyCheckTask(),
+		module.CreateNodeWatchTask(),
+	}
+	if !config.GlobalConfig.App.IsServant {
+		masterNodeModule := module.CreateMasterNodeModuleTask()
+		modules = append(modules, masterNodeModule)
 	}
 
 	for _, v := range modules {

@@ -1,9 +1,11 @@
-package service
+package module
 
 import (
-	"MasterNode/data"
-	"MasterNode/model"
-	"MasterNode/utils"
+	"NodeDaemon/model"
+	"NodeDaemon/share/data"
+	"NodeDaemon/share/key"
+	"NodeDaemon/share/signal"
+	"NodeDaemon/utils"
 	"context"
 	"encoding/json"
 	"errors"
@@ -16,17 +18,18 @@ import (
 )
 
 type NodeWatchModule struct {
-	ModuleBase
+	Base
 }
 
 func CreateNodeWatchTask() *NodeWatchModule {
 	return &NodeWatchModule{
-		ModuleBase{
+		Base{
 			sigChan:    make(chan int),
 			errChan:    make(chan error),
 			wg:         new(sync.WaitGroup),
 			daemonFunc: watchNodeChange,
-			runing:     false,
+			running:    false,
+			ModuleName: "NodeWatcher",
 		},
 	}
 }
@@ -58,7 +61,7 @@ func parseNodeChange(nodeList []int) error {
 
 	if len(delIndexListStr) > 0 {
 		err := utils.DoWithRetry(func() error {
-			deleteResp := utils.RedisClient.HDel(context.Background(), data.NodesKey, delIndexListStr...)
+			deleteResp := utils.RedisClient.HDel(context.Background(), key.NodesKey, delIndexListStr...)
 			if deleteResp.Err() != nil {
 				errMsg := fmt.Sprintf("Delete Keys %v Error: %s", delIndexListStr, deleteResp.Err().Error())
 				logrus.Error(errMsg)
@@ -74,7 +77,7 @@ func parseNodeChange(nodeList []int) error {
 
 	if len(addIndexListStr) > 0 {
 		err := utils.DoWithRetry(func() error {
-			getResp := utils.RedisClient.HMGet(context.Background(), data.NodesKey, addIndexListStr...)
+			getResp := utils.RedisClient.HMGet(context.Background(), key.NodesKey, addIndexListStr...)
 			if getResp.Err() != nil {
 				errMsg := fmt.Sprintf("Get New Node Infos %v Error: %s", delIndexListStr, getResp.Err().Error())
 				logrus.Error(errMsg)
@@ -114,7 +117,7 @@ func watchNodeChange(sigChan chan int, errChan chan error) {
 	for {
 		watchChann := utils.EtcdClient.Watch(
 			context.Background(),
-			data.NodeIndexListKey,
+			key.NodeIndexListKey,
 		)
 
 		select {
@@ -135,7 +138,7 @@ func watchNodeChange(sigChan chan int, errChan chan error) {
 				logrus.Error(errMsg)
 			}
 		case sig := <-sigChan:
-			if sig == data.STOP_SIGNAL {
+			if sig == signal.STOP_SIGNAL {
 				return
 			}
 		}

@@ -1,9 +1,9 @@
-package biz
+package initializer
 
 import (
 	"NodeDaemon/config"
-	"NodeDaemon/share/key"
 	"NodeDaemon/model"
+	"NodeDaemon/share/key"
 	"NodeDaemon/utils"
 	"context"
 	"encoding/json"
@@ -84,7 +84,7 @@ func byteSeqEncode(b []byte) (ret uint64) {
 	for i := 0; i < len(b); i++ {
 		ret <<= 2
 		if i < len(b) {
-			ret |= (uint64(b[i]) & 0xff)
+			ret |= uint64(b[i]) & 0xff
 		}
 	}
 	return
@@ -132,7 +132,8 @@ func getInterfaceInfo(ifName string, target *model.Node) error {
 }
 
 func NodeInit() error {
-
+	utils.InitEtcdClient()
+	utils.InitRedisClient()
 	if config.StartMode == config.MasterNode {
 		key.NodeIndex = 0
 		err := config.InitConfigMasterMode()

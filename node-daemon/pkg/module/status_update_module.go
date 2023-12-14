@@ -1,10 +1,9 @@
-package biz
+package module
 
 import (
 	"NodeDaemon/share/key"
 	"NodeDaemon/share/signal"
 	"NodeDaemon/utils"
-	"NodeDaemon/utils/tools"
 	"context"
 	"fmt"
 	"strconv"
@@ -17,7 +16,7 @@ import (
 var StatusUpdateGap = 15 * time.Second
 
 type StatusUpdateModule struct {
-	ModuleBase
+	Base
 }
 
 func statusUpdateDaemonFunc(sigChan chan int, errChan chan error) {
@@ -29,7 +28,7 @@ func statusUpdateDaemonFunc(sigChan chan int, errChan chan error) {
 				return
 			}
 		case <-time.After(StatusUpdateGap):
-			err := tools.DoWithRetry(func() error {
+			err := utils.DoWithRetry(func() error {
 				setResp := utils.RedisClient.HSet(
 					context.Background(),
 					key.NodeHeartBeatKey,
@@ -53,12 +52,13 @@ func statusUpdateDaemonFunc(sigChan chan int, errChan chan error) {
 
 func CreateStatusUpdateModule() *StatusUpdateModule {
 	return &StatusUpdateModule{
-		ModuleBase{
+		Base{
 			sigChan:    make(chan int),
 			errChan:    make(chan error),
-			runing:     false,
+			running:    false,
 			daemonFunc: statusUpdateDaemonFunc,
 			wg:         new(sync.WaitGroup),
+			ModuleName: "StatusUpdate",
 		},
 	}
 }

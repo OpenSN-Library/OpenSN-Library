@@ -1,8 +1,9 @@
-package service
+package module
 
 import (
-	"MasterNode/data"
-	"MasterNode/utils"
+	"NodeDaemon/share/key"
+	"NodeDaemon/share/signal"
+	"NodeDaemon/utils"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -17,17 +18,18 @@ var maxBeatSecond = 40
 var checkGap = maxBeatSecond / 2 * time.Now().Second()
 
 type HealthyCheckModule struct {
-	ModuleBase
+	Base
 }
 
 func CreateHealthyCheckTask() *HealthyCheckModule {
 	return &HealthyCheckModule{
-		ModuleBase{
+		Base{
 			sigChan:    make(chan int),
 			errChan:    make(chan error),
 			wg:         new(sync.WaitGroup),
 			daemonFunc: checkNodeHealthy,
-			runing:     false,
+			running:    false,
+			ModuleName: "NodeHealthyCheck",
 		},
 	}
 }
@@ -40,11 +42,11 @@ func updateNodeList(addSet map[int]bool, delSet map[int]bool) error {
 
 	var remoteIndexList []int = []int{}
 	var indexes2Update []int = []int{}
-	status := utils.LockKeyWithTimeout(data.NodeIndexListKey, 6*time.Second)
+	status := utils.LockKeyWithTimeout(key.NodeIndexListKey, 6*time.Second)
 	if !status {
-		return fmt.Errorf("unable to access lock of key %s", data.NodeIndexListKey)
+		return fmt.Errorf("unable to access lock of key %s", key.NodeIndexListKey)
 	}
-	getResp, err := utils.EtcdClient.Get(context.Background(), data.NodeIndexListKey)
+	getResp, err := utils.EtcdClient.Get(context.Background(), key.NodeIndexListKey)
 	if err != nil {
 		return err
 	}
@@ -75,7 +77,7 @@ func updateNodeList(addSet map[int]bool, delSet map[int]bool) error {
 		return err
 	}
 
-	_, err = utils.EtcdClient.Put(context.Background(), data.NodeIndexListKey, string(updateBytes))
+	_, err = utils.EtcdClient.Put(context.Background(), key.NodeIndexListKey, string(updateBytes))
 
 	return err
 }
@@ -93,7 +95,7 @@ func checkNodeHealthy(sigChan chan int, errChan chan error) {
 
 		select {
 		case sig := <-sigChan:
-			if sig == data.STOP_SIGNAL {
+			if sig == signal.STOP_SIGNAL {
 				return
 			}
 		default:
@@ -101,7 +103,7 @@ func checkNodeHealthy(sigChan chan int, errChan chan error) {
 		}
 
 		delSet := make(map[int]bool)
-		redisResp := utils.RedisClient.HGetAll(context.Background(), data.NodeHeartBeatKey)
+		redisResp := utils.RedisClient.HGetAll(context.Background(), key.NodeHeartBeatKey)
 		if redisResp.Err() != nil {
 			err := redisResp.Err()
 			logrus.Error("Check Node Healthy Error: ", err.Error())

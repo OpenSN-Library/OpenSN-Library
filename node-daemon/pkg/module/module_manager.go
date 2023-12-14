@@ -1,12 +1,10 @@
-package biz
+package module
 
 import (
 	"NodeDaemon/share/signal"
+	"github.com/sirupsen/logrus"
 	"sync"
-	"time"
 )
-
-var ModuleCheckGap = 1 * time.Minute
 
 type Module interface {
 	Run()
@@ -16,32 +14,34 @@ type Module interface {
 	Wait()
 }
 
-type ModuleBase struct {
+type Base struct {
 	sigChan    chan int
 	errChan    chan error
-	runing     bool
+	running    bool
 	daemonFunc func(sigChann chan int, errChann chan error)
 	wg         *sync.WaitGroup
+	ModuleName string
 }
 
-func (m *ModuleBase) Run() {
+func (m *Base) Run() {
 	if m.IsRunning() {
 		return
 	}
-	m.runing = true
+	logrus.Infof("Run %s Module.", m.ModuleName)
+	m.running = true
 	m.wg.Add(1)
 	go func() {
 		m.daemonFunc(m.sigChan, m.errChan)
-		m.runing = false
+		m.running = false
 		m.wg.Done()
 	}()
 }
 
-func (m *ModuleBase) Stop() {
+func (m *Base) Stop() {
 	m.sigChan <- signal.STOP_SIGNAL
 }
 
-func (m *ModuleBase) CheckError() error {
+func (m *Base) CheckError() error {
 	select {
 	case res := <-m.errChan:
 		m.errChan <- res
@@ -51,10 +51,10 @@ func (m *ModuleBase) CheckError() error {
 	}
 }
 
-func (m *ModuleBase) IsRunning() bool {
-	return m.runing
+func (m *Base) IsRunning() bool {
+	return m.running
 }
 
-func (m *ModuleBase) Wait() {
+func (m *Base) Wait() {
 	m.wg.Wait()
 }
