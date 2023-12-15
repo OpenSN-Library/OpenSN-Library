@@ -82,7 +82,7 @@ if __name__ == "__main__":
     # ----------------------------------------------------------------
     orbit_num = ORBIT_NUM
     satellites_per_orbit = SAT_PER_ORBIT
-    satellite_infos, connections = generate_tle(orbit_num, satellites_per_orbit, 0, 0, 0.1, 0.08)
+    satellite_infos, connections = generate_tle(orbit_num, satellites_per_orbit, 0, 0, 360//SAT_PER_ORBIT//2, 0.08)
     # print(connections)
     satellite_num = len(satellite_infos)
     # print("connections:", connections)

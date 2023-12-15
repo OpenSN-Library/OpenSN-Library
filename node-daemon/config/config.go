@@ -5,10 +5,11 @@ import (
 	"NodeDaemon/utils"
 	"encoding/json"
 	"fmt"
-	"github.com/go-ini/ini"
 	"net/http"
 	"os"
 	"strconv"
+
+	"github.com/go-ini/ini"
 
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
@@ -23,6 +24,7 @@ type AppConfigType struct {
 	IsServant     bool   `ini:"IsServant"`
 	MasterAddress string `ini:"MasterAddress"`
 	InterfaceName string `ini:"InterfaceName"`
+	Debug         bool   `ini:"Debug"`
 }
 
 type DependencyConfigType struct {
@@ -82,6 +84,7 @@ func InitConfig(iniPath string) {
 	}
 	GlobalConfig.Dependency.DockerHostPath = GetConfigEnvString("DOCKER_HOST", GlobalConfig.Dependency.DockerHostPath)
 	GlobalConfig.App.IsServant = GetConfigEnvBool("IS_SERVANT", GlobalConfig.App.IsServant)
+	GlobalConfig.App.Debug = GetConfigEnvBool("DEBUG", GlobalConfig.App.Debug)
 	GlobalConfig.App.InterfaceName = GetConfigEnvString("INTERFACE", GlobalConfig.App.InterfaceName)
 	if !GlobalConfig.App.IsServant {
 		link, err := netlink.LinkByName(GlobalConfig.App.InterfaceName)
@@ -107,6 +110,7 @@ func InitConfig(iniPath string) {
 	} else {
 		GlobalConfig.App.MasterAddress = GetConfigEnvString("MASTER_ADDRESS", GlobalConfig.App.MasterAddress)
 	}
+	logrus.Infof("Init Config Success, Config is %v", GlobalConfig)
 }
 
 func InitConfigMasterMode() error {

@@ -9,6 +9,7 @@ import (
 	"NodeDaemon/utils"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"time"
@@ -49,7 +50,6 @@ func GetNsInfoHandler(ctx *gin.Context) {
 		Name: info.Name,
 	}
 	ctx.JSON(http.StatusOK, infoData)
-	return
 }
 
 func CreateNsHandler(ctx *gin.Context) {
@@ -72,6 +72,8 @@ func CreateNsHandler(ctx *gin.Context) {
 			ContainerEnvs:      reqObj.NsConfig.ContainerEnvs,
 			InterfaceAllocated: []string{},
 		},
+		InstanceAllocInfo: make(map[int][]string),
+		LinkAllocInfo:     make(map[int][]string),
 	}
 	var instanceArray []model.InstanceConfig
 	var linkArray []model.LinkConfig
@@ -100,6 +102,7 @@ func CreateNsHandler(ctx *gin.Context) {
 	}
 	namespace.InstanceConfig = instanceArray
 	namespace.LinkConfig = linkArray
+	namespace.AllocatedInstances = len(instanceArray)
 	nsBytes, err := json.Marshal(namespace)
 	if err != nil {
 		errMsg := fmt.Sprintf("Serialize Namespace %s Object Error: %s", namespace.Name, err.Error())
@@ -140,7 +143,6 @@ func CreateNsHandler(ctx *gin.Context) {
 		Message: "Success",
 	}
 	ctx.JSON(http.StatusOK, resp)
-	return
 }
 
 func UpdateNsHandler(ctx *gin.Context) {
@@ -167,7 +169,14 @@ func UpdateNsHandler(ctx *gin.Context) {
 	}
 	err := ctx.Bind(req)
 	if err != nil {
-
+		errMsg := fmt.Sprintf("Parse Request Data Error : %s", err.Error())
+		logrus.Error(errMsg)
+		resp := ginmodel.JsonResp{
+			Code:    -1,
+			Message: errMsg,
+		}
+		ctx.JSON(http.StatusBadRequest, resp)
+		return
 	}
 }
 
@@ -185,6 +194,16 @@ func StartNsHandler(ctx *gin.Context) {
 		ctx.JSON(http.StatusBadRequest, resp)
 		return
 	}
+	if ns.Running {
+		errMsg := fmt.Sprintf("Namespace %s is Running", name)
+		resp := ginmodel.JsonResp{
+			Code:    -1,
+			Message: errMsg,
+		}
+		ctx.JSON(http.StatusBadRequest, resp)
+		return
+	}
+	logrus.Infof("Get Config of Namespace %s Success", name)
 	targets, err := arranger.ArrangeInstance(ns)
 	if err != nil {
 		errMsg := fmt.Sprintf("Alloc Instance of namespace %s to nodes error: %s", ns.Name, err.Error())
@@ -196,14 +215,14 @@ func StartNsHandler(ctx *gin.Context) {
 		ctx.JSON(http.StatusInternalServerError, resp)
 		return
 	}
-
+	logrus.Infof("Arrange Nodes for namespace %s Success.", name)
 	for index, instanceInfos := range targets {
 		var list []string
 		etcdResp, err := utils.EtcdClient.Get(
 			context.Background(),
 			fmt.Sprintf(key.NodeInstanceListKeyTemplate, index),
 		)
-
+		logrus.Infof("Get Instance List of node %d Success.", index)
 		if err != nil {
 			errMsg := fmt.Sprintf("Get Instance List of node %d error: %s", index, err.Error())
 			logrus.Error(errMsg)
@@ -229,6 +248,7 @@ func StartNsHandler(ctx *gin.Context) {
 		}
 
 		for _, config := range instanceInfos {
+			logrus.Infof("Set Instance %s to node %d Success.", config.InstanceID, index)
 			list = append(list, config.InstanceID)
 			info := model.Instance{
 				Config:    config,
@@ -292,12 +312,52 @@ func StartNsHandler(ctx *gin.Context) {
 			return
 		}
 	}
+
+	for k, array := range targets {
+		idArray := make([]string, len(array))
+		for index, item := range array {
+			idArray[index] = item.InstanceID
+		}
+		ns.InstanceAllocInfo[k] = idArray
+	}
+
+	ns.Running = true
+	nsBytes, err := json.Marshal(ns)
+
+	if err != nil {
+		errMsg := fmt.Sprintf("Serialize Namespace %s Infomation Error: %s", ns.Name, err.Error())
+		logrus.Error(errMsg)
+		resp := ginmodel.JsonResp{
+			Code:    -1,
+			Message: errMsg,
+		}
+		ctx.JSON(http.StatusInternalServerError, resp)
+		return
+	}
+
+	hsetResp := utils.RedisClient.HSet(
+		context.Background(),
+		key.NamespacesKey,
+		ns.Name,
+		string(nsBytes),
+	)
+
+	if hsetResp.Err() != nil {
+		errMsg := fmt.Sprintf("Update Namespace %s Infomation Error: %s", ns.Name, hsetResp.Err().Error())
+		logrus.Error(errMsg)
+		resp := ginmodel.JsonResp{
+			Code:    -1,
+			Message: errMsg,
+		}
+		ctx.JSON(http.StatusInternalServerError, resp)
+		return
+	}
+
 	resp := ginmodel.JsonResp{
 		Code:    0,
 		Message: "Success",
 	}
 	ctx.JSON(http.StatusOK, resp)
-	return
 }
 
 func stopInstances(name string) error {
@@ -326,14 +386,18 @@ func stopInstances(name string) error {
 		listKey := fmt.Sprintf(key.NodeInstanceListKeyTemplate, k)
 		getResp, err := utils.EtcdClient.Get(context.Background(), listKey)
 		if err != nil {
-
+			logrus.Errorf("Get Etcd Instance List Value of Node %d Error: %s", k, err.Error())
+			return err
 		}
 		if len(getResp.Kvs) <= 0 {
-
+			errMsg := fmt.Sprintf("etcd instance list %s not found", listKey)
+			logrus.Errorf("Get Etcd Instance List Value of Node %d Error: %s", k, errMsg)
+			return errors.New(errMsg)
 		}
 		err = json.Unmarshal(getResp.Kvs[0].Value, &oldList)
 		if err != nil {
-
+			logrus.Errorf("Parse Instance List of Node %d Error: %s", k, err.Error())
+			return err
 		}
 
 		for _, item := range oldList {
@@ -344,15 +408,17 @@ func stopInstances(name string) error {
 		newListBytes, err := json.Marshal(newList)
 
 		if err != nil {
-
+			logrus.Errorf("Serialize Instance List of Node %d Error: %s", k, err.Error())
+			return err
 		}
 		_, err = utils.EtcdClient.Put(context.Background(), listKey, string(newListBytes))
 
 		if err != nil {
-
+			logrus.Errorf("Update Etcd Instance List of Node %d Error: %s", k, err.Error())
+			return err
 		}
-
 	}
+	info.InstanceAllocInfo = map[int][]string{}
 	return nil
 }
 
@@ -374,6 +440,15 @@ func StopNsHandler(ctx *gin.Context) {
 			Message: errMsg,
 		}
 		ctx.JSON(http.StatusNotFound, resp)
+	}
+	if !info.Running {
+		errMsg := fmt.Sprintf("Namespace %s is not Running", name)
+		resp := ginmodel.JsonResp{
+			Code:    -1,
+			Message: errMsg,
+		}
+		ctx.JSON(http.StatusBadRequest, resp)
+		return
 	}
 	err := stopInstances(name)
 
@@ -424,6 +499,43 @@ func StopNsHandler(ctx *gin.Context) {
 		}
 	}
 
+	info.Running = false
+	nsBytes, err := json.Marshal(info)
+
+	if err != nil {
+		errMsg := fmt.Sprintf("Serialize Namespace %s Infomation Error: %s", info.Name, err.Error())
+		logrus.Error(errMsg)
+		resp := ginmodel.JsonResp{
+			Code:    -1,
+			Message: errMsg,
+		}
+		ctx.JSON(http.StatusInternalServerError, resp)
+		return
+	}
+
+	hsetResp := utils.RedisClient.HSet(
+		context.Background(),
+		key.NamespacesKey,
+		info.Name,
+		string(nsBytes),
+	)
+
+	if hsetResp.Err() != nil {
+		errMsg := fmt.Sprintf("Update Namespace %s Infomation Error: %s", info.Name, hsetResp.Err().Error())
+		logrus.Error(errMsg)
+		resp := ginmodel.JsonResp{
+			Code:    -1,
+			Message: errMsg,
+		}
+		ctx.JSON(http.StatusInternalServerError, resp)
+		return
+	}
+
+	resp := ginmodel.JsonResp{
+		Code:    0,
+		Message: "Success",
+	}
+	ctx.JSON(http.StatusOK, resp)
 }
 
 func DeleteNsHandler(ctx *gin.Context) {

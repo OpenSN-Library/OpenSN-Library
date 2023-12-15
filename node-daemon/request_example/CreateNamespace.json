@@ -1,0 +1,69 @@
+{
+    "name": "ns1",
+    "ns_config": {
+        "image_map": {},
+        "container_envs": []
+    },
+    "inst_config": [
+        {
+            "type": "Satellite",
+            "position_changeable": false,
+            "extra": null
+        },
+        {
+            "type": "Satellite",
+            "position_changeable": false,
+            "extra": null
+        },
+        {
+            "type": "Satellite",
+            "position_changeable": false,
+            "extra": null
+        },
+        {
+            "type": "Satellite",
+            "position_changeable": false,
+            "extra": null
+        },
+        {
+            "type": "Satellite",
+            "position_changeable": false,
+            "extra": null
+        },
+        {
+            "type": "Satellite",
+            "position_changeable": false,
+            "extra": null
+        },
+        {
+            "type": "Satellite",
+            "position_changeable": false,
+            "extra": null
+        },
+        {
+            "type": "Satellite",
+            "position_changeable": false,
+            "extra": null
+        },
+        {
+            "type": "Satellite",
+            "position_changeable": false,
+            "extra": null
+        },
+        {
+            "type": "Satellite",
+            "position_changeable": false,
+            "extra": null
+        },
+        {
+            "type": "Satellite",
+            "position_changeable": false,
+            "extra": null
+        }
+    ],
+    "link_config": [
+        {
+            
+        }
+    ]
+}

@@ -114,6 +114,7 @@ func watchNodeChange(sigChan chan int, errChan chan error) {
 
 		time.Sleep(500 * time.Millisecond)
 	}
+
 	for {
 		watchChann := utils.EtcdClient.Watch(
 			context.Background(),

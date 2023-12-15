@@ -1,7 +1,7 @@
 package utils
 
 import (
-	"NodeDaemon/config"
+	"fmt"
 
 	dockerClient "github.com/docker/docker/client"
 	"github.com/sirupsen/logrus"
@@ -9,13 +9,14 @@ import (
 
 var DockerClient *dockerClient.Client
 
-func init() {
-
-	cli, err := dockerClient.NewClientWithOpts(dockerClient.WithHost(config.DockerHost))
+func InitDockerClient(sockPath string) error{
+	url := fmt.Sprintf("unix://%s",sockPath)
+	cli, err := dockerClient.NewClientWithOpts(dockerClient.WithHost(url))
 	
 	if err != nil {
 		logrus.Error("Init Docker Client Error:", err.Error())
-		panic(err)
+		return err
 	}
 	DockerClient = cli
+	return nil
 }

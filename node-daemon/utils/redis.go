@@ -1,7 +1,6 @@
 package utils
 
 import (
-	"NodeDaemon/config"
 	"context"
 	"fmt"
 	"time"
@@ -14,11 +13,11 @@ var RedisClient *redis.Client
 const DefaultLockTime = 2 * time.Second
 const DefaultLockGap = 500 * time.Millisecond
 
-func InitRedisClient() {
+func InitRedisClient(addr,password string,port,index int) {
 	rdb := redis.NewClient(&redis.Options{
-		Addr:     fmt.Sprintf("%s:%d", config.RedisAddr, config.RedisPort),
-		Password: config.RedisPassword, // no password set
-		DB:       config.RedisDBIndex,  // use default DB
+		Addr:     fmt.Sprintf("%s:%d", addr, port),
+		Password: password, // no password set
+		DB:       index,  // use default DB
 	})
 	RedisClient = rdb
 }
@@ -28,10 +27,7 @@ func CheckRedisServe() bool {
 		return false
 	}
 	resp := RedisClient.ClientList(context.Background())
-	if resp.Err() != nil {
-		return false
-	}
-	return true
+	return resp.Err() == nil 
 }
 
 func LockKeyWithTimeout(key string, timeout time.Duration) bool {

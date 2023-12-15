@@ -1,14 +1,16 @@
 package module
 
 import (
+	"NodeDaemon/config"
 	"NodeDaemon/pkg/handler"
 	"NodeDaemon/share/signal"
 	"errors"
+	"net/http"
+	"sync"
+
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
-	"net/http"
-	"sync"
 )
 
 const MasterNodeContainerName = "master_node"
@@ -35,6 +37,9 @@ func RegisterHandlers(r *gin.Engine) {
 
 func masterDaemonFunc(sigChann chan int, errChann chan error) {
 	r := gin.Default()
+	if !config.GlobalConfig.App.Debug {
+		gin.SetMode(gin.ReleaseMode)
+	}
 	r.Use(cors.Default())
 	RegisterHandlers(r)
 	srv := &http.Server{

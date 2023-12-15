@@ -3,6 +3,7 @@ package initializer
 import (
 	"NodeDaemon/config"
 	"NodeDaemon/model"
+	"NodeDaemon/share/data"
 	"NodeDaemon/share/key"
 	"NodeDaemon/utils"
 	"context"
@@ -132,16 +133,31 @@ func getInterfaceInfo(ifName string, target *model.Node) error {
 }
 
 func NodeInit() error {
-	utils.InitEtcdClient()
-	utils.InitRedisClient()
-	if config.StartMode == config.MasterNode {
+	err := utils.InitEtcdClient(
+		config.GlobalConfig.Dependency.EtcdAddr,
+		config.GlobalConfig.Dependency.EtcdPort,
+	)
+	if err != nil {
+		return err
+	}
+	utils.InitRedisClient(
+		config.GlobalConfig.Dependency.RedisAddr,
+		config.GlobalConfig.Dependency.RedisPassword,
+		config.GlobalConfig.Dependency.RedisPort,
+		config.GlobalConfig.Dependency.RedisDBIndex,
+	)
+	err = utils.InitDockerClient(config.GlobalConfig.Dependency.DockerHostPath)
+	if err != nil {
+		return err
+	}
+	if !config.GlobalConfig.App.IsServant {
 		key.NodeIndex = 0
 		err := config.InitConfigMasterMode()
 		if err != nil {
 			return err
 		}
 	} else {
-		err := config.InitConfigServantMode(config.MasterAddress)
+		err := config.InitConfigServantMode(config.GlobalConfig.App.MasterAddress)
 		if err != nil {
 			return err
 		}
@@ -150,7 +166,7 @@ func NodeInit() error {
 			return fmt.Errorf("alloc node index error: %s", err.Error())
 		}
 	}
-
+	key.InitKeys()
 	selfInfo := &model.Node{
 		NodeID:        uint32(key.NodeIndex),
 		FreeInstance:  model.MAX_INSTANCE_NODE,
@@ -163,7 +179,7 @@ func NodeInit() error {
 		selfInfo.FreeInstance -= model.MASTER_NODE_MAKEUP
 	}
 
-	err := getInterfaceInfo(config.InterfaceName, selfInfo)
+	err = getInterfaceInfo(config.GlobalConfig.App.InterfaceName, selfInfo)
 
 	if err != nil {
 		return fmt.Errorf("get interface info error: %s", err.Error())
@@ -190,6 +206,5 @@ func NodeInit() error {
 	if err != nil {
 		return fmt.Errorf("update node list error: %s", err.Error())
 	}
-
-	return nil
+	return data.InitData()
 }

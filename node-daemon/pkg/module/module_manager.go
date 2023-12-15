@@ -33,6 +33,7 @@ func (m *Base) Run() {
 	go func() {
 		m.daemonFunc(m.sigChan, m.errChan)
 		m.running = false
+		logrus.Infof("%s Module Stop.", m.ModuleName)
 		m.wg.Done()
 	}()
 }

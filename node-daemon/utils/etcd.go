@@ -1,7 +1,6 @@
 package utils
 
 import (
-	"NodeDaemon/config"
 	"context"
 	"fmt"
 	"time"
@@ -12,20 +11,21 @@ import (
 
 var EtcdClient *clientv3.Client
 
-func InitEtcdClient() {
+func InitEtcdClient(addr string,port int) error {
 	cliConfig := clientv3.Config{
 		Endpoints: []string{
-			fmt.Sprintf("%s:%d", config.EtcdAddr, config.EtcdPort),
+			fmt.Sprintf("%s:%d", addr, port),
 		},
 		DialTimeout: time.Second,
 	}
 	cli, err := clientv3.New(cliConfig)
 	if err != nil {
 		logrus.Error("Init Etcd Client Err: ", err.Error())
-		panic(err)
+		return err
 	}
 
 	EtcdClient = cli
+	return nil
 }
 
 func CheckEtcdServe() bool {
