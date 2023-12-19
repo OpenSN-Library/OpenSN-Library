@@ -30,6 +30,15 @@ type UpdateNamespaceReq struct {
 	LinkConfigs []LinkReqConfig     `json:"link_config"`
 }
 
+type NsInstanceData struct {
+
+}
+
+type NsLinkData struct {
+	
+}
+
 type NamespaceInfoData struct {
 	Name string `json:"name"`
+	Running bool `json:"running"`
 }
