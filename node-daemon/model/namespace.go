@@ -10,6 +10,7 @@ type InstanceConfig struct {
 	InstanceID         string            `json:"instance_id"`
 	Name               string            `json:"name"`
 	Type               string            `json:"type"`
+	Image              string            `json:"image"`
 	PositionChangeable bool              `json:"position_changeable"`
 	Extra              map[string]string `json:"extra"`
 	LinkIDs            []string          `json:"link_ids"`
