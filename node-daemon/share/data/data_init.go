@@ -35,7 +35,23 @@ func initNamespaceMap() error {
 }
 
 func initInstanceMap() error {
+	getResp := utils.RedisClient.HGetAll(context.Background(), key.NodeInstancesKeySelf)
+	if getResp.Err() != nil {
+		logrus.Errorf("Init Instance Map Error: %s", getResp.Err().Error())
+		return getResp.Err()
+	}
+	for indexStr, nodeInfo := range getResp.Val() {
+		var nodeObj = new(model.Instance)
+		err := json.Unmarshal([]byte(nodeInfo), nodeObj)
 
+		if err != nil {
+			logrus.Errorf("Parse Init Instance %s Info Error: %s",indexStr, err.Error())
+			continue
+		}
+
+		InstanceMap[indexStr] = nodeObj
+
+	}
 	return nil
 }
 

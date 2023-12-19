@@ -53,8 +53,8 @@ func masterDaemonFunc(sigChann chan int, errChann chan error) {
 		}
 	}()
 
-	select {
-	case sig := <-sigChann:
+	for {
+		sig := <-sigChann
 		if sig == signal.STOP_SIGNAL {
 			return
 		}
