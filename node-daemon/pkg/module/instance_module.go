@@ -4,6 +4,7 @@ import (
 	"NodeDaemon/model"
 	"NodeDaemon/share/data"
 	"NodeDaemon/share/key"
+	"NodeDaemon/share/signal"
 	"NodeDaemon/utils"
 	"context"
 	"encoding/json"
@@ -49,13 +50,13 @@ func AddContainers(addList []string) error {
 			err := utils.DoWithRetry(func() error {
 				containerConfig := &container.Config{
 					Hostname:    instance.Config.Name,
-					Image:       "ubuntu:22.04",
+					Image:       instance.Config.Image,
 					Env:         []string{},
 					StopTimeout: &StopTimeoutSecond,
-					Cmd:         []string{"tail", "-f", "/dev/null"},
 				}
 				hostConfig := &container.HostConfig{
-					Privileged: true,
+					Privileged:  true,
+					NetworkMode: "none",
 				}
 
 				createResp, err := utils.DockerClient.ContainerCreate(
@@ -86,8 +87,15 @@ func AddContainers(addList []string) error {
 					data.InstanceMap[v].ContainerID,
 					types.ContainerStartOptions{},
 				)
-
-				return err
+				if err != nil {
+					return err
+				}
+				inspect, err := utils.DockerClient.ContainerInspect(context.Background(), data.InstanceMap[v].ContainerID)
+				if err != nil {
+					return err
+				}
+				data.InstanceMap[v].Pid = inspect.State.Pid
+				return nil
 			}, 2)
 			if err != nil {
 				logrus.Errorf("Start Container %s Error: %s", v, err.Error())
@@ -205,7 +213,6 @@ func parseResult(updateIdList []string) (addList []string, delList []*model.Inst
 
 func watchInstanceDaemon(sigChan chan int, errChan chan error) {
 	InitKey()
-watchLoop:
 	for {
 		watchChan := make(chan clientv3.WatchResponse)
 		go func() {
@@ -248,8 +255,10 @@ watchLoop:
 				logrus.Error(errMsg)
 				errChan <- err
 			}
-		case <-sigChan:
-			break watchLoop
+		case sig := <-sigChan:
+			if sig == signal.STOP_SIGNAL {
+				return
+			}
 		}
 	}
 }

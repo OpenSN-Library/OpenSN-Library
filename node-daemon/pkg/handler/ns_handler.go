@@ -78,13 +78,27 @@ func CreateNsHandler(ctx *gin.Context) {
 	var instanceArray []model.InstanceConfig
 	var linkArray []model.LinkConfig
 	for i, v := range reqObj.InstConfigs {
-		instanceArray = append(instanceArray, model.InstanceConfig{
+		newInstance := model.InstanceConfig{
 			InstanceID:         fmt.Sprintf("%s_%s_%d", namespace.Name, v.Type, i),
 			Name:               fmt.Sprintf("%s_%d", v.Type, i),
 			Type:               v.Type,
 			PositionChangeable: v.PositionChangeable,
 			Extra:              v.Extra,
-		})
+		}
+		
+		if imageName,ok := namespace.NsConfig.ImageMap[v.Type]; ok {
+			newInstance.Image = imageName
+		} else {
+			errMsg := fmt.Sprintf("Type %s of namespace %s has no image to assign",newInstance.Type,namespace.Name)
+			logrus.Error(errMsg)
+			ctx.JSON(http.StatusBadRequest, ginmodel.JsonResp{
+				Code:    -1,
+				Message: errMsg,
+				Data:    nil,
+			})
+			return
+		}
+		instanceArray = append(instanceArray, newInstance)
 	}
 	for i, v := range reqObj.LinkConfigs {
 		newLink := model.LinkConfig{
@@ -178,6 +192,12 @@ func UpdateNsHandler(ctx *gin.Context) {
 		ctx.JSON(http.StatusBadRequest, resp)
 		return
 	}
+	info.NsConfig.ImageMap = req.NsConfig.ImageMap
+	info.NsConfig.ContainerEnvs = req.NsConfig.ContainerEnvs
+	info.InstanceConfig = make([]model.InstanceConfig, len(req.InstConfigs))
+	info.LinkConfig = make([]model.LinkConfig, len(req.LinkConfigs))
+	info.AllocatedInstances = len(req.InstConfigs)
+	
 }
 
 func StartNsHandler(ctx *gin.Context) {
