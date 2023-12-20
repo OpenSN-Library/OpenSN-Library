@@ -9,8 +9,6 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/go-ini/ini"
-
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 )
@@ -21,25 +19,26 @@ const (
 )
 
 type AppConfigType struct {
-	IsServant     bool   `ini:"IsServant"`
-	MasterAddress string `ini:"MasterAddress"`
-	InterfaceName string `ini:"InterfaceName"`
-	Debug         bool   `ini:"Debug"`
+	IsServant     bool   `json:"is_servant"`
+	MasterAddress string `json:"master_address"`
+	InterfaceName string `json:"interface_name"`
+	Debug         bool   `json:"debug"`
 }
 
 type DependencyConfigType struct {
-	EtcdAddr       string `ini:"EtcdAddr"`
-	EtcdPort       int    `ini:"EtcdPort"`
-	RedisAddr      string `ini:"RedisAddr"`
-	RedisPort      int    `ini:"RedisPort"`
-	RedisDBIndex   int    `ini:"RedisDBIndex"`
-	RedisPassword  string `ini:"RedisPassword"`
-	DockerHostPath string `ini:"DockerHostPath"`
+	EtcdAddr       string `json:"etcd_addr"`
+	EtcdPort       int    `json:"etcd_port"`
+	RedisAddr      string `json:"redis_addr"`
+	RedisPort      int    `json:"redis_port"`
+	RedisDBIndex   int    `json:"redis_db_index"`
+	RedisPassword  string `json:"redis_password"`
+	DockerHostPath string `json:"docker_host_path"`
 }
 
 type GlobalConfigType struct {
-	App        AppConfigType        `ini:"App"`
-	Dependency DependencyConfigType `ini:"Dependency"`
+	App        AppConfigType        `json:"app"`
+	Dependency DependencyConfigType `json:"dependency"`
+	Device     map[string][]string  `json:"device"`
 }
 
 var GlobalConfig GlobalConfigType
@@ -69,14 +68,16 @@ func GetConfigEnvBool(name string, defaultVal bool) bool {
 	return env
 }
 
-func InitConfig(iniPath string) {
-	cfg, err := ini.Load(iniPath)
+func InitConfig(jsonPath string) {
+	cfg, err := os.Open(jsonPath)
+	defer cfg.Close()
 	if err != nil {
-		errMsg := fmt.Sprintf("Load INI Config File in %s Error %s", iniPath, err.Error())
+		errMsg := fmt.Sprintf("Load Json Config File in %s Error %s", jsonPath, err.Error())
 		logrus.Error(errMsg)
 		panic(errMsg)
 	}
-	err = cfg.MapTo(&GlobalConfig)
+	decoder := json.NewDecoder(cfg)
+	err = decoder.Decode(&GlobalConfig)
 	if err != nil {
 		errMsg := fmt.Sprintf("Map INI Config File to Struct Error %s", err.Error())
 		logrus.Error(errMsg)
