@@ -6,10 +6,10 @@ type SetV6AddrReq struct {
 	PrefixLen int
 }
 
-func CreateSetV6AddrReq(linkIndex, linkNamespaceFd int, v6Addr uint64, prefixLen int) SetV6AddrReq {
+func CreateSetV6AddrReq(linkIndex, linkNamespacePid int, v6Addr uint64, prefixLen int) SetV6AddrReq {
 	return SetV6AddrReq{
 		NetLinkRequestBase: NetLinkRequestBase{
-			NamespaceFd: linkNamespaceFd,
+			NamespacePid: linkNamespacePid,
 			LinkIndex: linkIndex,
 			RequestType: SetLinkState,
 		},

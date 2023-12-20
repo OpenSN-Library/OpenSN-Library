@@ -104,12 +104,12 @@ func CreateNsHandler(ctx *gin.Context) {
 		newLink := model.LinkConfig{
 			LinkID:    fmt.Sprintf("%s_%s_%d", namespace.Name, v.Type, i),
 			Type:      v.Type,
-			Parameter: v.Parameter,
+			InitParameter: v.Parameter,
 		}
-		newLink.InstanceID[0] = instanceArray[v.InstanceIndex[0]].InstanceID
+		newLink.InitInstanceID[0] = instanceArray[v.InstanceIndex[0]].InstanceID
 		instanceArray[v.InstanceIndex[0]].LinkIDs = append(instanceArray[v.InstanceIndex[0]].LinkIDs, newLink.LinkID)
 		if v.InstanceIndex[1] != -1 {
-			newLink.InstanceID[1] = instanceArray[v.InstanceIndex[1]].InstanceID
+			newLink.InitInstanceID[1] = instanceArray[v.InstanceIndex[1]].InstanceID
 			instanceArray[v.InstanceIndex[1]].LinkIDs = append(instanceArray[v.InstanceIndex[1]].LinkIDs, newLink.LinkID)
 		}
 		linkArray = append(linkArray, newLink)

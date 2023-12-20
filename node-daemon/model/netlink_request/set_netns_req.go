@@ -2,16 +2,16 @@ package netreq
 
 type SetNetNsReq struct {
 	NetLinkRequestBase
-	NamespacePid int
+	TargetNamespacePid int
 }
 
-func CreateSetNetNsReq(linkIndex, linkNamespaceFd, namespacePid int) SetNetNsReq {
+func CreateSetNetNsReq(linkIndex, linkNamespacePid, namespacePid int) SetNetNsReq {
 	return SetNetNsReq{
 		NetLinkRequestBase: NetLinkRequestBase{
-			NamespaceFd: linkNamespaceFd,
+			NamespacePid: linkNamespacePid,
 			LinkIndex:   linkIndex,
 			RequestType: SetLinkState,
 		},
-		NamespacePid: namespacePid,
+		TargetNamespacePid: namespacePid,
 	}
 }

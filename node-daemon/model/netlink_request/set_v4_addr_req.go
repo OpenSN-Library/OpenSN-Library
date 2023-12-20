@@ -7,10 +7,10 @@ type SetV4AddrReq struct {
 }
 
 
-func CreateSetV4AddrReq(linkIndex, linkNamespaceFd int, v4Addr uint32, prefixLen int) SetV4AddrReq {
+func CreateSetV4AddrReq(linkIndex, linkNamespacePid int, v4Addr uint32, prefixLen int) SetV4AddrReq {
 	return SetV4AddrReq{
 		NetLinkRequestBase: NetLinkRequestBase{
-			NamespaceFd: linkNamespaceFd,
+			NamespacePid: linkNamespacePid,
 			LinkIndex: linkIndex,
 			RequestType: SetLinkState,
 		},

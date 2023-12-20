@@ -12,6 +12,7 @@ import (
 	"sync"
 
 	"github.com/sirupsen/logrus"
+	"github.com/vishvananda/netlink"
 	"github.com/vishvananda/netns"
 	clientv3 "go.etcd.io/etcd/client/v3"
 )
@@ -28,16 +29,62 @@ func netLinkDaemon(requestChann chan netreq.NetLinkRequest, sigChan chan int, er
 	for {
 		select {
 		case req := <-requestChann:
-			fmt.Println(req)
-			netns.Set(netns.NsHandle(req.GetLinkNamespaceFd()))
-			defer netns.Set(originNs)
+			var opErr error
+			linkNsFd, err := netns.GetFromPid(req.GetLinkNamespacePid())
+			if err != nil {
+				errChan <- err
+				continue
+			}
+			err = netns.Set(linkNsFd)
+			if err != nil {
+				errChan <- err
+				continue
+			}
+			link, err := netlink.LinkByIndex(req.GetLinkIndex())
+			if err != nil {
+				errChan <- err
+				continue
+			}
 			switch req.GetRequestType() {
 			case netreq.SetLinkState:
 				realReq := req.(*netreq.SetStateReq)
-				fmt.Println(realReq)
+				if realReq.Enable {
+					opErr = netlink.LinkSetUp(link)
+				} else {
+					opErr = netlink.LinkSetDown(link)
+				}
+			case netreq.SetV4Addr:
+				realReq := req.(*netreq.SetV4AddrReq)
+				addr := netlink.Addr{
+					IPNet: utils.CreateV4Inet(realReq.V4Addr, realReq.PrefixLen),
+				}
+				opErr = netlink.AddrAdd(link, &addr)
+			case netreq.SetV6Addr:
+				realReq := req.(*netreq.SetV6AddrReq)
+				addr := netlink.Addr{
+					IPNet: utils.CreateV6Inet(realReq.V6Addr, realReq.PrefixLen),
+				}
+				opErr = netlink.AddrAdd(link, &addr)
+			case netreq.SetNetNs:
+				realReq := req.(*netreq.SetNetNsReq)
+				opErr = netlink.LinkSetNsPid(link, realReq.TargetNamespacePid)
+			case netreq.SetQdisc:
+				realReq := req.(*netreq.SetQdiscReq)
+				opErr = netlink.QdiscReplace(realReq.QdiscInfo)
+			default:
+				logrus.Errorf("Unsupport Request Type: %d", req.GetRequestType())
 			}
-			err := req.ReleseFd()
-			errChan <- err
+			err = netns.Set(originNs)
+			if err != nil {
+				errChan <- err
+				continue
+			}
+			err = linkNsFd.Close()
+			if err != nil {
+				errChan <- err
+				continue
+			}
+			errChan <- opErr
 		case sig := <-sigChan:
 			if sig == signal.STOP_SIGNAL {
 				logrus.Info("NetLink Daemon Routine Exit...")
