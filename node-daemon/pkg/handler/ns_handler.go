@@ -3,6 +3,7 @@ package handler
 import (
 	"NodeDaemon/model"
 	"NodeDaemon/model/ginmodel"
+	"NodeDaemon/model/link"
 	"NodeDaemon/pkg/arranger"
 	"NodeDaemon/share/data"
 	"NodeDaemon/share/key"
@@ -85,11 +86,11 @@ func CreateNsHandler(ctx *gin.Context) {
 			PositionChangeable: v.PositionChangeable,
 			Extra:              v.Extra,
 		}
-		
-		if imageName,ok := namespace.NsConfig.ImageMap[v.Type]; ok {
+
+		if imageName, ok := namespace.NsConfig.ImageMap[v.Type]; ok {
 			newInstance.Image = imageName
 		} else {
-			errMsg := fmt.Sprintf("Type %s of namespace %s has no image to assign",newInstance.Type,namespace.Name)
+			errMsg := fmt.Sprintf("Type %s of namespace %s has no image to assign", newInstance.Type, namespace.Name)
 			logrus.Error(errMsg)
 			ctx.JSON(http.StatusBadRequest, ginmodel.JsonResp{
 				Code:    -1,
@@ -102,8 +103,8 @@ func CreateNsHandler(ctx *gin.Context) {
 	}
 	for i, v := range reqObj.LinkConfigs {
 		newLink := model.LinkConfig{
-			LinkID:    fmt.Sprintf("%s_%s_%d", namespace.Name, v.Type, i),
-			Type:      v.Type,
+			LinkID:        fmt.Sprintf("%s_%s_%d", namespace.Name, v.Type, i),
+			Type:          v.Type,
 			InitParameter: v.Parameter,
 		}
 		newLink.InitInstanceID[0] = instanceArray[v.InstanceIndex[0]].InstanceID
@@ -111,6 +112,9 @@ func CreateNsHandler(ctx *gin.Context) {
 		if v.InstanceIndex[1] != -1 {
 			newLink.InitInstanceID[1] = instanceArray[v.InstanceIndex[1]].InstanceID
 			instanceArray[v.InstanceIndex[1]].LinkIDs = append(instanceArray[v.InstanceIndex[1]].LinkIDs, newLink.LinkID)
+		}
+		if newLink.Type != link.VirtualLinkType {
+			instanceArray[0].DeviceNeedList = append(instanceArray[0].DeviceNeedList, newLink.Type)
 		}
 		linkArray = append(linkArray, newLink)
 	}
@@ -197,7 +201,7 @@ func UpdateNsHandler(ctx *gin.Context) {
 	info.InstanceConfig = make([]model.InstanceConfig, len(req.InstConfigs))
 	info.LinkConfig = make([]model.LinkConfig, len(req.LinkConfigs))
 	info.AllocatedInstances = len(req.InstConfigs)
-	
+
 }
 
 func StartNsHandler(ctx *gin.Context) {

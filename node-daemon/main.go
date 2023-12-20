@@ -14,7 +14,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-const DefaultConfigPath = "config/config.ini"
+const DefaultConfigPath = "config/config.json"
 
 func signalHandler(sigChan chan os.Signal, modules []module.Module) {
 	sig := <-sigChan

@@ -17,7 +17,7 @@ import (
 	clientv3 "go.etcd.io/etcd/client/v3"
 )
 
-func InitKey() {
+func InitInstanceData() {
 	getResp, err := utils.EtcdClient.Get(
 		context.Background(),
 		key.NodeInstanceListKeySelf,
@@ -160,7 +160,7 @@ type InstanceModule struct {
 	Base
 }
 
-func parseResult(updateIdList []string) (addList []string, delList []*model.Instance, err error) {
+func parseInstanceChange(updateIdList []string) (addList []string, delList []*model.Instance, err error) {
 	var delIDList []string
 	updateIDMap := make(map[string]bool)
 	for _, v := range updateIdList {
@@ -212,7 +212,7 @@ func parseResult(updateIdList []string) (addList []string, delList []*model.Inst
 }
 
 func watchInstanceDaemon(sigChan chan int, errChan chan error) {
-	InitKey()
+	InitInstanceData()
 	for {
 		watchChan := make(chan clientv3.WatchResponse)
 		go func() {
@@ -236,7 +236,7 @@ func watchInstanceDaemon(sigChan chan int, errChan chan error) {
 			if err != nil {
 				logrus.Error("Parse Update Instance  String Info Error: ", err.Error())
 			}
-			addList, delList, err := parseResult(updateIDList)
+			addList, delList, err := parseInstanceChange(updateIDList)
 			if err != nil {
 				logrus.Error("Parse Update Instance Info Error: ", err.Error())
 			} else {
