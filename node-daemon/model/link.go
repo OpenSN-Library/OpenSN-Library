@@ -5,10 +5,10 @@ import netreq "NodeDaemon/model/netlink_request"
 const ConnectParameter = "connect"
 
 type ParameterInfo struct {
-	Name           string
-	MinVal         int64
-	MaxVal         int64
-	DefinitionFrac int64
+	Name           string `json:"name"`
+	MinVal         int64  `json:"min_val"`
+	MaxVal         int64  `json:"max_val"`
+	DefinitionFrac int64  `json:"definition_frac"`
 }
 
 var ConnectParameterInfo = ParameterInfo{
@@ -40,11 +40,11 @@ type Link interface {
 }
 
 type LinkBase struct {
-	Enabled           bool
-	CrossMachine      bool
-	SupportParameters map[string]ParameterInfo
-	Parameter         map[string]int64
-	Config            LinkConfig
+	Enabled           bool                     `json:"enabled"`
+	CrossMachine      bool                     `json:"cross_machine"`
+	SupportParameters map[string]ParameterInfo `json:"support_parameters"`
+	Parameter         map[string]int64         `json:"parameter"`
+	Config            LinkConfig               `json:"config"`
 }
 
 func (l *LinkBase) GetLinkConfig() LinkConfig {

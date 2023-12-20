@@ -6,13 +6,13 @@ const (
 )
 
 type Node struct {
-	NodeID             uint32
-	FreeInstance       int
-	IsMasterNode       bool
-	L3AddrV4           uint32
-	L3AddrV6           uint64
-	L2Addr             uint64 // 低六字节储存MAC地址
-	NsInstanceMap      map[string]string
-	NsLinkMap          map[string]string
-	NodeLinkDeviceInfo map[string][]string
+	NodeID             uint32            `json:"node_id"`
+	FreeInstance       int               `json:"free_instance"`
+	IsMasterNode       bool              `json:"is_master_node"`
+	L3AddrV4           uint32            `json:"l_3_addr_v_4"`
+	L3AddrV6           uint64            `json:"l_3_addr_v_6"`
+	L2Addr             uint64            `json:"l_2_addr"` // 低六字节储存MAC地址
+	NsInstanceMap      map[string]string `json:"ns_instance_map"`
+	NsLinkMap          map[string]string `json:"ns_link_map"`
+	NodeLinkDeviceInfo map[string]int    `json:"node_link_device_info"`
 }

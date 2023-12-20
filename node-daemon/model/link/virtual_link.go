@@ -44,21 +44,20 @@ var VethParameterMap = map[string]model.ParameterInfo{
 }
 
 type DevInfoType struct {
-	IfIndex int
-	Name    string
+	IfIndex int    `json:"if_index"`
+	Name    string `json:"name"`
 }
 
 type EndInfoType struct {
-	DevInfo    DevInfoType
-	InstanceID string
+	DevInfo    DevInfoType `json:"dev_info"`
+	InstanceID string      `json:"instance_id"`
 }
 
 type IPInfoType struct {
-	V4Addr          uint32
-	V6Addr          uint64
-	V4PrefixLen         int
-	V6PrefixLen          int
-	SetDefaultRoute bool
+	V4Addr      uint32 `json:"v_4_addr"`
+	V6Addr      uint64 `json:"v_6_addr"`
+	V4PrefixLen int    `json:"v_4_prefix_len"`
+	V6PrefixLen int    `json:"v_6_prefix_len"`
 }
 
 type VethLink struct {
