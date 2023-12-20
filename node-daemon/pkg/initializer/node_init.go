@@ -114,7 +114,7 @@ func getInterfaceInfo(ifName string, target *model.Node) error {
 		}
 	}
 	target.L2Addr = byteSeqEncode(link.Attrs().HardwareAddr)
-	linkV4Addrs, err := netlink.AddrList(link, 4)
+	linkV4Addrs, err := netlink.AddrList(link, netlink.V4_FAMILY)
 	if err != nil {
 		return err
 	}
@@ -122,7 +122,7 @@ func getInterfaceInfo(ifName string, target *model.Node) error {
 		target.L3AddrV4 = uint32(byteSeqEncode(linkV4Addrs[0].IP))
 	}
 
-	linkV6Addrs, err := netlink.AddrList(link, 6)
+	linkV6Addrs, err := netlink.AddrList(link, V6_FAMILY)
 	if err != nil {
 		return err
 	}
@@ -173,6 +173,10 @@ func NodeInit() error {
 		IsMasterNode:  key.NodeIndex == 0,
 		NsInstanceMap: map[string]string{},
 		NsLinkMap:     map[string]string{},
+	}
+
+	for k, v := range config.GlobalConfig.Device {
+		selfInfo.NodeLinkDeviceInfo[k] = len(v)
 	}
 
 	if key.NodeIndex == 0 {
