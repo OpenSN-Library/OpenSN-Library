@@ -2,6 +2,7 @@ package model
 
 import netreq "NodeDaemon/model/netlink_request"
 
+const ConnectParameter = "connect"
 
 type ParameterInfo struct {
 	Name           string
@@ -10,9 +11,16 @@ type ParameterInfo struct {
 	DefinitionFrac int64
 }
 
-type NetlinkOperatorInfo struct{
+var ConnectParameterInfo = ParameterInfo{
+	Name:           ConnectParameter,
+	MinVal:         0,
+	MaxVal:         1,
+	DefinitionFrac: 1,
+}
+
+type NetlinkOperatorInfo struct {
 	RequestChann chan netreq.NetLinkRequest
-	ErrChan chan error
+	ErrChan      chan error
 }
 
 type Link interface {
@@ -24,7 +32,7 @@ type Link interface {
 	Enable(operatorInfo *NetlinkOperatorInfo) error
 	Disable(operatorInfo *NetlinkOperatorInfo) error
 	IsCrossMachine() bool
-	SetParameters(para map[string]int,operatorInfo *NetlinkOperatorInfo) error
+	SetParameters(para map[string]int, operatorInfo *NetlinkOperatorInfo) error
 	IsEnabled() bool
 	IsConnected() bool
 	GetSupportParameters() []ParameterInfo
@@ -33,13 +41,10 @@ type Link interface {
 
 type LinkBase struct {
 	Enabled           bool
-	Connected         bool
 	CrossMachine      bool
-	SupportParameters []ParameterInfo
-	Parameter         map[string]int
-	LinkType          string
+	SupportParameters map[string]ParameterInfo
+	Parameter         map[string]int64
 	Config            LinkConfig
-	operateChann      chan netreq.NetLinkRequest
 }
 
 func (l *LinkBase) GetLinkConfig() LinkConfig {
@@ -51,11 +56,11 @@ func (l *LinkBase) GetLinkID() string {
 }
 
 func (l *LinkBase) GetLinkType() string {
-	return l.LinkType
+	return l.Config.Type
 }
 
 func (l *LinkBase) IsConnected() bool {
-	return l.Connected
+	return l.Parameter[ConnectParameter] != 0
 }
 
 func (l *LinkBase) IsEnabled() bool {
@@ -66,10 +71,10 @@ func (l *LinkBase) IsCrossMachine() bool {
 	return l.CrossMachine
 }
 
-func (l *LinkBase) GetSupportParameters() []ParameterInfo {
+func (l *LinkBase) GetSupportParameters() map[string]ParameterInfo {
 	return l.SupportParameters
 }
 
 func (l *LinkBase) GetParameter(name string) (int64, error) {
-	return l.Config.Parameter[name], nil
+	return l.Parameter[name], nil
 }

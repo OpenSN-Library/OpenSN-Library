@@ -18,9 +18,9 @@ type InstanceConfig struct {
 
 type LinkConfig struct {
 	LinkID     string
-	InstanceID [2]string
+	InitInstanceID [2]string
 	Type       string
-	Parameter  map[string]int64
+	InitParameter  map[string]int64
 }
 
 type Namespace struct {
