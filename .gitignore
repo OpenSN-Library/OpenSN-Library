@@ -20,3 +20,4 @@ configuration
 *.mp4
 .DS_Store
 *.zip
+node-daemon/NodeDaemon
