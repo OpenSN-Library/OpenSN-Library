@@ -32,10 +32,10 @@ type Link interface {
 	Enable(operatorInfo *NetlinkOperatorInfo) error
 	Disable(operatorInfo *NetlinkOperatorInfo) error
 	IsCrossMachine() bool
-	SetParameters(para map[string]int, operatorInfo *NetlinkOperatorInfo) error
+	SetParameters(para map[string]int64, operatorInfo *NetlinkOperatorInfo) error
 	IsEnabled() bool
 	IsConnected() bool
-	GetSupportParameters() []ParameterInfo
+	GetSupportParameters() map[string]ParameterInfo
 	GetParameter(name string) (int64, error)
 }
 

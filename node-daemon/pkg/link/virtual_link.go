@@ -21,7 +21,7 @@ const (
 	VethBandwidthParameter = "bandwidth"
 )
 
-var VethParameterMap = map[string]model.ParameterInfo{
+var VirtualLinkParameterMap = map[string]model.ParameterInfo{
 	model.ConnectParameter: model.ConnectParameterInfo,
 	VethDelayParameter: {
 		Name:           VethDelayParameter,
@@ -75,7 +75,7 @@ func CreateVethLinkObject(initConfig model.LinkConfig) *VethLink {
 		LinkBase: model.LinkBase{
 			Enabled:           false,
 			CrossMachine:      false,
-			SupportParameters: VethParameterMap,
+			SupportParameters: VirtualLinkParameterMap,
 			Parameter:         initConfig.InitParameter,
 			Config:            initConfig,
 		},
@@ -246,7 +246,7 @@ func (l *VethLink) Disable(operatorInfo *model.NetlinkOperatorInfo) error {
 	return nil
 }
 
-func (l *VethLink) SetParameter(para map[string]int64, operatorInfo *model.NetlinkOperatorInfo) error {
+func (l *VethLink) SetParameters(para map[string]int64, operatorInfo *model.NetlinkOperatorInfo) error {
 	dirtyConnect := false
 	dirtyTbf := false
 	dirtyNetem := false

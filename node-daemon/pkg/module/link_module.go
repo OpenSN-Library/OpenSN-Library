@@ -3,6 +3,7 @@ package module
 import (
 	"NodeDaemon/model"
 	netreq "NodeDaemon/model/netlink_request"
+	"NodeDaemon/pkg/link"
 	"NodeDaemon/share/data"
 	"NodeDaemon/share/key"
 	"NodeDaemon/share/signal"
@@ -44,7 +45,7 @@ func InitLinkData() {
 	}
 }
 
-func parseLinkChange(updateIdList []string) (addList []string, delList []*model.Link, err error) {
+func parseLinkChange(updateIdList []string) (addList []string, delList []model.Link, err error) {
 	var delIDList []string
 	updateIDMap := make(map[string]bool)
 	for _, v := range updateIdList {
@@ -82,13 +83,12 @@ func parseLinkChange(updateIdList []string) (addList []string, delList []*model.
 				logrus.Error("Redis Result Empty, Redis Data May Crash, InstanceID:", addList[i])
 				continue
 			} else {
-				addInstance := new(model.Link)
-				err := json.Unmarshal([]byte(v.(string)), addInstance)
+				newLink, err := link.ParseLink([]byte(v.(string)))
 				if err != nil {
-					logrus.Error("Unmarshal Json Data Error, Redis Data May Crash: ", err.Error())
+					logrus.Error("Unmarshal Json Data to Link Base Error, Redis Data May Crash: ", err.Error())
 					continue
 				}
-				data.LinkMap[addList[i]] = addInstance
+				data.LinkMap[addList[i]] = newLink
 			}
 		}
 	}
@@ -172,7 +172,7 @@ func netLinkDaemon(requestChan chan netreq.NetLinkRequest, sigChan chan int, err
 	}
 }
 
-func linkParameterWatcher(sigChan chan int, errChan chan error) {
+func linkParameterWatcher(sigChan chan int) {
 
 }
 
@@ -182,11 +182,53 @@ type LinkModule struct {
 	Base
 }
 
+func AddLinks(addList []string, operator *model.NetlinkOperatorInfo) error {
+	for _, v := range addList {
+		linkInfo := data.LinkMap[v]
+
+		err := linkInfo.Enable(operator)
+		if err != nil {
+			logrus.Errorf("Enable Link %s Error: %s", linkInfo.GetLinkID(), err.Error())
+		}
+
+		err = linkInfo.Connect(operator)
+		if err != nil {
+			logrus.Errorf("Connect Link %s Error: %s", linkInfo.GetLinkID(), err.Error())
+		}
+	}
+	return nil
+}
+
+func DelLinks(delList []model.Link, operator *model.NetlinkOperatorInfo) error {
+	for _, v := range delList {
+		if v.IsConnected() {
+			err := v.Disconnect(operator)
+			if err != nil {
+				logrus.Errorf("Disconnect Link %s Error: %s", v.GetLinkID(), err.Error())
+			}
+		}
+		err := v.Disable(operator)
+		if err != nil {
+			logrus.Errorf("Disable Link %s Error: %s", v.GetLinkID(), err.Error())
+		}
+		delete(data.LinkMap, v.GetLinkID())
+	}
+	return nil
+}
+
 func linkDaemonFunc(sigChan chan int, errChan chan error) {
-	netLinkReqChan := make(chan netreq.NetLinkRequest)
+	InitLinkData()
+	netOpInfo := model.NetlinkOperatorInfo{
+		RequestChann: make(chan netreq.NetLinkRequest),
+		ErrChan:      make(chan error),
+	}
 	netLinkSigChan := make(chan int)
-	netLinkErrChan := make(chan error)
-	go netLinkDaemon(netLinkReqChan, netLinkSigChan, netLinkErrChan)
+
+	paraWatcherSigChan := make(chan int)
+
+	go linkParameterWatcher(paraWatcherSigChan)
+
+	go netLinkDaemon(netOpInfo.RequestChann, netLinkSigChan, netOpInfo.ErrChan)
 	watchChan := make(chan clientv3.WatchResponse)
 	go func() {
 		watch := utils.EtcdClient.Watch(context.Background(), key.NodeLinkListKeySelf)
@@ -198,6 +240,8 @@ func linkDaemonFunc(sigChan chan int, errChan chan error) {
 		select {
 		case sig := <-sigChan:
 			if sig == signal.STOP_SIGNAL {
+				netLinkSigChan <- sig
+				paraWatcherSigChan <- sig
 				return
 			}
 		case res := <-watchChan:
@@ -213,20 +257,20 @@ func linkDaemonFunc(sigChan chan int, errChan chan error) {
 			if err != nil {
 				logrus.Error("Parse Update Instance  String Info Error: ", err.Error())
 			}
-			addList, delList, err := parse(updateIDList)
+			addList, delList, err := parseLinkChange(updateIDList)
 			if err != nil {
 				logrus.Error("Parse Update Instance Info Error: ", err.Error())
 			} else {
 				logrus.Infof("Parse Update Instance Info Success: Addlist:%v,Dellist: %v", addList, delList)
 			}
-			err = DelContainers(delList)
+			err = DelLinks(delList, &netOpInfo)
 			if err != nil {
 				errMsg := fmt.Sprintf("Delete Containers %v Error: %s", delList, err.Error())
 				logrus.Error(errMsg)
 				errChan <- err
 
 			}
-			err = AddContainers(addList)
+			err = AddLinks(addList, &netOpInfo)
 			if err != nil {
 				errMsg := fmt.Sprintf("Add Containers %v Error: %s", delList, err.Error())
 				logrus.Error(errMsg)
