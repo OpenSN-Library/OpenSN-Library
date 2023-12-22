@@ -6,15 +6,21 @@ type NamespaceConfig struct {
 	ContainerEnvs      map[string]string
 }
 
+type DeviceRequireInfo struct {
+	DevName string `json:"dev_name"`
+	NeedNum int    `json:"need_num"`
+	IsMutex bool   `json:"is_mutex"`
+}
+
 type InstanceConfig struct {
-	InstanceID         string            `json:"instance_id"`
-	Name               string            `json:"name"`
-	Type               string            `json:"type"`
-	Image              string            `json:"image"`
-	PositionChangeable bool              `json:"position_changeable"`
-	Extra              map[string]string `json:"extra"`
-	LinkIDs            []string          `json:"link_ids"`
-	DeviceNeedList     []string          `json:"device_need"`
+	InstanceID         string                       `json:"instance_id"`
+	Name               string                       `json:"name"`
+	Type               string                       `json:"type"`
+	Image              string                       `json:"image"`
+	PositionChangeable bool                         `json:"position_changeable"`
+	Extra              map[string]string            `json:"extra"`
+	LinkIDs            []string                     `json:"link_ids"`
+	DeviceInfo         map[string]DeviceRequireInfo `json:"device_need"`
 }
 
 type LinkConfig struct {

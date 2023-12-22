@@ -3,8 +3,8 @@ package handler
 import (
 	"NodeDaemon/model"
 	"NodeDaemon/model/ginmodel"
-	"NodeDaemon/model/link"
 	"NodeDaemon/pkg/arranger"
+	"NodeDaemon/pkg/link"
 	"NodeDaemon/share/data"
 	"NodeDaemon/share/key"
 	"NodeDaemon/utils"
@@ -84,6 +84,7 @@ func CreateNsHandler(ctx *gin.Context) {
 			Name:               fmt.Sprintf("%s_%d", v.Type, i),
 			Type:               v.Type,
 			PositionChangeable: v.PositionChangeable,
+			DeviceInfo:         make(map[string]model.DeviceRequireInfo),
 			Extra:              v.Extra,
 		}
 
@@ -109,12 +110,17 @@ func CreateNsHandler(ctx *gin.Context) {
 		}
 		newLink.InitInstanceID[0] = instanceArray[v.InstanceIndex[0]].InstanceID
 		instanceArray[v.InstanceIndex[0]].LinkIDs = append(instanceArray[v.InstanceIndex[0]].LinkIDs, newLink.LinkID)
-		if v.InstanceIndex[1] != -1 {
+		if v.InstanceIndex[1] >= 0 {
 			newLink.InitInstanceID[1] = instanceArray[v.InstanceIndex[1]].InstanceID
 			instanceArray[v.InstanceIndex[1]].LinkIDs = append(instanceArray[v.InstanceIndex[1]].LinkIDs, newLink.LinkID)
 		}
-		if newLink.Type != link.VirtualLinkType {
-			instanceArray[0].DeviceNeedList = append(instanceArray[0].DeviceNeedList, newLink.Type)
+		if deviceInfo, ok := link.LinkDeviceInfoMap[newLink.Type]; ok {
+			instanceArray[v.InstanceIndex[0]].DeviceInfo[newLink.Type] = deviceInfo[0]
+			if v.InstanceIndex[1] >= 0 {
+				instanceArray[v.InstanceIndex[1]].DeviceInfo[newLink.Type] = deviceInfo[1]
+			}
+		} else {
+			logrus.Errorf("Unsupport Link Device Type: %s", newLink.Type)
 		}
 		linkArray = append(linkArray, newLink)
 	}
@@ -228,7 +234,7 @@ func StartNsHandler(ctx *gin.Context) {
 		return
 	}
 	logrus.Infof("Get Config of Namespace %s Success", name)
-	targets, err := arranger.ArrangeInstance(ns)
+	instance_target, err := arranger.ArrangeInstance(ns)
 	if err != nil {
 		errMsg := fmt.Sprintf("Alloc Instance of namespace %s to nodes error: %s", ns.Name, err.Error())
 		logrus.Error(errMsg)
@@ -240,7 +246,8 @@ func StartNsHandler(ctx *gin.Context) {
 		return
 	}
 	logrus.Infof("Arrange Nodes for namespace %s Success.", name)
-	for index, instanceInfos := range targets {
+	
+	for index, instanceInfos := range instance_target {
 		var list []string
 		etcdResp, err := utils.EtcdClient.Get(
 			context.Background(),
@@ -275,7 +282,7 @@ func StartNsHandler(ctx *gin.Context) {
 			logrus.Infof("Set Instance %s to node %d Success.", config.InstanceID, index)
 			list = append(list, config.InstanceID)
 			info := model.Instance{
-				Config:    config,
+				Config:    *config,
 				NodeID:    uint32(index),
 				Namespace: name,
 			}
@@ -337,12 +344,39 @@ func StartNsHandler(ctx *gin.Context) {
 		}
 	}
 
-	for k, array := range targets {
+	link_target, err := arranger.ArrangeLink(ns)
+
+	if err != nil {
+		errMsg := fmt.Sprintf("Alloc Link of namespace %s to nodes error: %s", ns.Name, err.Error())
+		logrus.Error(errMsg)
+		resp := ginmodel.JsonResp{
+			Code:    -1,
+			Message: errMsg,
+		}
+		ctx.JSON(http.StatusInternalServerError, resp)
+		return
+	}
+
+	for index, linkConfig := range link_target {
+		// Step1: Fill Link Object
+		// Step2: Update Link Object to Redis
+		// Step3: Update Etcd Node Link List
+	}
+
+	for k, array := range instance_target {
 		idArray := make([]string, len(array))
 		for index, item := range array {
 			idArray[index] = item.InstanceID
 		}
 		ns.InstanceAllocInfo[k] = idArray
+	}
+
+	for k, array := range link_target {
+		idArray := make([]string, len(array))
+		for index, item := range array {
+			idArray[index] = item.LinkID
+		}
+		ns.LinkAllocInfo[k] = idArray
 	}
 
 	ns.Running = true
