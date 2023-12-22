@@ -3,7 +3,6 @@ package initializer
 import (
 	"NodeDaemon/config"
 	"NodeDaemon/model"
-	"NodeDaemon/share/data"
 	"NodeDaemon/share/key"
 	"NodeDaemon/utils"
 	"context"
@@ -81,16 +80,6 @@ func UpdateNodeIndexList() error {
 	return err
 }
 
-func byteSeqEncode(b []byte) (ret uint64) {
-	for i := 0; i < len(b); i++ {
-		ret <<= 2
-		if i < len(b) {
-			ret |= uint64(b[i]) & 0xff
-		}
-	}
-	return
-}
-
 func getInterfaceInfo(ifName string, target *model.Node) error {
 	var link netlink.Link
 	var err error
@@ -113,21 +102,21 @@ func getInterfaceInfo(ifName string, target *model.Node) error {
 			return err
 		}
 	}
-	target.L2Addr = byteSeqEncode(link.Attrs().HardwareAddr)
-	linkV4Addrs, err := netlink.AddrList(link, netlink.V4_FAMILY)
+	target.L2Addr = link.Attrs().HardwareAddr
+	linkV4Addrs, err := netlink.AddrList(link, netlink.FAMILY_V4)
 	if err != nil {
 		return err
 	}
 	if len(linkV4Addrs) > 0 {
-		target.L3AddrV4 = uint32(byteSeqEncode(linkV4Addrs[0].IP))
+		target.L3AddrV4 = linkV4Addrs[0].IP
 	}
 
-	linkV6Addrs, err := netlink.AddrList(link, V6_FAMILY)
+	linkV6Addrs, err := netlink.AddrList(link, netlink.FAMILY_V6)
 	if err != nil {
 		return err
 	}
 	if len(linkV4Addrs) > 0 {
-		target.L3AddrV6 = byteSeqEncode(linkV6Addrs[0].IP)
+		target.L3AddrV6 = linkV6Addrs[0].IP
 	}
 	return nil
 }
@@ -210,5 +199,5 @@ func NodeInit() error {
 	if err != nil {
 		return fmt.Errorf("update node list error: %s", err.Error())
 	}
-	return data.InitData()
+	return InitData()
 }
