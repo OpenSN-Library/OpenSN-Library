@@ -3,6 +3,7 @@ package initializer
 import (
 	"NodeDaemon/config"
 	"NodeDaemon/model"
+	"NodeDaemon/pkg/link"
 	"NodeDaemon/share/key"
 	"NodeDaemon/utils"
 	"context"
@@ -122,7 +123,11 @@ func getInterfaceInfo(ifName string, target *model.Node) error {
 }
 
 func NodeInit() error {
-	err := utils.InitEtcdClient(
+	err := InitWorkdir()
+	if err != nil {
+		return err
+	}
+	err = utils.InitEtcdClient(
 		config.GlobalConfig.Dependency.EtcdAddr,
 		config.GlobalConfig.Dependency.EtcdPort,
 	)
@@ -157,16 +162,18 @@ func NodeInit() error {
 	}
 	key.InitKeys()
 	selfInfo := &model.Node{
-		NodeID:        uint32(key.NodeIndex),
-		FreeInstance:  model.MAX_INSTANCE_NODE,
-		IsMasterNode:  key.NodeIndex == 0,
-		NsInstanceMap: map[string]string{},
-		NsLinkMap:     map[string]string{},
+		NodeID:             uint32(key.NodeIndex),
+		FreeInstance:       model.MAX_INSTANCE_NODE,
+		IsMasterNode:       key.NodeIndex == 0,
+		NsInstanceMap:      map[string]string{},
+		NsLinkMap:          map[string]string{},
+		NodeLinkDeviceInfo: map[string]int{},
 	}
 
 	for k, v := range config.GlobalConfig.Device {
 		selfInfo.NodeLinkDeviceInfo[k] = len(v)
 	}
+	selfInfo.NodeLinkDeviceInfo[link.VirtualLinkType] = 1
 
 	if key.NodeIndex == 0 {
 		selfInfo.FreeInstance -= model.MASTER_NODE_MAKEUP

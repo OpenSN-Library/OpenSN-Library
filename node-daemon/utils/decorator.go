@@ -29,3 +29,30 @@ func WaitSuccess(call func() bool, timeout time.Duration, checkGap time.Duration
 		}
 	}
 }
+
+func SliceMap[I, O any](call func(i I) O, slice []I) []O {
+	res := make([]O, len(slice))
+	for i, v := range slice {
+		res[i] = call(v)
+	}
+	return res
+}
+
+func MapKeys[K comparable](rawMap map[K]any) []K {
+	index := 0
+	res := make([]K, len(rawMap))
+	for k := range rawMap {
+		res[index] = k
+		index += 1
+	}
+	return res
+}
+
+func Spin(check func() bool, gap time.Duration) {
+	for {
+		if check() {
+			return
+		}
+		time.Sleep(gap)
+	}
+}

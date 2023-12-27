@@ -4,12 +4,13 @@ import (
 	"NodeDaemon/config"
 	"NodeDaemon/pkg/initializer"
 	"NodeDaemon/pkg/module"
-	"time"
-
 	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
+
+	nested "github.com/antonfisher/nested-logrus-formatter"
 
 	"github.com/sirupsen/logrus"
 )
@@ -27,12 +28,16 @@ func signalHandler(sigChan chan os.Signal, modules []module.Module) {
 
 func main() {
 
+	logrus.SetFormatter(&nested.Formatter{
+		TimestampFormat: time.RFC3339,
+	})
+
 	if len(os.Args) > 2 {
 		config.InitConfig(os.Args[1])
 	} else {
 		config.InitConfig(DefaultConfigPath)
 	}
-
+	
 	err := initializer.NodeInit()
 	if err != nil {
 		errMsg := fmt.Sprintf("Init Node Error: %s", err.Error())

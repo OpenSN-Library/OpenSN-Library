@@ -60,11 +60,11 @@ func initInstanceMap() error {
 func initLinkMap() error {
 	getResp := utils.RedisClient.HGetAll(context.Background(), key.NodeLinksKeySelf)
 	if getResp.Err() != nil {
-		logrus.Errorf("Init Instance Map Error: %s", getResp.Err().Error())
+		logrus.Errorf("Init Link Map Error: %s", getResp.Err().Error())
 		return getResp.Err()
 	}
 	for indexStr, nodeInfo := range getResp.Val() {
-		newLink, err := link.ParseLink([]byte(nodeInfo))
+		newLink, err := link.ParseLinkFromBytes([]byte(nodeInfo))
 		if err != nil {
 			logrus.Error("Unmarshal Json Data to Link Base Error, Redis Data May Crash: ", err.Error())
 			continue

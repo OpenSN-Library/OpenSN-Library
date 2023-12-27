@@ -83,6 +83,7 @@ func InitConfig(jsonPath string) {
 		logrus.Error(errMsg)
 		panic(errMsg)
 	}
+	
 	GlobalConfig.Dependency.DockerHostPath = GetConfigEnvString("DOCKER_HOST", GlobalConfig.Dependency.DockerHostPath)
 	GlobalConfig.App.IsServant = GetConfigEnvBool("IS_SERVANT", GlobalConfig.App.IsServant)
 	GlobalConfig.App.Debug = GetConfigEnvBool("DEBUG", GlobalConfig.App.Debug)

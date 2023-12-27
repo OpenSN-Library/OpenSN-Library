@@ -28,8 +28,8 @@ func ArrangeInstance(namespace *model.Namespace) (map[int][]*model.InstanceConfi
 	var allocedDev = map[int]map[string]int{}
 	actions := make(map[int][]*model.InstanceConfig)
 	var instanceQueue InstanceQueue
-	for _, v := range namespace.InstanceConfig {
-		instanceQueue = append(instanceQueue, &v)
+	for i := range namespace.InstanceConfig {
+		instanceQueue = append(instanceQueue, &namespace.InstanceConfig[i])
 	}
 	sort.Sort(instanceQueue)
 	left := namespace.AllocatedInstances
@@ -65,6 +65,7 @@ func ArrangeInstance(namespace *model.Namespace) (map[int][]*model.InstanceConfi
 			}
 
 			if valid {
+				logrus.Infof("Arrange %s to %d.", inst.InstanceID, index)
 				actions[index] = append(actions[index], inst)
 				instanceQueue[inst_index] = nil
 				left -= 1
@@ -80,7 +81,7 @@ func ArrangeInstance(namespace *model.Namespace) (map[int][]*model.InstanceConfi
 				leftIdArray = append(leftIdArray, v.InstanceID)
 			}
 		}
-		err := fmt.Errorf("%v cannot be arrange",leftIdArray)
+		err := fmt.Errorf("%v cannot be arrange", leftIdArray)
 		logrus.Errorf("Unable to arrange Instances: %s", err.Error())
 
 		for node_index, allocMap := range allocedDev {
@@ -88,7 +89,7 @@ func ArrangeInstance(namespace *model.Namespace) (map[int][]*model.InstanceConfi
 				data.NodeMap[node_index].NodeLinkDeviceInfo[devType] += num
 			}
 		}
-		return nil,err
+		return nil, err
 	}
 
 	return actions, nil

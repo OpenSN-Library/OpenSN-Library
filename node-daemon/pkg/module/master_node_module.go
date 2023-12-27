@@ -36,6 +36,10 @@ func RegisterHandlers(r *gin.Engine) {
 }
 
 func masterDaemonFunc(sigChann chan int, errChann chan error) {
+	// logger := logrus.New()
+	// logger.SetFormatter(&nested.Formatter{
+	// 	TimestampFormat: time.RFC3339,
+	// })
 	r := gin.Default()
 	if !config.GlobalConfig.App.Debug {
 		gin.SetMode(gin.ReleaseMode)

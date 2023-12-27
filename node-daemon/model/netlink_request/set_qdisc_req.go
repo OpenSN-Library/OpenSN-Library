@@ -14,14 +14,15 @@ type SetQdiscReq struct {
 	QdiscInfo     netlink.Qdisc
 }
 
-func CreateSetQdiscReq(linkIndex, linkNamespacePid,operationType int, qdiscInfo netlink.Qdisc) SetQdiscReq {
+func CreateSetQdiscReq(linkIndex, linkNamespacePid, operationType int, linkName string, qdiscInfo netlink.Qdisc) SetQdiscReq {
 	return SetQdiscReq{
 		NetLinkRequestBase: NetLinkRequestBase{
 			NamespacePid: linkNamespacePid,
-			LinkIndex: linkIndex,
-			RequestType: SetLinkState,
+			LinkIndex:    linkIndex,
+			RequestType:  SetQdisc,
+			LinkName:     linkName,
 		},
-		QdiscInfo: qdiscInfo,
+		QdiscInfo:     qdiscInfo,
 		OperationType: operationType,
 	}
 }

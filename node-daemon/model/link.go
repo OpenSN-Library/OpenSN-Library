@@ -37,6 +37,16 @@ type Link interface {
 	IsConnected() bool
 	GetSupportParameters() map[string]ParameterInfo
 	GetParameter(name string) (int64, error)
+	GetEndInfos() [2]EndInfoType
+}
+
+type IPInfoType struct {
+	V4Addr string `json:"v4_addr"`
+	V6Addr string `json:"v6_addr"`
+}
+
+type EndInfoType struct {
+	InstanceID string `json:"instance_id"`
 }
 
 type LinkBase struct {
@@ -45,6 +55,8 @@ type LinkBase struct {
 	SupportParameters map[string]ParameterInfo `json:"support_parameters"`
 	Parameter         map[string]int64         `json:"parameter"`
 	Config            LinkConfig               `json:"config"`
+	NodeIndex         int                      `json:"node_index"`
+	EndInfos          [2]EndInfoType           `json:"end_infos"`
 }
 
 func (l *LinkBase) GetLinkConfig() LinkConfig {
@@ -77,4 +89,8 @@ func (l *LinkBase) GetSupportParameters() map[string]ParameterInfo {
 
 func (l *LinkBase) GetParameter(name string) (int64, error) {
 	return l.Parameter[name], nil
+}
+
+func (l *LinkBase) GetEndInfos() [2]EndInfoType {
+	return l.EndInfos
 }

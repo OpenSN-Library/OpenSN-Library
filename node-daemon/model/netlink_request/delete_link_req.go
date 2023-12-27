@@ -4,12 +4,13 @@ type DeleteLinkReq struct {
 	NetLinkRequestBase
 }
 
-func CreateDeleteLinkReq(linkIndex, linkNamespacePid int) DeleteLinkReq {
+func CreateDeleteLinkReq(linkIndex, linkNamespacePid int,linkName string) DeleteLinkReq {
 	return DeleteLinkReq{
 		NetLinkRequestBase: NetLinkRequestBase{
 			NamespacePid: linkNamespacePid,
 			LinkIndex:   linkIndex,
-			RequestType: SetLinkState,
+			RequestType: DeleteLink,
+			LinkName: linkName,
 		},
 	}
 }

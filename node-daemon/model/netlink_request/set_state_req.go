@@ -5,12 +5,13 @@ type SetStateReq struct {
 	Enable bool
 }
 
-func CreateSetStateReq(linkIndex, linkNamespacePid int, state bool) SetStateReq {
+func CreateSetStateReq(linkIndex, linkNamespacePid int, linkName string, state bool) SetStateReq {
 	return SetStateReq{
 		NetLinkRequestBase: NetLinkRequestBase{
 			NamespacePid: linkNamespacePid,
-			LinkIndex: linkIndex,
-			RequestType: SetLinkState,
+			LinkIndex:    linkIndex,
+			RequestType:  SetLinkState,
+			LinkName:     linkName,
 		},
 		Enable: state,
 	}

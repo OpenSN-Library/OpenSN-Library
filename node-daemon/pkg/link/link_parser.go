@@ -3,6 +3,7 @@ package link
 import (
 	"NodeDaemon/model"
 	"encoding/json"
+	"fmt"
 
 	"github.com/sirupsen/logrus"
 )
@@ -46,7 +47,7 @@ var LinkDeviceInfoMap = map[string][2]model.DeviceRequireInfo{
 	},
 }
 
-func ParseLink(seq []byte) (model.Link, error) {
+func ParseLinkFromBytes(seq []byte) (model.Link, error) {
 	var baseLink model.LinkBase
 	var realLink model.Link
 	err := json.Unmarshal(seq, &baseLink)
@@ -65,7 +66,26 @@ func ParseLink(seq []byte) (model.Link, error) {
 		}
 		realLink = vLink
 	default:
-
+		err := fmt.Errorf("unsupported link type: %s", baseLink.GetLinkType())
+		logrus.Errorf("Parse Link Error: %s", err.Error())
+		return nil, err
 	}
+	return realLink, nil
+}
+
+func ParseLinkFromConfig(config model.LinkConfig,nodeIndex int) (model.Link, error) {
+	var realLink model.Link
+
+	switch config.Type {
+	case VirtualLinkType:
+		vLink := CreateVethLinkObject(config)
+		vLink.NodeIndex = nodeIndex
+		realLink = vLink
+	default:
+		err := fmt.Errorf("unsupported link type: %s", config.Type)
+		logrus.Errorf("Parse Link Error: %s", err.Error())
+		return nil, err
+	}
+	
 	return realLink, nil
 }

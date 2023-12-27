@@ -6,7 +6,6 @@ type Position struct {
 	Altitude  float64 `json:"altitude"`
 }
 
-
 type Instance struct {
 	Config      InstanceConfig `json:"config"`
 	ContainerID string         `json:"container_id"`

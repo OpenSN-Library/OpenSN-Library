@@ -3,6 +3,7 @@ package module
 import (
 	"NodeDaemon/model"
 	"NodeDaemon/share/data"
+	"NodeDaemon/share/dir"
 	"NodeDaemon/share/key"
 	"NodeDaemon/share/signal"
 	"NodeDaemon/utils"
@@ -10,6 +11,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
@@ -49,7 +51,7 @@ func AddContainers(addList []string) error {
 		if ok {
 			err := utils.DoWithRetry(func() error {
 				containerConfig := &container.Config{
-					Hostname:    instance.Config.Name,
+					Hostname:    instance.Config.InstanceID,
 					Image:       instance.Config.Image,
 					Env:         []string{},
 					StopTimeout: &StopTimeoutSecond,
@@ -57,6 +59,9 @@ func AddContainers(addList []string) error {
 				hostConfig := &container.HostConfig{
 					Privileged:  true,
 					NetworkMode: "none",
+					Binds: []string{
+						fmt.Sprintf("%s:%s", dir.MountShareData, "/share"),
+					},
 				}
 
 				createResp, err := utils.DockerClient.ContainerCreate(
@@ -105,9 +110,22 @@ func AddContainers(addList []string) error {
 	return nil
 }
 
-func DelContainers(delList []*model.Instance) error {
-	for _, v := range delList {
-		if v.ContainerID != "" {
+func DelContainers(delList []string) error {
+	for _, instanceID := range delList {
+		if instanceID != "" {
+			v := data.InstanceMap[instanceID]
+			utils.Spin(func() bool {
+				res := true
+				for _, v := range v.LinksID {
+					info := data.LinkMap[v]
+					logrus.Infof("Instance Check Link %s is %v", info.GetLinkID(), info)
+					if info != nil && info.IsEnabled() {
+
+						res = false
+					}
+				}
+				return res
+			}, 100*time.Millisecond)
 			err := utils.DoWithRetry(func() error {
 				return utils.DockerClient.ContainerStop(context.Background(), v.ContainerID, container.StopOptions{})
 			}, 2)
@@ -146,8 +164,9 @@ func DelContainers(delList []*model.Instance) error {
 				)
 				logrus.Info(sucMsg)
 			}
+			delete(data.InstanceMap, instanceID)
 		} else {
-			errMsg := fmt.Sprintf("Container id of Instance %s is Empty, Skipping...", v.Config.InstanceID)
+			errMsg := fmt.Sprintf("Container id of Instance %s is Empty, Skipping...", instanceID)
 			logrus.Error(errMsg)
 		}
 	}
@@ -160,8 +179,7 @@ type InstanceModule struct {
 	Base
 }
 
-func parseInstanceChange(updateIdList []string) (addList []string, delList []*model.Instance, err error) {
-	var delIDList []string
+func parseInstanceChange(updateIdList []string) (addList []string, delList []string, err error) {
 	updateIDMap := make(map[string]bool)
 	for _, v := range updateIdList {
 		updateIDMap[v] = true
@@ -174,13 +192,8 @@ func parseInstanceChange(updateIdList []string) (addList []string, delList []*mo
 
 	for k := range data.InstanceMap {
 		if ok := updateIDMap[k]; !ok {
-			delIDList = append(delIDList, k)
+			delList = append(delList, k)
 		}
-	}
-
-	for _, v := range delIDList {
-		delList = append(delList, data.InstanceMap[v])
-		delete(data.InstanceMap, v)
 	}
 
 	if len(addList) > 0 {
@@ -242,19 +255,21 @@ func watchInstanceDaemon(sigChan chan int, errChan chan error) {
 			} else {
 				logrus.Infof("Parse Update Instance Info Success: Addlist:%v,Dellist: %v", addList, delList)
 			}
-			err = DelContainers(delList)
-			if err != nil {
-				errMsg := fmt.Sprintf("Delete Containers %v Error: %s", delList, err.Error())
-				logrus.Error(errMsg)
-				errChan <- err
+			go func() {
+				err = DelContainers(delList)
+				if err != nil {
+					errMsg := fmt.Sprintf("Delete Containers %v Error: %s", delList, err.Error())
+					logrus.Error(errMsg)
+					errChan <- err
 
-			}
-			err = AddContainers(addList)
-			if err != nil {
-				errMsg := fmt.Sprintf("Add Containers %v Error: %s", delList, err.Error())
-				logrus.Error(errMsg)
-				errChan <- err
-			}
+				}
+				err = AddContainers(addList)
+				if err != nil {
+					errMsg := fmt.Sprintf("Add Containers %v Error: %s", delList, err.Error())
+					logrus.Error(errMsg)
+					errChan <- err
+				}
+			}()
 		case sig := <-sigChan:
 			if sig == signal.STOP_SIGNAL {
 				return

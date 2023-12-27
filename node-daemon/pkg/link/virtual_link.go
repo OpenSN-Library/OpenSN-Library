@@ -10,7 +10,6 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
-	"github.com/vishvananda/netns"
 )
 
 const VirtualLinkType = "VirtualLink"
@@ -48,23 +47,10 @@ type DevInfoType struct {
 	Name    string `json:"name"`
 }
 
-type EndInfoType struct {
-	DevInfo    DevInfoType `json:"dev_info"`
-	InstanceID string      `json:"instance_id"`
-}
-
-type IPInfoType struct {
-	V4Addr      uint32 `json:"v_4_addr"`
-	V6Addr      uint64 `json:"v_6_addr"`
-	V4PrefixLen int    `json:"v_4_prefix_len"`
-	V6PrefixLen int    `json:"v_6_prefix_len"`
-}
-
 type VethLink struct {
 	model.LinkBase
-	NodeIndex          int
-	EndInfos           [2]EndInfoType
-	IPInfos            [2]IPInfoType
+
+	DevInfos           [2]DevInfoType `json:"dev_info"`
 	TbfQdiscTemplate   netlink.Tbf
 	NetemQdiscTemplate netlink.Netem
 }
@@ -78,21 +64,23 @@ func CreateVethLinkObject(initConfig model.LinkConfig) *VethLink {
 			SupportParameters: VirtualLinkParameterMap,
 			Parameter:         initConfig.InitParameter,
 			Config:            initConfig,
-		},
-		EndInfos: [2]EndInfoType{
-			{
-				DevInfo: DevInfoType{
-					Name:    fmt.Sprintf("%s_0", initConfig.LinkID),
-					IfIndex: -1,
+			EndInfos: [2]model.EndInfoType{
+				{
+					InstanceID: initConfig.InitInstanceID[0],
 				},
-				InstanceID: initConfig.InitInstanceID[0],
+				{
+					InstanceID: initConfig.InitInstanceID[1],
+				},
+			},
+		},
+		DevInfos: [2]DevInfoType{
+			{
+				Name:    fmt.Sprintf("%s_0", initConfig.LinkID),
+				IfIndex: -1,
 			},
 			{
-				DevInfo: DevInfoType{
-					Name:    fmt.Sprintf("%s_1", initConfig.LinkID),
-					IfIndex: -1,
-				},
-				InstanceID: initConfig.InitInstanceID[1],
+				Name:    fmt.Sprintf("%s_1", initConfig.LinkID),
+				IfIndex: -1,
 			},
 		},
 	}
@@ -103,21 +91,16 @@ func (l *VethLink) Connect(operatorInfo *model.NetlinkOperatorInfo) error {
 		logrus.Errorf("Connect %s and %s Error: %s is not enabled", l.EndInfos[0].InstanceID, l.EndInfos[1].InstanceID, l.Config.LinkID)
 		return fmt.Errorf("%s is not enabled", l.Config.LinkID)
 	}
-	for _, v := range l.EndInfos {
+	for i, v := range l.EndInfos {
+
 		instanceInfo, ok := data.InstanceMap[v.InstanceID]
 		if !ok {
 			logrus.Errorf("Connect %s and %s Error: Instance %s is not in Node %d", l.EndInfos[0].InstanceID, l.EndInfos[1].InstanceID, v.InstanceID, key.NodeIndex)
 			return fmt.Errorf("%s is not in node %d", v.InstanceID, key.NodeIndex)
 		}
-		linkNsFd, err := netns.GetFromPid(instanceInfo.Pid)
-
-		if err != nil {
-			logrus.Errorf("Open NetNamespace for connecting %s and %s Error: %s", l.EndInfos[0].InstanceID, l.EndInfos[1].InstanceID, err.Error())
-			return err
-		}
-		setStateReq := netreq.CreateSetStateReq(v.DevInfo.IfIndex, int(linkNsFd), true)
+		setStateReq := netreq.CreateSetStateReq(l.DevInfos[i].IfIndex, instanceInfo.Pid, l.DevInfos[i].Name, true)
 		operatorInfo.RequestChann <- &setStateReq
-		err = <-operatorInfo.ErrChan
+		err := <-operatorInfo.ErrChan
 		if err != nil {
 			logrus.Errorf("Connect %s and %s Error: %s", l.EndInfos[0].InstanceID, l.EndInfos[1].InstanceID, err.Error())
 			return err
@@ -131,22 +114,16 @@ func (l *VethLink) Disconnect(operatorInfo *model.NetlinkOperatorInfo) error {
 		logrus.Errorf("Connect %s and %s Error: %s is not enabled", l.EndInfos[0].InstanceID, l.EndInfos[1].InstanceID, l.Config.LinkID)
 		return fmt.Errorf("%s is not enabled", l.Config.LinkID)
 	}
-	for _, v := range l.EndInfos {
+	for i, v := range l.EndInfos {
 
 		instanceInfo, ok := data.InstanceMap[v.InstanceID]
 		if !ok {
 			logrus.Errorf("Disconnect %s and %s Error: Instance %s is not in Node %d", l.EndInfos[0].InstanceID, l.EndInfos[1].InstanceID, v.InstanceID, key.NodeIndex)
 			return fmt.Errorf("%s is not in node %d", v.InstanceID, key.NodeIndex)
 		}
-		linkNsFd, err := netns.GetFromPid(instanceInfo.Pid)
-
-		if err != nil {
-			logrus.Errorf("Open NetNamespace for disconnecting %s and %s Error: %s", l.EndInfos[0].InstanceID, l.EndInfos[1].InstanceID, err.Error())
-			return err
-		}
-		setStateReq := netreq.CreateSetStateReq(v.DevInfo.IfIndex, int(linkNsFd), false)
+		setStateReq := netreq.CreateSetStateReq(l.DevInfos[i].IfIndex, instanceInfo.Pid, l.DevInfos[i].Name, false)
 		operatorInfo.RequestChann <- &setStateReq
-		err = <-operatorInfo.ErrChan
+		err := <-operatorInfo.ErrChan
 		if err != nil {
 			if err != nil {
 				logrus.Errorf("Disconnect %s and %s Error: %s", l.EndInfos[0].InstanceID, l.EndInfos[1].InstanceID, err.Error())
@@ -159,43 +136,47 @@ func (l *VethLink) Disconnect(operatorInfo *model.NetlinkOperatorInfo) error {
 }
 
 func (l *VethLink) Enable(operatorInfo *model.NetlinkOperatorInfo) error {
+	logrus.Infof("Virtual Link Data is %v", *l)
 	if l.Enabled {
 		logrus.Errorf("Enable %s and %s Error: %s has already been enabled", l.EndInfos[0].InstanceID, l.EndInfos[1].InstanceID, l.Config.LinkID)
 		return fmt.Errorf("%s is enabled", l.Config.LinkID)
 	}
-	linkAttrs := netlink.NewLinkAttrs()
-	linkAttrs.Name = l.EndInfos[0].DevInfo.Name
+
 	veth := &netlink.Veth{
-		LinkAttrs: linkAttrs,
-		PeerName:  l.EndInfos[1].DevInfo.Name,
+		LinkAttrs: netlink.LinkAttrs{
+			Name: l.DevInfos[0].Name,
+		},
+		PeerName: l.DevInfos[1].Name,
 	}
 
 	err := netlink.LinkAdd(veth)
 
 	if err != nil {
-		logrus.Errorf("Add Veth Peer Link Error %s", err.Error())
+		logrus.Errorf("Add Veth Peer Link Error: %s", err.Error())
 		return err
 	}
 
-	l.EndInfos[0].DevInfo.IfIndex = veth.Index
+	l.DevInfos[0].IfIndex = veth.Index
 	peerIndex, err := netlink.VethPeerIndex(veth)
 	if err != nil {
 		logrus.Errorf("Get Peer Link Index of %d Error: %s", veth.Attrs().Index, err.Error())
 	}
 
-	l.EndInfos[1].DevInfo.IfIndex = peerIndex
+	l.DevInfos[1].IfIndex = peerIndex
 	if err != nil {
 		logrus.Errorf("Get Init Net Namespace Error: %s", err.Error())
 	}
 	for i, v := range l.EndInfos {
 		instanceInfo, ok := data.InstanceMap[v.InstanceID]
-
+		if v.InstanceID == "" {
+			continue
+		}
 		if !ok {
 			logrus.Errorf("Enable Link Between %s and %s Error: Instance %s is not in Node %d", l.EndInfos[0].InstanceID, l.EndInfos[1].InstanceID, v.InstanceID, key.NodeIndex)
 			return fmt.Errorf("%s is not in node %d", v.InstanceID, key.NodeIndex)
 		}
 
-		setNsreq := netreq.CreateSetNetNsReq(v.DevInfo.IfIndex, os.Getpid(), instanceInfo.Pid)
+		setNsreq := netreq.CreateSetNetNsReq(l.DevInfos[i].IfIndex, os.Getpid(), instanceInfo.Pid, l.DevInfos[i].Name)
 		operatorInfo.RequestChann <- &setNsreq
 		err := <-operatorInfo.ErrChan
 		if err != nil {
@@ -204,30 +185,34 @@ func (l *VethLink) Enable(operatorInfo *model.NetlinkOperatorInfo) error {
 		if err != nil {
 			return err
 		}
-		setStateReq := netreq.CreateSetStateReq(v.DevInfo.IfIndex, instanceInfo.Pid, true)
+		setStateReq := netreq.CreateSetStateReq(l.DevInfos[i].IfIndex, instanceInfo.Pid, l.DevInfos[i].Name, true)
 		operatorInfo.RequestChann <- &setStateReq
 		err = <-operatorInfo.ErrChan
 		if err != nil {
 			return err
 		}
-		setV4AddrReq := netreq.CreateSetV4AddrReq(v.DevInfo.IfIndex, instanceInfo.Pid, l.IPInfos[i].V4Addr, l.IPInfos[i].V4PrefixLen)
-		operatorInfo.RequestChann <- &setV4AddrReq
-		err = <-operatorInfo.ErrChan
-		if err != nil {
-			return err
+		if len(l.Config.IPInfos[i].V4Addr) > 0 {
+			setV4AddrReq := netreq.CreateSetV4AddrReq(l.DevInfos[i].IfIndex, instanceInfo.Pid, l.DevInfos[i].Name, l.Config.IPInfos[i].V4Addr)
+			operatorInfo.RequestChann <- &setV4AddrReq
+			err = <-operatorInfo.ErrChan
+			if err != nil {
+				return err
+			}
 		}
-		setV6AddrReq := netreq.CreateSetV6AddrReq(v.DevInfo.IfIndex, instanceInfo.Pid, l.IPInfos[i].V6Addr, l.IPInfos[i].V6PrefixLen)
-		operatorInfo.RequestChann <- &setV6AddrReq
-		err = <-operatorInfo.ErrChan
-		if err != nil {
-			return err
+		if len(l.Config.IPInfos[i].V6Addr) > 0 {
+			setV6AddrReq := netreq.CreateSetV6AddrReq(l.DevInfos[i].IfIndex, instanceInfo.Pid, l.DevInfos[i].Name, l.Config.IPInfos[i].V6Addr)
+			operatorInfo.RequestChann <- &setV6AddrReq
+			err = <-operatorInfo.ErrChan
+			if err != nil {
+				return err
+			}
 		}
 	}
 	l.Enabled = true
 	return nil
 }
 func (l *VethLink) Disable(operatorInfo *model.NetlinkOperatorInfo) error {
-	if l.Enabled {
+	if !l.Enabled {
 		logrus.Errorf("Disable %s and %s Error: %s is not enabled", l.EndInfos[0].InstanceID, l.EndInfos[1].InstanceID, l.Config.LinkID)
 		return fmt.Errorf("%s is not enabled", l.Config.LinkID)
 	}
@@ -236,11 +221,11 @@ func (l *VethLink) Disable(operatorInfo *model.NetlinkOperatorInfo) error {
 		logrus.Errorf("Disable Link Between %s and %s Error: Instance %s is not in Node %d", l.EndInfos[0].InstanceID, l.EndInfos[1].InstanceID, l.EndInfos[0].InstanceID, key.NodeIndex)
 		return fmt.Errorf("%s is not in node %d", l.EndInfos[0].InstanceID, key.NodeIndex)
 	}
-	deleteLinkReq := netreq.CreateDeleteLinkReq(l.EndInfos[0].DevInfo.IfIndex, instanceInfo.Pid)
+	deleteLinkReq := netreq.CreateDeleteLinkReq(l.DevInfos[0].IfIndex, instanceInfo.Pid, l.DevInfos[0].Name)
 	operatorInfo.RequestChann <- &deleteLinkReq
 	err := <-operatorInfo.ErrChan
 	if err != nil {
-		logrus.Errorf("Delete Link %s Index %d Error: %s", l.Config.LinkID, l.EndInfos[0].DevInfo.IfIndex, err.Error())
+		logrus.Errorf("Delete Link %s Index %d Error: %s", l.Config.LinkID, l.DevInfos[0].IfIndex, err.Error())
 		return err
 	}
 	return nil
@@ -282,14 +267,15 @@ func (l *VethLink) SetParameters(para map[string]int64, operatorInfo *model.Netl
 		}
 	}
 
-	for i, v := range l.EndInfos {
+	for i, v := range l.DevInfos {
 		if dirtyTbf {
 			tbfInfo := l.TbfQdiscTemplate
 			tbfInfo.Limit = uint32(l.Parameter[VethBandwidthParameter])
 			setTbfReq := netreq.CreateSetQdiscReq(
-				v.DevInfo.IfIndex,
+				v.IfIndex,
 				instanceInfos[i].Pid,
 				netreq.ReplaceQdisc,
+				v.Name,
 				&tbfInfo,
 			)
 			operatorInfo.RequestChann <- &setTbfReq
@@ -305,9 +291,10 @@ func (l *VethLink) SetParameters(para map[string]int64, operatorInfo *model.Netl
 			netemInfo.Latency = uint32(l.Parameter[VethDelayParameter])
 			netemInfo.Loss = uint32(l.Parameter[VethLossParameter])
 			setTbfReq := netreq.CreateSetQdiscReq(
-				v.DevInfo.IfIndex,
+				l.DevInfos[i].IfIndex,
 				instanceInfos[i].Pid,
 				netreq.ReplaceQdisc,
+				l.DevInfos[i].Name,
 				&netemInfo,
 			)
 			operatorInfo.RequestChann <- &setTbfReq
@@ -328,7 +315,7 @@ func (l *VethLink) SetParameters(para map[string]int64, operatorInfo *model.Netl
 			} else {
 				err := l.Connect(operatorInfo)
 				if err != nil {
-					logrus.Errorf("Connect Tbf for Link Between %s and %s Error: %s", l.EndInfos[0].InstanceID, l.EndInfos[1].InstanceID, err.Error())
+					logrus.Errorf("Connect Link Between %s and %s Error: %s", l.EndInfos[0].InstanceID, l.EndInfos[1].InstanceID, err.Error())
 					return err
 				}
 			}
