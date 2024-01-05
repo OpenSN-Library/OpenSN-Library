@@ -1,5 +1,0 @@
-loguru
-websockets
-opencv-python
-numpy
-imutils

@@ -9,6 +9,7 @@ type ParameterInfo struct {
 	MinVal         int64  `json:"min_val"`
 	MaxVal         int64  `json:"max_val"`
 	DefinitionFrac int64  `json:"definition_frac"`
+	DefaultVal     int64  `json:"default_val"`
 }
 
 var ConnectParameterInfo = ParameterInfo{
@@ -38,6 +39,7 @@ type Link interface {
 	GetSupportParameters() map[string]ParameterInfo
 	GetParameter(name string) (int64, error)
 	GetEndInfos() [2]EndInfoType
+	GetLinkBasePtr() *LinkBase
 }
 
 type IPInfoType struct {
@@ -46,7 +48,8 @@ type IPInfoType struct {
 }
 
 type EndInfoType struct {
-	InstanceID string `json:"instance_id"`
+	InstanceID   string `json:"instance_id"`
+	InstanceType string `json:"instance_type"`
 }
 
 type LinkBase struct {
@@ -93,4 +96,8 @@ func (l *LinkBase) GetParameter(name string) (int64, error) {
 
 func (l *LinkBase) GetEndInfos() [2]EndInfoType {
 	return l.EndInfos
+}
+
+func (l *LinkBase) GetLinkBasePtr() *LinkBase {
+	return l
 }

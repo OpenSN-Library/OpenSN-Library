@@ -1,4 +1,0 @@
-websockets
-opencv-python
-imutils
-numpy

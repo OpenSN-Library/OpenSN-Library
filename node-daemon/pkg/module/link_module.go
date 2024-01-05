@@ -24,7 +24,6 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 	"github.com/vishvananda/netns"
-	clientv3 "go.etcd.io/etcd/client/v3"
 )
 
 func InitLinkData() {
@@ -188,6 +187,7 @@ func netLinkDaemon(requestChan chan netreq.NetLinkRequest, sigChan chan int, err
 				opErr = netlink.LinkSetNsPid(link, realReq.TargetNamespacePid)
 			case netreq.SetQdisc:
 				realReq := req.(*netreq.SetQdiscReq)
+				realReq.QdiscInfo.Attrs().LinkIndex = link.Attrs().Index
 				opErr = netlink.QdiscReplace(realReq.QdiscInfo)
 			case netreq.DeleteLink:
 				opErr = netlink.LinkDel(link)
@@ -302,12 +302,35 @@ func updateTopoInfoFile(addList []string, delList []model.Link) error {
 	return nil
 }
 
-func linkParameterWatcher(sigChan chan int) {
+func linkParameterWatcher(sigChan chan int, operator *model.NetlinkOperatorInfo) {
+	ctx, cancel := context.WithCancel(context.Background())
+
+	watchChan := utils.EtcdClient.Watch(ctx, key.NodeLinkParameterKeySelf)
 	for {
 		select {
 		case sig := <-sigChan:
 			if sig == signal.STOP_SIGNAL {
+				cancel()
 				return
+			}
+		case res := <-watchChan:
+			if len(res.Events) < 1 {
+				logrus.Error("Unexpected Node Link Parameter Info List Length:", len(res.Events))
+				continue
+			}
+			infoBytes := res.Events[0].Kv.Value
+			newLinkParameter := make(map[string]map[string]int64)
+			err := json.Unmarshal(infoBytes, &newLinkParameter)
+			if err != nil {
+				logrus.Error("Parse Update Link Parameter String Info Error: ", err.Error())
+			}
+			for linkID, parameter := range newLinkParameter {
+				if link2Update, ok := data.LinkMap[linkID]; ok {
+					if !link2Update.IsEnabled() {
+						continue
+					}
+					link2Update.SetParameters(parameter, operator)
+				}
 			}
 		}
 	}
@@ -341,11 +364,16 @@ func AddLinks(addList []string, operator *model.NetlinkOperatorInfo) error {
 		if err != nil {
 			logrus.Errorf("Enable Link %s Error: %s", linkInfo.GetLinkID(), err.Error())
 		}
-
 		err = linkInfo.Connect(operator)
 		if err != nil {
 			logrus.Errorf("Connect Link %s Error: %s", linkInfo.GetLinkID(), err.Error())
 		}
+		logrus.Infof("Enable and Connect Link %s Between %s and %s, Type %s",
+			linkInfo.GetLinkID(),
+			linkInfo.GetLinkConfig().InitInstanceID[0],
+			linkInfo.GetLinkConfig().InitInstanceID[1],
+			linkInfo.GetLinkType(),
+		)
 	}
 	return nil
 }
@@ -378,20 +406,17 @@ func linkDaemonFunc(sigChan chan int, errChan chan error) {
 
 	paraWatcherSigChan := make(chan int)
 
-	go linkParameterWatcher(paraWatcherSigChan)
+	go linkParameterWatcher(paraWatcherSigChan, &netOpInfo)
 
 	go netLinkDaemon(netOpInfo.RequestChann, netLinkSigChan, netOpInfo.ErrChan)
-	watchChan := make(chan clientv3.WatchResponse)
+	ctx, cancel := context.WithCancel(context.Background())
+	watchChan := utils.EtcdClient.Watch(ctx, key.NodeLinkListKeySelf)
 	for {
-		go func() {
-			watch := utils.EtcdClient.Watch(context.Background(), key.NodeLinkListKeySelf)
-			res := <-watch
-			logrus.Infof("Etcd Link Change Detected in Node %d", key.NodeIndex)
-			watchChan <- res
-		}()
+
 		select {
 		case sig := <-sigChan:
 			if sig == signal.STOP_SIGNAL {
+				cancel()
 				netLinkSigChan <- sig
 				paraWatcherSigChan <- sig
 				return
@@ -400,14 +425,12 @@ func linkDaemonFunc(sigChan chan int, errChan chan error) {
 			if len(res.Events) < 1 {
 				logrus.Error("Unexpected Node Link Info List Length:", len(res.Events))
 				continue
-			} else {
-				logrus.Infof("Link Change Detected in Node %d, list: %s", key.NodeIndex, string(res.Events[0].Kv.Value))
 			}
 			infoBytes := res.Events[0].Kv.Value
 			updateIDList := []string{}
 			err := json.Unmarshal(infoBytes, &updateIDList)
 			if err != nil {
-				logrus.Error("Parse Update Link  String Info Error: ", err.Error())
+				logrus.Error("Parse Update Link String Info Error: ", err.Error())
 			}
 			addList, delList, err := parseLinkChange(updateIDList)
 			if err != nil {

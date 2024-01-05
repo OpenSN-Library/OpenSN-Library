@@ -12,5 +12,5 @@ type Instance struct {
 	Pid         int            `json:"pid"`
 	NodeID      uint32         `json:"node_id"`
 	Namespace   string         `json:"namespace"`
-	LinksID     []string       `json:"links_id"`
+	LinkIDs     []string       `json:"link_ids"`
 }

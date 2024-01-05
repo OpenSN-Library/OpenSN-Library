@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 	"strconv"
 	"time"
 
@@ -24,10 +25,6 @@ type Parameter struct {
 }
 
 func allocNodeIndex() error {
-	status := utils.LockKeyWithTimeout(key.NextNodeIndexKey, 5*time.Second)
-	if !status {
-		return fmt.Errorf("unable to acquire lock of %s", key.NextNodeIndexKey)
-	}
 	getResp := utils.RedisClient.Get(context.Background(), key.NextNodeIndexKey)
 
 	if getResp.Err() != nil && getResp.Err() != redis.Nil {
@@ -68,6 +65,9 @@ func UpdateNodeIndexList() error {
 		}
 	}
 
+	if slices.Contains[[]int,int](remoteIndexList,key.NodeIndex) {
+		return nil
+	}
 	remoteIndexList = append(remoteIndexList, key.NodeIndex)
 
 	updateBytes, err := json.Marshal(remoteIndexList)

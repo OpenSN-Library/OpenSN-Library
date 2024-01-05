@@ -18,6 +18,7 @@ const (
 	NodeInstancesKeyTemplate    = "node_%d_instances"
 	NodeLinksKeyTemplate        = "node_%d_links"
 	NodeNsKeyTemplate           = "/node_%d/ns_list"
+	NodeLinkParameterKeyTemplate = "/node_%d/link_paramter"
 )
 
 const ( // Redis Keys
@@ -33,6 +34,7 @@ var (
 	NodeInstanceListKeySelf = ""
 	NodeLinkListKeySelf     = ""
 	NodeNsKeySelf           = ""
+	NodeLinkParameterKeySelf = ""
 )
 
 func InitKeys() {
@@ -41,4 +43,5 @@ func InitKeys() {
 	NodeNsKeySelf = fmt.Sprintf(NodeNsKeyTemplate, NodeIndex)
 	NodeLinksKeySelf = fmt.Sprintf(NodeLinksKeyTemplate, NodeIndex)
 	NodeLinkListKeySelf = fmt.Sprintf(NodeLinkListKeyTemplate, NodeIndex)
+	NodeLinkParameterKeySelf = fmt.Sprintf(NodeLinkParameterKeyTemplate,NodeIndex)
 }

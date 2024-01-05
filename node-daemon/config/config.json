@@ -1,14 +1,14 @@
 {
   "app": {
     "is_servant": false,
-    "master_address": "10.134.148.56",
+    "master_address": "172.16.208.128",
     "interface_name": "ens160",
     "debug": false
   },
   "dependency": {
-    "etcd_addr"      : "10.134.148.56",
+    "etcd_addr"      : "172.16.208.128",
     "etcd_port"      : 2379,
-    "redis_addr"     : "10.134.148.56",
+    "redis_addr"     : "172.16.208.128",
     "redis_port"     : 6379,
     "redis_db_index"  : 0,
     "redis_password" : "1145141919810",

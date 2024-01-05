@@ -16,7 +16,6 @@ import (
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/sirupsen/logrus"
-	clientv3 "go.etcd.io/etcd/client/v3"
 )
 
 func InitInstanceData() {
@@ -62,6 +61,10 @@ func AddContainers(addList []string) error {
 					Binds: []string{
 						fmt.Sprintf("%s:%s", dir.MountShareData, "/share"),
 					},
+					Resources: container.Resources{
+						NanoCPUs: 1e7,
+						Memory:   6 * (1 << 20),
+					},
 				}
 
 				createResp, err := utils.DockerClient.ContainerCreate(
@@ -74,11 +77,13 @@ func AddContainers(addList []string) error {
 				)
 
 				data.InstanceMap[v].ContainerID = createResp.ID
-				logrus.Infof("Create Container %s of %s Success.", createResp.ID, v)
+				
 				return err
 			}, 2)
 			if err != nil {
 				logrus.Errorf("Creates Container %s Error: %s", v, err.Error())
+			} else {
+				logrus.Infof("Create and Start Container %s of %s Success.", data.InstanceMap[v].ContainerID, v)
 			}
 		}
 
@@ -116,11 +121,11 @@ func DelContainers(delList []string) error {
 			v := data.InstanceMap[instanceID]
 			utils.Spin(func() bool {
 				res := true
-				for _, v := range v.LinksID {
+				for _, v := range v.LinkIDs {
 					info := data.LinkMap[v]
-					logrus.Infof("Instance Check Link %s is %v", info.GetLinkID(), info)
-					if info != nil && info.IsEnabled() {
 
+					if info != nil && info.IsEnabled() {
+						logrus.Infof("Instance Check Link %s is %v", info.GetLinkID(), info)
 						res = false
 					}
 				}
@@ -227,52 +232,49 @@ func parseInstanceChange(updateIdList []string) (addList []string, delList []str
 func watchInstanceDaemon(sigChan chan int, errChan chan error) {
 	InitInstanceData()
 	for {
-		watchChan := make(chan clientv3.WatchResponse)
-		go func() {
-			watch := utils.EtcdClient.Watch(context.Background(), key.NodeInstanceListKeySelf)
-			res := <-watch
-			logrus.Infof("Etcd Instance Change Detected in Node %d", key.NodeIndex)
-			watchChan <- res
-		}()
+		ctx, cancel := context.WithCancel(context.Background())
 
-		select {
-		case res := <-watchChan:
-			if len(res.Events) < 1 {
-				logrus.Error("Unexpected Node Instance Info List Length:", len(res.Events))
-				continue
-			} else {
-				logrus.Infof("Instance Change Detected in Node %d, list: %s", key.NodeIndex, string(res.Events[0].Kv.Value))
-			}
-			infoBytes := res.Events[0].Kv.Value
-			updateIDList := []string{}
-			err := json.Unmarshal(infoBytes, &updateIDList)
-			if err != nil {
-				logrus.Error("Parse Update Instance  String Info Error: ", err.Error())
-			}
-			addList, delList, err := parseInstanceChange(updateIDList)
-			if err != nil {
-				logrus.Error("Parse Update Instance Info Error: ", err.Error())
-			} else {
-				logrus.Infof("Parse Update Instance Info Success: Addlist:%v,Dellist: %v", addList, delList)
-			}
-			go func() {
-				err = DelContainers(delList)
-				if err != nil {
-					errMsg := fmt.Sprintf("Delete Containers %v Error: %s", delList, err.Error())
-					logrus.Error(errMsg)
-					errChan <- err
+		watchChan := utils.EtcdClient.Watch(ctx, key.NodeInstanceListKeySelf)
 
+		for {
+			select {
+			case sig := <-sigChan:
+				if sig == signal.STOP_SIGNAL {
+					cancel()
+					return
 				}
-				err = AddContainers(addList)
+			case res := <-watchChan:
+				if len(res.Events) < 1 {
+					logrus.Error("Unexpected Node Instance Info List Length:", len(res.Events))
+					continue
+				}
+				infoBytes := res.Events[0].Kv.Value
+				updateIDList := []string{}
+				err := json.Unmarshal(infoBytes, &updateIDList)
 				if err != nil {
-					errMsg := fmt.Sprintf("Add Containers %v Error: %s", delList, err.Error())
-					logrus.Error(errMsg)
-					errChan <- err
+					logrus.Error("Parse Update Instance  String Info Error: ", err.Error())
 				}
-			}()
-		case sig := <-sigChan:
-			if sig == signal.STOP_SIGNAL {
-				return
+				addList, delList, err := parseInstanceChange(updateIDList)
+				if err != nil {
+					logrus.Error("Parse Update Instance Info Error: ", err.Error())
+				} else {
+					logrus.Infof("Parse Update Instance Info Success: Addlist:%v,Dellist: %v", addList, delList)
+				}
+				go func() {
+					err = DelContainers(delList)
+					if err != nil {
+						errMsg := fmt.Sprintf("Delete Containers %v Error: %s", delList, err.Error())
+						logrus.Error(errMsg)
+						errChan <- err
+
+					}
+					err = AddContainers(addList)
+					if err != nil {
+						errMsg := fmt.Sprintf("Add Containers %v Error: %s", delList, err.Error())
+						logrus.Error(errMsg)
+						errChan <- err
+					}
+				}()
 			}
 		}
 	}

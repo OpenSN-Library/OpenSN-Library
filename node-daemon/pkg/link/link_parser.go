@@ -64,16 +64,22 @@ func ParseLinkFromBytes(seq []byte) (model.Link, error) {
 			logrus.Error("Unmarshal Json Data to Veth Link Error, Redis Data May Crash: ", err.Error())
 			return nil, err
 		}
+		for k, v := range VirtualLinkParameterMap {
+			if _, ok := vLink.Config.InitParameter[k]; !ok {
+				vLink.Config.InitParameter[k] = v.DefaultVal
+			}
+		}
 		realLink = vLink
 	default:
 		err := fmt.Errorf("unsupported link type: %s", baseLink.GetLinkType())
 		logrus.Errorf("Parse Link Error: %s", err.Error())
 		return nil, err
 	}
+	realLink.GetLinkBasePtr().Parameter = realLink.GetLinkConfig().InitParameter
 	return realLink, nil
 }
 
-func ParseLinkFromConfig(config model.LinkConfig,nodeIndex int) (model.Link, error) {
+func ParseLinkFromConfig(config model.LinkConfig, nodeIndex int) (model.Link, error) {
 	var realLink model.Link
 
 	switch config.Type {
@@ -86,6 +92,6 @@ func ParseLinkFromConfig(config model.LinkConfig,nodeIndex int) (model.Link, err
 		logrus.Errorf("Parse Link Error: %s", err.Error())
 		return nil, err
 	}
-	
+	realLink.GetLinkBasePtr().Parameter = realLink.GetLinkConfig().InitParameter
 	return realLink, nil
 }

@@ -119,11 +119,16 @@ func CreateNsHandler(ctx *gin.Context) {
 			Type:          v.Type,
 			InitParameter: v.Parameter,
 		}
-		newLink.InitInstanceID[0] = instanceArray[v.InstanceIndex[0]].InstanceID
-		instanceArray[v.InstanceIndex[0]].LinkIDs = append(instanceArray[v.InstanceIndex[0]].LinkIDs, newLink.LinkID)
+		if v.InstanceIndex[0] >= 0 {
+			newLink.InitInstanceID[0] = instanceArray[v.InstanceIndex[0]].InstanceID
+			newLink.InitInstanceType[0] = instanceArray[v.InstanceIndex[0]].Type
+			instanceArray[v.InstanceIndex[0]].LinkIDs = append(instanceArray[v.InstanceIndex[0]].LinkIDs, newLink.LinkID)
+		}
 		if v.InstanceIndex[1] >= 0 {
 			newLink.InitInstanceID[1] = instanceArray[v.InstanceIndex[1]].InstanceID
+			newLink.InitInstanceType[1] = instanceArray[v.InstanceIndex[1]].Type
 			instanceArray[v.InstanceIndex[1]].LinkIDs = append(instanceArray[v.InstanceIndex[1]].LinkIDs, newLink.LinkID)
+
 		}
 		if deviceInfo, ok := link.LinkDeviceInfoMap[newLink.Type]; ok {
 			instanceArray[v.InstanceIndex[0]].DeviceInfo[newLink.Type] = deviceInfo[0]

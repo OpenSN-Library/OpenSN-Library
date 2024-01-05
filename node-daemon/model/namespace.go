@@ -24,12 +24,12 @@ type InstanceConfig struct {
 }
 
 type LinkConfig struct {
-	LinkID         string           `json:"link_id"`
-	InitInstanceID [2]string        `json:"init_instance_id"`
-	Type           string           `json:"type"`
-	InitParameter  map[string]int64 `json:"init_parameter"`
-	IPInfos        [2]IPInfoType    `json:"ip_info"`
-	
+	LinkID           string           `json:"link_id"`
+	InitInstanceID   [2]string        `json:"init_instance_id"`
+	InitInstanceType [2]string        `json:"init_instance_type"`
+	Type             string           `json:"type"`
+	InitParameter    map[string]int64 `json:"init_parameter"`
+	IPInfos          [2]IPInfoType    `json:"ip_infos"`
 }
 
 type Namespace struct {

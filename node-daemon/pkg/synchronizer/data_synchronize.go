@@ -73,6 +73,7 @@ func AddInstanceInfosToNode(index int, instanceInfos []*model.InstanceConfig, na
 			Config:    *config,
 			NodeID:    uint32(index),
 			Namespace: namespace,
+			LinkIDs: config.LinkIDs,
 		}
 		infoBytes, err := json.Marshal(info)
 		if err != nil {
