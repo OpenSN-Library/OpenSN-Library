@@ -1,0 +1,3 @@
+#!/bin/bash
+trap "TERM" exit 0
+tail -f /dev/null

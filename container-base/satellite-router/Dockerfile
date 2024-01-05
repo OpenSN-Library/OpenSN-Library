@@ -1,4 +1,4 @@
-FROM build-base-v2
+FROM build-base
 
 COPY materials/daemons /etc/frr/daemons
 COPY scripts/entrypoint /Workspace/entrypoint
