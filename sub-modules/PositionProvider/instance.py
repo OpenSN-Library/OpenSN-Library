@@ -1,55 +1,35 @@
-import ephem
-import json
-
-'''
-type Position struct {
-    Latitude  float64
-    Longitude float64
-    Altiutde  float64
-}
-
-'''
-
-
+from link import Link
+from const_var import R_EARTH,LIGHT_SPEED_M_S
+import math
 class Instance:
 
-    def __init__(self,id:str, tle:list[str]) -> None:
-        self.__instance_id = id
-        if len(tle) < 3 :
-            raise "TLE Info Not Valid"
-        self.__object = ephem.readtle(tle[0], tle[1], tle[2])
-        self.latitude = 0.0
-        self.longitude = 0.0
-        self.altitude = 0.0
-        
+    def __init__(self,instance_id:str,instance_type:str,ns:str,node_index:int,):
+        self.instance_id = instance_id
+        self.type = instance_type
+        self.node_index = node_index
+        self.latitude = 0.0 # radius
+        self.longitude = 0.0 # radius
+        self.altitude = 0.0 # meter
+        self.links: dict[str,Link] = {}
+        self.namespace = ns
 
-    def calculatePostion(self,time) -> (float,float,float):
-        ephem_time = ephem.Date(time)
-        self.__object.compute(ephem_time)
-        self.latitude = self.satellite.sublat
-        self.longitude = self.satellite.sublong
-        self.altitude = self.satellite.elevation
-    
-class InstanceEncoder(json.JSONEncoder):
-    def default(self, obj : Instance):
+    def get_position_dict(self) -> dict:
         return {
-            "latitude" : obj.latitude,
-            "longitude" : obj.longitude,
-            "altitude" : obj.altitude
+            "latitude" : self.latitude,
+            "longitude" : self.longitude,
+            "altitude" : self.altitude
         }
 
-if __name__ == "__main__":
-    sat = {
-        "a": Instance('114514',[
-            "BEIDOU 3 ",
-            "1 36287U 10001A   21187.60806788 -.00000272  00000-0  00000-0 0  9992",
-            "2 36287   1.9038  47.2796 0005620  82.9429 153.9116  1.00269947 42045"
-        ]),
-        "b": Instance('114514',[
-            "BEIDOU 3 ",
-            "1 36287U 10001A   21187.60806788 -.00000272  00000-0  00000-0 0  9992",
-            "2 36287   1.9038  47.2796 0005620  82.9429 153.9116  1.00269947 42045"
-        ])
-    }
+def distance(one:Instance,another:Instance) -> float: # meter
+    z1 = (one.altitude+R_EARTH) * math.sin(one.latitude)
+    base1 = (one.altitude+R_EARTH) * math.cos(one.latitude)
+    x1 = base1 * math.cos(one.longitude)
+    y1 = base1 * math.sin(one.longitude)
+    z2 = (another.altitude+R_EARTH) * math.sin(another.latitude)
+    base2 = (another.altitude+R_EARTH) * math.cos(another.latitude)
+    x2 = base2 * math.cos(another.longitude)
+    y2 = base2 * math.sin(another.longitude)
+    return math.sqrt((x1-x2)**2+(y1-y2)**2+(z1-z2)**2)
 
-    print(json.dumps(sat,cls=InstanceEncoder))
+def get_propagation_delay(distance_meter:float) -> float: # second
+    return distance_meter / LIGHT_SPEED_M_S

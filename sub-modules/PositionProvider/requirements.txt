@@ -1,4 +1,4 @@
 ephem
-python-etcd
+etcd3
 loguru
 redis
