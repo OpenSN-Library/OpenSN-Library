@@ -3,6 +3,7 @@ package module
 import (
 	"NodeDaemon/model"
 	"NodeDaemon/share/data"
+
 	"NodeDaemon/share/dir"
 	"NodeDaemon/share/key"
 	"NodeDaemon/share/signal"
@@ -62,8 +63,8 @@ func AddContainers(addList []string) error {
 						fmt.Sprintf("%s:%s", dir.MountShareData, "/share"),
 					},
 					Resources: container.Resources{
-						NanoCPUs: 1e7,
-						Memory:   6 * (1 << 20),
+						NanoCPUs: instance.Config.Resource.NanoCPU,
+						Memory:   instance.Config.Resource.MemoryByte,
 					},
 				}
 
@@ -77,7 +78,7 @@ func AddContainers(addList []string) error {
 				)
 
 				data.InstanceMap[v].ContainerID = createResp.ID
-				
+
 				return err
 			}, 2)
 			if err != nil {
@@ -104,6 +105,7 @@ func AddContainers(addList []string) error {
 				if err != nil {
 					return err
 				}
+
 				data.InstanceMap[v].Pid = inspect.State.Pid
 				return nil
 			}, 2)

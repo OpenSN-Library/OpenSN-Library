@@ -3,7 +3,12 @@ package utils
 import (
 	"fmt"
 	"net"
+	"regexp"
+	"strconv"
+	"strings"
 )
+
+var NumberRegex = regexp.MustCompile(`^[1-9]([\d]*)([KMGTkmgt]?)$`)
 
 func CreateV4InetMask(prefixLen int) []byte {
 	mask32 := ^(1<<(32-prefixLen) - 1)
@@ -56,11 +61,59 @@ func ByteArrayAdd(origin []byte, delta uint32) []byte {
 	copy(array, origin)
 	for i := len(array) - 1; i >= 0; i-- {
 		sum := uint32(array[i]) + delta
-		array[i] = byte(sum % 255)
-		delta = uint32(sum) / 255
+		array[i] = byte(sum % 256)
+		delta = uint32(sum) / 256
 		if delta == 0 {
 			break
 		}
 	}
 	return array
+}
+
+func ParseBinNumber(s string) (int64, error) {
+	parts := NumberRegex.FindStringSubmatch(s)
+	if len(parts) <= 0 {
+		return 0, fmt.Errorf("invalid number string %s, support [1-9][0-9]*[KMGTkmgt]?", s)
+	}
+	var conffienct int64 = 1
+
+	if len(parts) > 2 {
+		switch strings.ToLower(parts[2]) {
+		case "k":
+			conffienct <<= 10
+		case "m":
+			conffienct <<= 20
+		case "g":
+			conffienct <<= 30
+		case "t":
+			conffienct <<= 40
+		}
+	}
+
+	base, _ := strconv.ParseInt(parts[1], 10, 64)
+	return conffienct * base, nil
+}
+
+func ParseDecNumber(s string) (int64, error) {
+	parts := NumberRegex.FindStringSubmatch(s)
+	if len(parts) <= 0 {
+		return 0, fmt.Errorf("invalid number string %s, support [1-9][0-9]*[KMGTkmgt]?", s)
+	}
+	var conffienct int64 = 1
+
+	if len(parts) > 2 {
+		switch strings.ToLower(parts[2]) {
+		case "k":
+			conffienct *= 1e3
+		case "m":
+			conffienct *= 1e6
+		case "g":
+			conffienct *= 1e9
+		case "t":
+			conffienct *= 1e12
+		}
+	}
+
+	base, _ := strconv.ParseInt(parts[1], 10, 64)
+	return conffienct * base, nil
 }

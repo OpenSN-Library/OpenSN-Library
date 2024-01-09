@@ -1,8 +1,14 @@
 package ginmodel
 
+type ResourceLimit struct {
+	NanoCPU    string `json:"nano_cpu"`
+	MemoryByte string `json:"MemoryByte"`
+}
+
 type NsReqConfig struct {
-	ImageMap      map[string]string `json:"image_map"`
-	ContainerEnvs map[string]string `json:"container_envs"`
+	ImageMap      map[string]string        `json:"image_map"`
+	ContainerEnvs map[string]string        `json:"container_envs"`
+	ResourceMap      map[string]ResourceLimit `json:"resource_map"`
 }
 
 type InstanceReqConfig struct {
@@ -31,14 +37,12 @@ type UpdateNamespaceReq struct {
 }
 
 type NsInstanceData struct {
-
 }
 
 type NsLinkData struct {
-	
 }
 
 type NamespaceInfoData struct {
-	Name string `json:"name"`
-	Running bool `json:"running"`
+	Name    string `json:"name"`
+	Running bool   `json:"running"`
 }

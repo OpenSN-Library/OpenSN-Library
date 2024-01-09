@@ -65,7 +65,7 @@ func UpdateNodeIndexList() error {
 		}
 	}
 
-	if slices.Contains[[]int,int](remoteIndexList,key.NodeIndex) {
+	if slices.Contains[[]int, int](remoteIndexList, key.NodeIndex) {
 		return nil
 	}
 	remoteIndexList = append(remoteIndexList, key.NodeIndex)
@@ -141,7 +141,7 @@ func NodeInit() error {
 		config.GlobalConfig.Dependency.RedisDBIndex,
 	)
 	err = utils.InitDockerClient(config.GlobalConfig.Dependency.DockerHostPath)
-	if err != nil {
+		if err != nil {
 		return err
 	}
 	if !config.GlobalConfig.App.IsServant {

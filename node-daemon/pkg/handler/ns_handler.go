@@ -87,6 +87,36 @@ func CreateNsHandler(ctx *gin.Context) {
 		InstanceAllocInfo: make(map[int][]string),
 		LinkAllocInfo:     make(map[int][]string),
 	}
+
+	for k, v := range reqObj.NsConfig.ResourceMap {
+		cpuLimit, err := utils.ParseDecNumber(v.NanoCPU)
+		if err != nil {
+			errMsg := fmt.Sprintf("Parse Create Namespace Request Object Error: %s", err.Error())
+			logrus.Error(errMsg)
+			ctx.JSON(http.StatusBadRequest, ginmodel.JsonResp{
+				Code:    -1,
+				Message: errMsg,
+				Data:    nil,
+			})
+			return
+		}
+		memLimit, err := utils.ParseBinNumber(v.MemoryByte)
+		if err != nil {
+			errMsg := fmt.Sprintf("Parse Create Namespace Request Object Error: %s", err.Error())
+			logrus.Error(errMsg)
+			ctx.JSON(http.StatusBadRequest, ginmodel.JsonResp{
+				Code:    -1,
+				Message: errMsg,
+				Data:    nil,
+			})
+			return
+		}
+		namespace.NsConfig.ResourceLimitMap[k] = model.ResourceLimit{
+			NanoCPU:    cpuLimit,
+			MemoryByte: memLimit,
+		}
+	}
+
 	var instanceArray []model.InstanceConfig
 	var linkArray []model.LinkConfig
 	for i, v := range reqObj.InstConfigs {
@@ -97,6 +127,7 @@ func CreateNsHandler(ctx *gin.Context) {
 			PositionChangeable: v.PositionChangeable,
 			DeviceInfo:         make(map[string]model.DeviceRequireInfo),
 			Extra:              v.Extra,
+			Resource:           namespace.NsConfig.ResourceLimitMap[v.Type],
 		}
 
 		if imageName, ok := namespace.NsConfig.ImageMap[v.Type]; ok {

@@ -1,9 +1,15 @@
 package model
 
+type ResourceLimit struct {
+	NanoCPU    int64 `json:"nano_cpu"`
+	MemoryByte int64 `json:"memory_byte"`
+}
+
 type NamespaceConfig struct {
 	ImageMap           map[string]string
 	InterfaceAllocated []string
 	ContainerEnvs      map[string]string
+	ResourceLimitMap   map[string]ResourceLimit
 }
 
 type DeviceRequireInfo struct {
@@ -21,6 +27,7 @@ type InstanceConfig struct {
 	Extra              map[string]string            `json:"extra"`
 	LinkIDs            []string                     `json:"link_ids"`
 	DeviceInfo         map[string]DeviceRequireInfo `json:"device_need"`
+	Resource           ResourceLimit                `json:"resource"`
 }
 
 type LinkConfig struct {

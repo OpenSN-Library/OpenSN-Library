@@ -452,7 +452,7 @@ func linkDaemonFunc(sigChan chan int, errChan chan error) {
 					logrus.Error(errMsg)
 					errChan <- err
 				}
-
+				time.Sleep(10 * time.Second)
 				err = updateTopoInfoFile(addList, delList)
 
 				if err != nil {
