@@ -12,7 +12,7 @@ import (
 
 var TopoInfo model.TopoInfo
 
-func init() {
+func InitTopoInfoData() {
 	success := false
 	for !success {
 		fd, err := os.Open(config.TopoInfoPath)
