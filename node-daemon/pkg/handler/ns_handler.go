@@ -83,6 +83,7 @@ func CreateNsHandler(ctx *gin.Context) {
 			ImageMap:           reqObj.NsConfig.ImageMap,
 			ContainerEnvs:      reqObj.NsConfig.ContainerEnvs,
 			InterfaceAllocated: []string{},
+			ResourceLimitMap:   make(map[string]model.ResourceLimit),
 		},
 		InstanceAllocInfo: make(map[int][]string),
 		LinkAllocInfo:     make(map[int][]string),
@@ -151,13 +152,17 @@ func CreateNsHandler(ctx *gin.Context) {
 			InitParameter: v.Parameter,
 		}
 		if v.InstanceIndex[0] >= 0 {
-			newLink.InitInstanceID[0] = instanceArray[v.InstanceIndex[0]].InstanceID
-			newLink.InitInstanceType[0] = instanceArray[v.InstanceIndex[0]].Type
+			newLink.InitEndInfos[0] = model.EndInfoType{
+				InstanceID:   instanceArray[v.InstanceIndex[0]].InstanceID,
+				InstanceType: instanceArray[v.InstanceIndex[0]].Type,
+			}
 			instanceArray[v.InstanceIndex[0]].LinkIDs = append(instanceArray[v.InstanceIndex[0]].LinkIDs, newLink.LinkID)
 		}
 		if v.InstanceIndex[1] >= 0 {
-			newLink.InitInstanceID[1] = instanceArray[v.InstanceIndex[1]].InstanceID
-			newLink.InitInstanceType[1] = instanceArray[v.InstanceIndex[1]].Type
+			newLink.InitEndInfos[1] = model.EndInfoType{
+				InstanceID:   instanceArray[v.InstanceIndex[1]].InstanceID,
+				InstanceType: instanceArray[v.InstanceIndex[1]].Type,
+			}
 			instanceArray[v.InstanceIndex[1]].LinkIDs = append(instanceArray[v.InstanceIndex[1]].LinkIDs, newLink.LinkID)
 
 		}

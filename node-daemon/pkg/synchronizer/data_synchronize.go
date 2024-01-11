@@ -2,7 +2,6 @@ package synchronizer
 
 import (
 	"NodeDaemon/model"
-	"NodeDaemon/pkg/link"
 	"NodeDaemon/share/key"
 	"NodeDaemon/utils"
 	"context"

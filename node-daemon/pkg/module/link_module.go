@@ -221,15 +221,15 @@ func updateTopoInfoFile(addList []string, delList []model.Link) error {
 	dirtyMap := make(map[string]bool)
 	for _, v := range addList {
 		linkConfig := data.LinkMap[v].GetLinkConfig()
-		for i, instanceID := range linkConfig.InitInstanceID {
+		for i, endInfo := range linkConfig.InitEndInfos {
 			targetIndex := 1 - i%2
-			targetInstanceID := linkConfig.InitInstanceID[targetIndex]
+			targetInstanceID := linkConfig.InitEndInfos[targetIndex].InstanceID
 			if targetInstanceID == "" {
 				continue
 			} else {
-				dirtyMap[instanceID] = true
+				dirtyMap[endInfo.InstanceID] = true
 			}
-			if topoInfo, ok := data.TopoInfoMap[instanceID]; ok {
+			if topoInfo, ok := data.TopoInfoMap[endInfo.InstanceID]; ok {
 
 				topoInfo.LinkInfos[targetInstanceID] = &model.LinkInfo{
 					V4Addr: linkConfig.IPInfos[targetIndex].V4Addr,
@@ -241,8 +241,8 @@ func updateTopoInfoFile(addList []string, delList []model.Link) error {
 				}
 			} else {
 
-				data.TopoInfoMap[instanceID] = &model.TopoInfo{
-					InstanceID: instanceID,
+				data.TopoInfoMap[endInfo.InstanceID] = &model.TopoInfo{
+					InstanceID: endInfo.InstanceID,
 					LinkInfos: map[string]*model.LinkInfo{
 						targetInstanceID: {
 							V4Addr: linkConfig.IPInfos[targetIndex].V4Addr,
@@ -263,20 +263,20 @@ func updateTopoInfoFile(addList []string, delList []model.Link) error {
 
 	for _, v := range delList {
 		linkConfig := v.GetLinkConfig()
-		for i, instanceID := range linkConfig.InitInstanceID {
+		for i, endInfo := range linkConfig.InitEndInfos {
 			targetIndex := 1 - i%2
-			targetInstanceID := linkConfig.InitInstanceID[targetIndex]
+			targetInstanceID := linkConfig.InitEndInfos[targetIndex].InstanceID
 			if targetInstanceID == "" {
 				continue
 			} else {
-				dirtyMap[instanceID] = true
+				dirtyMap[endInfo.InstanceID] = true
 			}
 
-			delete(data.TopoInfoMap[instanceID].EndInfos, targetInstanceID)
-			delete(data.TopoInfoMap[instanceID].LinkInfos, targetInstanceID)
+			delete(data.TopoInfoMap[endInfo.InstanceID].EndInfos, targetInstanceID)
+			delete(data.TopoInfoMap[endInfo.InstanceID].LinkInfos, targetInstanceID)
 
-			if len(data.TopoInfoMap[instanceID].LinkInfos) == 0 {
-				delete(data.TopoInfoMap, instanceID)
+			if len(data.TopoInfoMap[endInfo.InstanceID].LinkInfos) == 0 {
+				delete(data.TopoInfoMap, endInfo.InstanceID)
 			}
 		}
 	}
@@ -344,36 +344,38 @@ type LinkModule struct {
 
 func AddLinks(addList []string, operator *model.NetlinkOperatorInfo) error {
 	for _, v := range addList {
-		linkInfo := data.LinkMap[v]
-		utils.Spin(func() bool {
-			res := true
-			for _, v := range linkInfo.GetEndInfos() {
-				if v.InstanceID == "" {
-					continue
+		go func(v string) {
+			linkInfo := data.LinkMap[v]
+			utils.Spin(func() bool {
+				res := true
+				for _, v := range linkInfo.GetEndInfos() {
+					if v.InstanceID == "" {
+						continue
+					}
+					instanceInfo, ok := data.InstanceMap[v.InstanceID]
+					if !ok || instanceInfo.Pid == 0 {
+						res = false
+						break
+					}
 				}
-				instanceInfo, ok := data.InstanceMap[v.InstanceID]
-				if !ok || instanceInfo.Pid == 0 {
-					res = false
-					break
-				}
-			}
-			return res
-		}, 100*time.Millisecond)
+				return res
+			}, 500*time.Millisecond)
 
-		err := linkInfo.Enable(operator)
-		if err != nil {
-			logrus.Errorf("Enable Link %s Error: %s", linkInfo.GetLinkID(), err.Error())
-		}
-		err = linkInfo.Connect(operator)
-		if err != nil {
-			logrus.Errorf("Connect Link %s Error: %s", linkInfo.GetLinkID(), err.Error())
-		}
-		logrus.Infof("Enable and Connect Link %s Between %s and %s, Type %s",
-			linkInfo.GetLinkID(),
-			linkInfo.GetLinkConfig().InitInstanceID[0],
-			linkInfo.GetLinkConfig().InitInstanceID[1],
-			linkInfo.GetLinkType(),
-		)
+			err := linkInfo.Enable(operator)
+			if err != nil {
+				logrus.Errorf("Enable Link %s Error: %s", linkInfo.GetLinkID(), err.Error())
+			}
+			err = linkInfo.Connect(operator)
+			if err != nil {
+				logrus.Errorf("Connect Link %s Error: %s", linkInfo.GetLinkID(), err.Error())
+			}
+			logrus.Infof("Enable and Connect Link %s Between %s and %s, Type %s",
+				linkInfo.GetLinkID(),
+				linkInfo.GetLinkConfig().InitEndInfos[0].InstanceID,
+				linkInfo.GetLinkConfig().InitEndInfos[1].InstanceID,
+				linkInfo.GetLinkType(),
+			)
+		}(v)
 	}
 	return nil
 }
@@ -438,6 +440,13 @@ func linkDaemonFunc(sigChan chan int, errChan chan error) {
 			} else {
 				logrus.Infof("Parse Update Link Info Success: Addlist:%v,Dellist: %v", addList, delList)
 			}
+			err = updateTopoInfoFile(addList, delList)
+
+			if err != nil {
+				errMsg := fmt.Sprintf("Update Container Topo Infomation Error: %s", err.Error())
+				logrus.Error(errMsg)
+				errChan <- err
+			}
 			go func() {
 				err = DelLinks(delList, &netOpInfo)
 				if err != nil {
@@ -452,15 +461,6 @@ func linkDaemonFunc(sigChan chan int, errChan chan error) {
 					logrus.Error(errMsg)
 					errChan <- err
 				}
-				time.Sleep(10 * time.Second)
-				err = updateTopoInfoFile(addList, delList)
-
-				if err != nil {
-					errMsg := fmt.Sprintf("Update Container Topo Infomation Error: %s", err.Error())
-					logrus.Error(errMsg)
-					errChan <- err
-				}
-
 			}()
 		}
 	}

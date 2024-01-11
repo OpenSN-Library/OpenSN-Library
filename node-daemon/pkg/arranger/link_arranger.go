@@ -15,21 +15,27 @@ func ArrangeLink(namespace *model.Namespace, instanceTarget map[int][]*model.Ins
 		}
 	}
 	for link_index, linkInfo := range namespace.LinkConfig {
-		if linkInfo.InitInstanceID[0] == "" {
-			targetIndex1 := nodeIndexSet[linkInfo.InitInstanceID[0]]
+		if linkInfo.InitEndInfos[0].InstanceID == "" {
+			targetIndex1 := nodeIndexSet[linkInfo.InitEndInfos[1].InstanceID]
+			linkInfo.InitEndInfos[1].EndNodeIndex = targetIndex1
 			actions[targetIndex1] = append(actions[targetIndex1], &namespace.LinkConfig[link_index])
-		} else if linkInfo.InitInstanceID[1] == "" {
-			targetIndex2 := nodeIndexSet[linkInfo.InitInstanceID[1]]
-			actions[targetIndex2] = append(actions[targetIndex2], &namespace.LinkConfig[link_index])
+
+		} else if linkInfo.InitEndInfos[1].InstanceID == "" {
+			targetIndex0 := nodeIndexSet[linkInfo.InitEndInfos[0].InstanceID]
+			linkInfo.InitEndInfos[0].EndNodeIndex = targetIndex0
+			actions[targetIndex0] = append(actions[targetIndex0], &namespace.LinkConfig[link_index])
+
 		} else {
-			targetIndex1 := nodeIndexSet[linkInfo.InitInstanceID[0]]
-			targetIndex2 := nodeIndexSet[linkInfo.InitInstanceID[1]]
-			logrus.Infof("Add Link Between %s and %s", linkInfo.InitInstanceID[0], linkInfo.InitInstanceID[1])
-			if targetIndex1 == targetIndex2 {
-				actions[targetIndex1] = append(actions[targetIndex1], &namespace.LinkConfig[link_index])
+			targetIndex0 := nodeIndexSet[linkInfo.InitEndInfos[0].InstanceID]
+			targetIndex1 := nodeIndexSet[linkInfo.InitEndInfos[1].InstanceID]
+			linkInfo.InitEndInfos[0].EndNodeIndex = targetIndex0
+			linkInfo.InitEndInfos[1].EndNodeIndex = targetIndex1
+			logrus.Infof("Add Link Between %s and %s", linkInfo.InitEndInfos[0].InstanceID, linkInfo.InitEndInfos[1].InstanceID)
+			if targetIndex0 == targetIndex1 {
+				actions[targetIndex0] = append(actions[targetIndex0], &namespace.LinkConfig[link_index])
 			} else {
+				actions[targetIndex0] = append(actions[targetIndex0], &namespace.LinkConfig[link_index])
 				actions[targetIndex1] = append(actions[targetIndex1], &namespace.LinkConfig[link_index])
-				actions[targetIndex2] = append(actions[targetIndex2], &namespace.LinkConfig[link_index])
 			}
 		}
 	}

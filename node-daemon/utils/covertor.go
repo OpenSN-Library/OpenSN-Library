@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-var NumberRegex = regexp.MustCompile(`^[1-9]([\d]*)([KMGTkmgt]?)$`)
+var NumberRegex = regexp.MustCompile(`^([1-9][0-9]*)([KMGTkmgt]?)$`)
 
 func CreateV4InetMask(prefixLen int) []byte {
 	mask32 := ^(1<<(32-prefixLen) - 1)

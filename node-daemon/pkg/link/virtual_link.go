@@ -67,16 +67,7 @@ func CreateVethLinkObject(initConfig model.LinkConfig) *VethLink {
 			SupportParameters: VirtualLinkParameterMap,
 			Parameter:         initConfig.InitParameter,
 			Config:            initConfig,
-			EndInfos: [2]model.EndInfoType{
-				{
-					InstanceID:   initConfig.InitInstanceID[0],
-					InstanceType: initConfig.InitInstanceType[0],
-				},
-				{
-					InstanceID:   initConfig.InitInstanceID[1],
-					InstanceType: initConfig.InitInstanceType[1],
-				},
-			},
+			EndInfos:          initConfig.InitEndInfos,
 		},
 		DevInfos: [2]DevInfoType{
 			{
@@ -164,7 +155,8 @@ func (l *VethLink) Disconnect(operatorInfo *model.NetlinkOperatorInfo) error {
 	return nil
 }
 
-func (l *VethLink) Enable(operatorInfo *model.NetlinkOperatorInfo) error {
+func (l *VethLink) enableSameMachine() error {
+	logrus.Infof("Enabling Link %s ,Type: Single Machine %s", l.Config.LinkID, l.Config.Type)
 	if l.Enabled {
 		logrus.Errorf("Enable %s and %s Error: %s has already been enabled", l.EndInfos[0].InstanceID, l.EndInfos[1].InstanceID, l.Config.LinkID)
 		return fmt.Errorf("%s is enabled", l.Config.LinkID)
@@ -188,12 +180,57 @@ func (l *VethLink) Enable(operatorInfo *model.NetlinkOperatorInfo) error {
 	peerIndex, err := netlink.VethPeerIndex(veth)
 	if err != nil {
 		logrus.Errorf("Get Peer Link Index of %d Error: %s", veth.Attrs().Index, err.Error())
+		return err
 	}
 
 	l.DevInfos[1].IfIndex = peerIndex
 	if err != nil {
 		logrus.Errorf("Get Init Net Namespace Error: %s", err.Error())
 	}
+
+	return nil
+}
+
+func (l *VethLink) enableCrossMachine() error {
+	for i, v := range l.EndInfos {
+		_, ok := data.InstanceMap[v.InstanceID]
+		if ok {
+			vxlanDev := netlink.Vxlan{
+				LinkAttrs: netlink.LinkAttrs{
+					Name:   l.DevInfos[i].Name,
+					TxQLen: -1,
+				},
+				VxlanId:  0,
+				SrcAddr:  data.NodeMap[key.NodeIndex].L3AddrV4,
+				Group:    data.NodeMap[l.EndInfos[i%1].EndNodeIndex].L3AddrV4,
+				Port:     0,
+				Learning: true,
+				L2miss:   true,
+				L3miss:   true,
+			}
+			err := netlink.LinkAdd(&vxlanDev)
+			if err != nil {
+				return err
+			}
+			l.DevInfos[i].IfIndex = vxlanDev.Index
+		}
+	}
+
+	return nil
+}
+
+func (l *VethLink) Enable(operatorInfo *model.NetlinkOperatorInfo) error {
+	var err error
+	if l.CrossMachine {
+		err = l.enableCrossMachine()
+	} else {
+		err = l.enableSameMachine()
+	}
+
+	if err != nil {
+		return err
+	}
+
 	for i, v := range l.EndInfos {
 		instanceInfo, ok := data.InstanceMap[v.InstanceID]
 		if v.InstanceID == "" {
@@ -208,15 +245,14 @@ func (l *VethLink) Enable(operatorInfo *model.NetlinkOperatorInfo) error {
 		operatorInfo.RequestChann <- &setNsreq
 		err := <-operatorInfo.ErrChan
 		if err != nil {
-			return err
-		}
-		if err != nil {
+			logrus.Errorf("Set Link Netns %d Error: %s", l.DevInfos[i].IfIndex, err.Error())
 			return err
 		}
 		setStateReq := netreq.CreateSetStateReq(l.DevInfos[i].IfIndex, instanceInfo.Pid, l.DevInfos[i].Name, true)
 		operatorInfo.RequestChann <- &setStateReq
 		err = <-operatorInfo.ErrChan
 		if err != nil {
+			logrus.Errorf("Set Link %d Up Error: %s", l.DevInfos[i].IfIndex, err.Error())
 			return err
 		}
 		if len(l.Config.IPInfos[i].V4Addr) > 0 {
@@ -229,6 +265,7 @@ func (l *VethLink) Enable(operatorInfo *model.NetlinkOperatorInfo) error {
 			operatorInfo.RequestChann <- &setV4AddrReq
 			err = <-operatorInfo.ErrChan
 			if err != nil {
+				logrus.Errorf("Set Link %d V4 Addr %s Error: %s", l.DevInfos[i].IfIndex, l.Config.IPInfos[i].V4Addr, err.Error())
 				return err
 			}
 		}
@@ -242,6 +279,7 @@ func (l *VethLink) Enable(operatorInfo *model.NetlinkOperatorInfo) error {
 			operatorInfo.RequestChann <- &setV6AddrReq
 			err = <-operatorInfo.ErrChan
 			if err != nil {
+				logrus.Errorf("Set Link %d V6 Addr %s Error: %s", l.DevInfos[i].IfIndex, l.Config.IPInfos[i].V6Addr, err.Error())
 				return err
 			}
 		}
@@ -280,10 +318,10 @@ func (l *VethLink) SetParameters(para map[string]int64, operatorInfo *model.Netl
 	var instanceInfos [2]*model.Instance
 
 	for i := 0; i < 2; i++ {
-		instanceInfo, ok := data.InstanceMap[l.Config.InitInstanceID[i]]
+		instanceInfo, ok := data.InstanceMap[l.Config.InitEndInfos[i].InstanceID]
 		if !ok {
-			logrus.Errorf("Set Parameter for Link Between %s and %s Error: Instance %s is not in Node %d", l.EndInfos[0].InstanceID, l.EndInfos[1].InstanceID, l.Config.InitInstanceID[i], key.NodeIndex)
-			return fmt.Errorf("%s is not in node %d", l.Config.InitInstanceID[i], key.NodeIndex)
+			logrus.Errorf("Set Parameter for Link Between %s and %s Error: Instance %s is not in Node %d", l.EndInfos[0].InstanceID, l.EndInfos[1].InstanceID, l.Config.InitEndInfos[i].InstanceID, key.NodeIndex)
+			return fmt.Errorf("%s is not in node %d", l.Config.InitEndInfos[i].InstanceID, key.NodeIndex)
 		}
 		instanceInfos[i] = instanceInfo
 	}

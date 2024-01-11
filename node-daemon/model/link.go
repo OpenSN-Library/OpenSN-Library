@@ -50,6 +50,7 @@ type IPInfoType struct {
 type EndInfoType struct {
 	InstanceID   string `json:"instance_id"`
 	InstanceType string `json:"instance_type"`
+	EndNodeIndex int    `json:"end_node_index"`
 }
 
 type LinkBase struct {
