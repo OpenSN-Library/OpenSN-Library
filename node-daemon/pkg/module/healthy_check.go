@@ -15,7 +15,7 @@ import (
 )
 
 var maxBeatSecond = 40
-var checkGap = maxBeatSecond / 2 * time.Now().Second()
+var checkGap = maxBeatSecond / 2 * int(time.Second)
 
 type HealthyCheckModule struct {
 	Base
@@ -98,7 +98,7 @@ func checkNodeHealthy(sigChan chan int, errChan chan error) {
 			if sig == signal.STOP_SIGNAL {
 				return
 			}
-		default:
+		case <-time.After(time.Duration(checkGap)):
 			// DO NOTHING, JUST FOR NO BLOCKING
 		}
 
@@ -130,7 +130,5 @@ func checkNodeHealthy(sigChan chan int, errChan chan error) {
 		if err != nil {
 			logrus.Error("Delete Dead Node Failed: ", err.Error())
 		}
-
-		time.Sleep(time.Duration(checkGap))
 	}
 }

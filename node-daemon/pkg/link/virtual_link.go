@@ -45,8 +45,6 @@ var VirtualLinkParameterMap = map[string]model.ParameterInfo{
 	},
 }
 
-
-
 type VethLink struct {
 	model.LinkBase
 
@@ -103,8 +101,7 @@ func (l *VethLink) Connect(operatorInfo *model.NetlinkOperatorInfo) error {
 		}
 		instanceInfo, ok := data.InstanceMap[v.InstanceID]
 		if !ok {
-			logrus.Errorf("Connect %s and %s Error: Instance %s is not in Node %d", l.EndInfos[0].InstanceID, l.EndInfos[1].InstanceID, v.InstanceID, key.NodeIndex)
-			return fmt.Errorf("%s is not in node %d", v.InstanceID, key.NodeIndex)
+			continue
 		}
 		setStateReq := netreq.CreateSetStateReq(l.DevInfos[i].IfIndex, instanceInfo.Pid, l.DevInfos[i].Name, true)
 		operatorInfo.RequestChann <- &setStateReq
@@ -131,8 +128,7 @@ func (l *VethLink) Disconnect(operatorInfo *model.NetlinkOperatorInfo) error {
 
 		instanceInfo, ok := data.InstanceMap[v.InstanceID]
 		if !ok {
-			logrus.Errorf("Disconnect %s and %s Error: Instance %s is not in Node %d", l.EndInfos[0].InstanceID, l.EndInfos[1].InstanceID, v.InstanceID, key.NodeIndex)
-			return fmt.Errorf("%s is not in node %d", v.InstanceID, key.NodeIndex)
+			continue
 		}
 		setStateReq := netreq.CreateSetStateReq(l.DevInfos[i].IfIndex, instanceInfo.Pid, l.DevInfos[i].Name, false)
 		operatorInfo.RequestChann <- &setStateReq
@@ -197,19 +193,21 @@ func (l *VethLink) enableCrossMachine() error {
 					Name:   l.DevInfos[i].Name,
 					TxQLen: -1,
 				},
-				VxlanId:  0,
+				VxlanId:  l.Config.LinkIndex,
 				SrcAddr:  data.NodeMap[key.NodeIndex].L3AddrV4,
-				Group:    data.NodeMap[l.EndInfos[i%1].EndNodeIndex].L3AddrV4,
-				Port:     0,
+				Group:    data.NodeMap[l.EndInfos[1-i].EndNodeIndex].L3AddrV4,
+				Port:     4789,
 				Learning: true,
 				L2miss:   true,
 				L3miss:   true,
 			}
+			logrus.Warnf("Create Vxlan %v", vxlanDev)
 			err := netlink.LinkAdd(&vxlanDev)
 			if err != nil {
 				return err
 			}
 			l.DevInfos[i].IfIndex = vxlanDev.Index
+			return nil
 		}
 	}
 
@@ -230,12 +228,8 @@ func (l *VethLink) Enable(operatorInfo *model.NetlinkOperatorInfo) error {
 
 	for i, v := range l.EndInfos {
 		instanceInfo, ok := data.InstanceMap[v.InstanceID]
-		if v.InstanceID == "" {
+		if v.InstanceID == "" || !ok {
 			continue
-		}
-		if !ok {
-			logrus.Errorf("Enable Link Between %s and %s Error: Instance %s is not in Node %d", l.EndInfos[0].InstanceID, l.EndInfos[1].InstanceID, v.InstanceID, key.NodeIndex)
-			return fmt.Errorf("%s is not in node %d", v.InstanceID, key.NodeIndex)
 		}
 
 		setNsreq := netreq.CreateSetNetNsReq(l.DevInfos[i].IfIndex, os.Getpid(), instanceInfo.Pid, l.DevInfos[i].Name)
@@ -293,17 +287,33 @@ func (l *VethLink) Disable(operatorInfo *model.NetlinkOperatorInfo) error {
 		logrus.Errorf("Disable %s and %s Error: %s is not enabled", l.EndInfos[0].InstanceID, l.EndInfos[1].InstanceID, l.Config.LinkID)
 		return fmt.Errorf("%s is not enabled", l.Config.LinkID)
 	}
-	instanceInfo, ok := data.InstanceMap[l.EndInfos[0].InstanceID]
-	if !ok {
-		logrus.Errorf("Disable Link Between %s and %s Error: Instance %s is not in Node %d", l.EndInfos[0].InstanceID, l.EndInfos[1].InstanceID, l.EndInfos[0].InstanceID, key.NodeIndex)
-		return fmt.Errorf("%s is not in node %d", l.EndInfos[0].InstanceID, key.NodeIndex)
-	}
-	deleteLinkReq := netreq.CreateDeleteLinkReq(l.DevInfos[0].IfIndex, instanceInfo.Pid, l.DevInfos[0].Name)
-	operatorInfo.RequestChann <- &deleteLinkReq
-	err := <-operatorInfo.ErrChan
-	if err != nil {
-		logrus.Errorf("Delete Link %s Index %d Error: %s", l.Config.LinkID, l.DevInfos[0].IfIndex, err.Error())
-		return err
+	if l.CrossMachine {
+		for i, v := range l.EndInfos {
+			if instanceInfo, ok := data.InstanceMap[v.InstanceID]; ok {
+				deleteLinkReq := netreq.CreateDeleteLinkReq(l.DevInfos[0].IfIndex, instanceInfo.Pid, l.DevInfos[i].Name)
+				operatorInfo.RequestChann <- &deleteLinkReq
+				err := <-operatorInfo.ErrChan
+				if err != nil {
+					logrus.Errorf("Delete Link %s Index %d Error: %s", l.Config.LinkID, l.DevInfos[i].IfIndex, err.Error())
+					return err
+				}
+				return nil
+			}
+		}
+	} else {
+		instanceInfo, ok := data.InstanceMap[l.EndInfos[0].InstanceID]
+		if !ok {
+			logrus.Errorf("Disable Link Between %s and %s Error: Instance %s is not in Node %d", l.EndInfos[0].InstanceID, l.EndInfos[1].InstanceID, l.EndInfos[0].InstanceID, key.NodeIndex)
+			return fmt.Errorf("%s is not in node %d", l.EndInfos[0].InstanceID, key.NodeIndex)
+		}
+		deleteLinkReq := netreq.CreateDeleteLinkReq(l.DevInfos[0].IfIndex, instanceInfo.Pid, l.DevInfos[0].Name)
+		operatorInfo.RequestChann <- &deleteLinkReq
+		err := <-operatorInfo.ErrChan
+		if err != nil {
+			logrus.Errorf("Delete Link %s Index %d Error: %s", l.Config.LinkID, l.DevInfos[0].IfIndex, err.Error())
+			return err
+		}
+		return nil
 	}
 	return nil
 }
@@ -317,8 +327,7 @@ func (l *VethLink) SetParameters(para map[string]int64, operatorInfo *model.Netl
 	for i := 0; i < 2; i++ {
 		instanceInfo, ok := data.InstanceMap[l.Config.InitEndInfos[i].InstanceID]
 		if !ok {
-			logrus.Errorf("Set Parameter for Link Between %s and %s Error: Instance %s is not in Node %d", l.EndInfos[0].InstanceID, l.EndInfos[1].InstanceID, l.Config.InitEndInfos[i].InstanceID, key.NodeIndex)
-			return fmt.Errorf("%s is not in node %d", l.Config.InitEndInfos[i].InstanceID, key.NodeIndex)
+			continue
 		}
 		instanceInfos[i] = instanceInfo
 	}

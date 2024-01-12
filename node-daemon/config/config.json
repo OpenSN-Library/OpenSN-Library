@@ -3,7 +3,8 @@
     "is_servant": false,
     "master_address": "172.16.208.128",
     "interface_name": "ens160",
-    "debug": false
+    "debug": false,
+    "instance_capacity" : 192
   },
   "dependency": {
     "etcd_addr"      : "172.16.208.128",

@@ -17,6 +17,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"time"
 
 	"sync"
 
@@ -223,7 +224,7 @@ func updateTopoInfoFile(addList []string, delList []model.Link) error {
 		for i, endInfo := range linkConfig.InitEndInfos {
 			targetIndex := 1 - i%2
 			targetInstanceID := linkConfig.InitEndInfos[targetIndex].InstanceID
-			if targetInstanceID == "" {
+			if targetInstanceID == "" || data.InstanceMap[targetInstanceID] == nil {
 				continue
 			} else {
 				dirtyMap[endInfo.InstanceID] = true
@@ -265,7 +266,7 @@ func updateTopoInfoFile(addList []string, delList []model.Link) error {
 		for i, endInfo := range linkConfig.InitEndInfos {
 			targetIndex := 1 - i%2
 			targetInstanceID := linkConfig.InitEndInfos[targetIndex].InstanceID
-			if targetInstanceID == "" {
+			if targetInstanceID == "" || data.InstanceMap[targetInstanceID] == nil {
 				continue
 			} else {
 				dirtyMap[endInfo.InstanceID] = true
@@ -342,33 +343,26 @@ type LinkModule struct {
 }
 
 func AddLinks(addList []string, operator *model.NetlinkOperatorInfo) error {
-	queue := addList
 
-	for {
-		if len(queue) == 0 {
-			break
-		}
-		var nextQueue []string
-		for i := 0; i < len(addList); i++ {
-			v := addList[i]
+	for i := 0; i < len(addList); i++ {
+		v := addList[i]
+		go func(v string) {
 			linkInfo := data.LinkMap[v]
 
-			ready := true
-			for _, v := range linkInfo.GetEndInfos() {
-				if v.InstanceID == "" {
-					continue
+			utils.Spin(func() bool {
+				ready := true
+				for _, v := range linkInfo.GetEndInfos() {
+					if v.InstanceID == "" {
+						continue
+					}
+					instanceInfo, ok := data.InstanceMap[v.InstanceID]
+					if ok && instanceInfo.Pid == 0 {
+						ready = false
+						break
+					}
 				}
-				instanceInfo, ok := data.InstanceMap[v.InstanceID]
-				if !ok || instanceInfo.Pid == 0 {
-					ready = false
-					break
-				}
-			}
-
-			if !ready {
-				nextQueue = append(nextQueue, addList[i])
-				continue
-			}
+				return ready
+			}, 500*time.Millisecond)
 
 			err := linkInfo.Enable(operator)
 			if err != nil {
@@ -384,8 +378,7 @@ func AddLinks(addList []string, operator *model.NetlinkOperatorInfo) error {
 				linkInfo.GetLinkConfig().InitEndInfos[1].InstanceID,
 				linkInfo.GetLinkType(),
 			)
-		}
-		queue = nextQueue
+		}(v)
 	}
 	return nil
 }

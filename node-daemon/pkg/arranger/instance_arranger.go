@@ -3,7 +3,8 @@ package arranger
 import (
 	"NodeDaemon/model"
 	"NodeDaemon/share/data"
-	"fmt"
+	"container/list"
+	"errors"
 	"sort"
 
 	"github.com/sirupsen/logrus"
@@ -21,11 +22,32 @@ func (s InstanceQueue) Less(i, j int) bool {
 	return len(s[i].DeviceInfo) > len(s[j].DeviceInfo)
 }
 
+func checkNodeValid(node *model.Node, instance *model.InstanceConfig) bool {
+	if node.FreeInstance <= 0 {
+		return false
+	}
+	for k, v := range instance.DeviceInfo {
+		nodeDev, ok := node.NodeLinkDeviceInfo[k]
+		if !ok {
+			return false
+		}
+		if nodeDev < v.NeedNum {
+			return false
+		}
+	}
+	for k, v := range instance.DeviceInfo {
+		if v.IsMutex {
+			node.NodeLinkDeviceInfo[k] = node.NodeLinkDeviceInfo[k] - v.NeedNum
+		}
+	}
+
+	return true
+}
+
 func ArrangeInstance(namespace *model.Namespace) (map[int][]*model.InstanceConfig, error) {
 
 	data.NodeMapLock.Lock()
 	defer data.NodeMapLock.Unlock()
-	var allocedDev = map[int]map[string]int{}
 	actions := make(map[int][]*model.InstanceConfig)
 	var instanceQueue InstanceQueue
 	for i := range namespace.InstanceConfig {
@@ -33,63 +55,45 @@ func ArrangeInstance(namespace *model.Namespace) (map[int][]*model.InstanceConfi
 	}
 	sort.Sort(instanceQueue)
 	left := namespace.AllocatedInstances
-	for index, node := range data.NodeMap {
-		for inst_index, inst := range instanceQueue {
-			valid := true
-			if inst == nil {
-				continue
-			}
-			for devType, devInfo := range inst.DeviceInfo {
-				if _, ok := node.NodeLinkDeviceInfo[devType]; !ok {
-					valid = false
-					break
-				}
-				if devInfo.IsMutex {
-					if node.NodeLinkDeviceInfo[devType] < devInfo.NeedNum {
-						valid = false
-					} else {
-						if allocedDev[index] == nil {
-							allocedDev[index] = map[string]int{
-								devType: devInfo.NeedNum,
-							}
-						} else {
-							allocedDev[index][devType] += devInfo.NeedNum
-						}
-						node.NodeLinkDeviceInfo[devType] -= devInfo.NeedNum
-					}
-				} else {
-					if node.NodeLinkDeviceInfo[devType] < devInfo.NeedNum {
-						valid = false
-					}
-				}
-			}
 
-			if valid {
-				logrus.Infof("Arrange %s to %d.", inst.InstanceID, index)
-				actions[index] = append(actions[index], inst)
-				instanceQueue[inst_index] = nil
-				left -= 1
-			}
+	nodeLinkList := list.New()
 
-		}
+	for _, v := range data.NodeMap {
+		nodeLinkList.PushBack(*v)
 	}
 
-	if left > 0 {
-		var leftIdArray []string
-		for _, v := range instanceQueue {
-			if v != nil {
-				leftIdArray = append(leftIdArray, v.InstanceID)
+	for _, instObject := range instanceQueue {
+		for ptr := nodeLinkList.Front(); ptr != nil; ptr = ptr.Next() {
+			node := ptr.Value.(model.Node)
+			if checkNodeValid(&node, instObject) {
+				if _, ok := actions[int(node.NodeID)]; ok {
+					actions[int(node.NodeID)] = append(actions[int(node.NodeID)], instObject)
+				} else {
+					actions[int(node.NodeID)] = []*model.InstanceConfig{instObject}
+				}
+				node.FreeInstance -= 1
+				left -= 1
+				nodeLinkList.Remove(ptr)
+				nodeLinkList.PushFront(node)
+				break
 			}
 		}
-		err := fmt.Errorf("%v cannot be arrange", leftIdArray)
-		logrus.Errorf("Unable to arrange Instances: %s", err.Error())
 
-		for node_index, allocMap := range allocedDev {
-			for devType, num := range allocMap {
-				data.NodeMap[node_index].NodeLinkDeviceInfo[devType] += num
+	}
+
+	if left <= 0 {
+		for ptr := nodeLinkList.Front(); ptr != nil; ptr = ptr.Next() {
+			node := ptr.Value.(model.Node)
+			data.NodeMap[int(node.NodeID)].FreeInstance = node.FreeInstance
+			for k, v := range node.NodeLinkDeviceInfo {
+				data.NodeMap[int(node.NodeID)].NodeLinkDeviceInfo[k] = v
 			}
 		}
-		return nil, err
+
+	} else {
+		errMsg := "Unable to arrange Instances: lack of hardware deivce"
+		logrus.Error(errMsg)
+		return nil, errors.New("Unable to arrange Instances: lack of hardware deivce")
 	}
 
 	return actions, nil

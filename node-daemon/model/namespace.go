@@ -35,6 +35,7 @@ type LinkConfig struct {
 	Type          string           `json:"type"`
 	InitParameter map[string]int64 `json:"init_parameter"`
 	IPInfos       [2]IPInfoType    `json:"ip_infos"`
+	LinkIndex     int              `json:"link_index"`
 }
 
 type Namespace struct {

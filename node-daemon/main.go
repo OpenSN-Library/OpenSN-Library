@@ -37,7 +37,7 @@ func main() {
 	} else {
 		config.InitConfig(DefaultConfigPath)
 	}
-	
+
 	err := initializer.NodeInit()
 	if err != nil {
 		errMsg := fmt.Sprintf("Init Node Error: %s", err.Error())
@@ -48,12 +48,12 @@ func main() {
 		module.CreateInstanceModuleTask(),
 		module.CreateLinkModuleTask(),
 		module.CreateStatusUpdateModule(),
-		module.CreateHealthyCheckTask(),
 		module.CreateNodeWatchTask(),
 	}
+
 	if !config.GlobalConfig.App.IsServant {
-		masterNodeModule := module.CreateMasterNodeModuleTask()
-		modules = append(modules, masterNodeModule)
+		modules = append(modules, module.CreateMasterNodeModuleTask())
+		modules = append(modules, module.CreateHealthyCheckTask())
 	}
 
 	for _, v := range modules {

@@ -1,10 +1,5 @@
 package model
 
-const (
-	MAX_INSTANCE_NODE  = 256
-	MASTER_NODE_MAKEUP = 32
-)
-
 type Node struct {
 	NodeID             uint32            `json:"node_id"`
 	FreeInstance       int               `json:"free_instance"`

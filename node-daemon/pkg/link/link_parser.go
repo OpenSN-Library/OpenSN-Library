@@ -98,5 +98,6 @@ func ParseLinkFromConfig(config model.LinkConfig, nodeIndex int) (model.Link, er
 		return nil, err
 	}
 	realLink.GetLinkBasePtr().Parameter = realLink.GetLinkConfig().InitParameter
+	realLink.GetLinkBasePtr().CrossMachine = config.InitEndInfos[0].EndNodeIndex != config.InitEndInfos[1].EndNodeIndex
 	return realLink, nil
 }

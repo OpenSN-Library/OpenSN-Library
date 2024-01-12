@@ -141,13 +141,17 @@ func NodeInit() error {
 		config.GlobalConfig.Dependency.RedisDBIndex,
 	)
 	err = utils.InitDockerClient(config.GlobalConfig.Dependency.DockerHostPath)
-		if err != nil {
+	if err != nil {
 		return err
 	}
 	if !config.GlobalConfig.App.IsServant {
 		key.NodeIndex = 0
 		err := config.InitConfigMasterMode()
 		if err != nil {
+			return err
+		}
+		setResp := utils.RedisClient.Set(context.Background(), key.NextNodeIndexKey, "1", -1)
+		if setResp.Err() != nil {
 			return err
 		}
 	} else {
@@ -163,7 +167,7 @@ func NodeInit() error {
 	key.InitKeys()
 	selfInfo := &model.Node{
 		NodeID:             uint32(key.NodeIndex),
-		FreeInstance:       model.MAX_INSTANCE_NODE,
+		FreeInstance:       config.GlobalConfig.App.InstanceCapacity,
 		IsMasterNode:       key.NodeIndex == 0,
 		NsInstanceMap:      map[string]string{},
 		NsLinkMap:          map[string]string{},
@@ -174,10 +178,6 @@ func NodeInit() error {
 		selfInfo.NodeLinkDeviceInfo[k] = len(v)
 	}
 	selfInfo.NodeLinkDeviceInfo[link.VirtualLinkType] = 1
-
-	if key.NodeIndex == 0 {
-		selfInfo.FreeInstance -= model.MASTER_NODE_MAKEUP
-	}
 
 	err = getInterfaceInfo(config.GlobalConfig.App.InterfaceName, selfInfo)
 

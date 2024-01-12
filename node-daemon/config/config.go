@@ -19,10 +19,11 @@ const (
 )
 
 type AppConfigType struct {
-	IsServant     bool   `json:"is_servant"`
-	MasterAddress string `json:"master_address"`
-	InterfaceName string `json:"interface_name"`
-	Debug         bool   `json:"debug"`
+	IsServant        bool   `json:"is_servant"`
+	MasterAddress    string `json:"master_address"`
+	InterfaceName    string `json:"interface_name"`
+	Debug            bool   `json:"debug"`
+	InstanceCapacity int    `json:"instance_capacity"`
 }
 
 type DependencyConfigType struct {
@@ -70,7 +71,6 @@ func GetConfigEnvBool(name string, defaultVal bool) bool {
 
 func InitConfig(jsonPath string) {
 	cfg, err := os.Open(jsonPath)
-	defer cfg.Close()
 	if err != nil {
 		errMsg := fmt.Sprintf("Load Json Config File in %s Error %s", jsonPath, err.Error())
 		logrus.Error(errMsg)
@@ -83,7 +83,7 @@ func InitConfig(jsonPath string) {
 		logrus.Error(errMsg)
 		panic(errMsg)
 	}
-	
+
 	GlobalConfig.Dependency.DockerHostPath = GetConfigEnvString("DOCKER_HOST", GlobalConfig.Dependency.DockerHostPath)
 	GlobalConfig.App.IsServant = GetConfigEnvBool("IS_SERVANT", GlobalConfig.App.IsServant)
 	GlobalConfig.App.Debug = GetConfigEnvBool("DEBUG", GlobalConfig.App.Debug)
@@ -113,6 +113,12 @@ func InitConfig(jsonPath string) {
 		GlobalConfig.App.MasterAddress = GetConfigEnvString("MASTER_ADDRESS", GlobalConfig.App.MasterAddress)
 	}
 	logrus.Infof("Init Config Success, Config is %v", GlobalConfig)
+	err = cfg.Close()
+	if err != nil {
+		errMsg := fmt.Sprintf("Close Config File Error: %s", err.Error())
+		logrus.Error(errMsg)
+		panic(errMsg)
+	}
 }
 
 func InitConfigMasterMode() error {

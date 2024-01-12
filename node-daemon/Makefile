@@ -7,8 +7,8 @@ build:
 	cp share/static/dist/version.txt ./build/
 	tar cvf satellite-emulator-daemon.tar.gz build/*
 clean:
-	-rm -rf ./build
-	-rm satellite-emulator-daemon.tar.gz
+	-sudo rm -rf ./build
+	-sudo rm satellite-emulator-daemon.tar.gz
 wrap:
 	sudo docker run --rm -v `pwd`:/workspace golang:1.21 sh -c "cd /workspace && go env -w GOPROXY=https://goproxy.cn,direct && go mod tidy && go build"
 	-sudo docker rmi -f satellite_emulator/node-daemon

@@ -115,6 +115,33 @@ func watchNodeChange(sigChan chan int, errChan chan error) {
 		time.Sleep(500 * time.Millisecond)
 	}
 
+	res, err := utils.EtcdClient.Get(
+		context.Background(),
+		key.NodeIndexListKey,
+	)
+
+	if err != nil {
+		errMsg := fmt.Sprintf("Init Node Index List Error: %s", err.Error())
+		logrus.Error(errMsg)
+	} else if len(res.Kvs) <= 0 {
+		errMsg := "Init Node Index List Error: empty array"
+		logrus.Error(errMsg)
+	} else {
+		var nodeList []int
+		err := json.Unmarshal(res.Kvs[0].Value, &nodeList)
+		if err != nil {
+			errMsg := fmt.Sprintf("Parse Node Index List Error: %s", res.Kvs[0].Value)
+			logrus.Error(errMsg)
+		} else {
+			err = parseNodeChange(nodeList)
+			if err != nil {
+				errMsg := fmt.Sprintf("Parse Node Change Error: %s", err.Error())
+				logrus.Error(errMsg)
+			}
+		}
+
+	}
+
 	for {
 		watchChann := utils.EtcdClient.Watch(
 			context.Background(),
@@ -132,6 +159,7 @@ func watchNodeChange(sigChan chan int, errChan chan error) {
 			if err != nil {
 				errMsg := fmt.Sprintf("Parse Node Index List Error: %s", nodeListStr)
 				logrus.Error(errMsg)
+				continue
 			}
 			err = parseNodeChange(nodeList)
 			if err != nil {

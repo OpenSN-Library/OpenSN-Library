@@ -2,18 +2,17 @@ package ginmodel
 
 type ResourceLimit struct {
 	NanoCPU    string `json:"nano_cpu"`
-	MemoryByte string `json:"MemoryByte"`
+	MemoryByte string `json:"memory_byte"`
 }
 
 type NsReqConfig struct {
 	ImageMap      map[string]string        `json:"image_map"`
 	ContainerEnvs map[string]string        `json:"container_envs"`
-	ResourceMap      map[string]ResourceLimit `json:"resource_map"`
+	ResourceMap   map[string]ResourceLimit `json:"resource_map"`
 }
 
 type InstanceReqConfig struct {
 	Type               string            `json:"type"`
-	PositionChangeable bool              `json:"position_changeable"`
 	Extra              map[string]string `json:"extra"`
 }
 
