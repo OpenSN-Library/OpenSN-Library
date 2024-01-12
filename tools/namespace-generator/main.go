@@ -39,7 +39,6 @@ func main() {
 	for i := 0; i < len(bufs)/3; i++ {
 		newInstConfig := ginmodel.InstanceReqConfig{
 			Type:               "Satellite",
-			PositionChangeable: true,
 			Extra: map[string]string{
 				"TLE_0":          string(bufs[3*i]),
 				"TLE_1":          string(bufs[3*i+1]),
