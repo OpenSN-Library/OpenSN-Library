@@ -1,1 +1,0 @@
-rm ../configuration/frr/* > /dev/null
