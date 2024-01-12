@@ -20,4 +20,8 @@ configuration
 *.mp4
 .DS_Store
 *.zip
+*.tar.gz
 node-daemon/NodeDaemon
+
+#[Build Target]
+node-daemon/build

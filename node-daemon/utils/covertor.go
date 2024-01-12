@@ -117,3 +117,42 @@ func ParseDecNumber(s string) (int64, error) {
 	base, _ := strconv.ParseInt(parts[1], 10, 64)
 	return conffienct * base, nil
 }
+
+func FormatIPv4(addr []byte) string {
+	if len(addr) < 4 {
+		return ""
+	}
+	return fmt.Sprintf(
+		"%d.%d.%d.%d",
+		addr[0],
+		addr[1],
+		addr[2],
+		addr[3],
+	)
+}
+
+func FormatIPv6(addr []byte) string {
+	if len(addr) < 16 {
+		return ""
+	}
+	ret := fmt.Sprintf("%02x%02x", addr[0], addr[1])
+	for i := 2; i < 16; i += 2 {
+		ret += fmt.Sprintf(":%02x%02x", addr[i], addr[i+1])
+	}
+	return ret
+}
+
+func FormatMacAddr(addr []byte) string {
+	if len(addr) < 6 {
+		return ""
+	}
+	return fmt.Sprintf(
+		"%02x:%02x:%02x:%02x:%02x:%02x",
+		addr[0],
+		addr[1],
+		addr[2],
+		addr[3],
+		addr[4],
+		addr[5],
+	)
+}

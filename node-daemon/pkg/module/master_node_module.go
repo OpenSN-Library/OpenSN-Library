@@ -4,8 +4,12 @@ import (
 	"NodeDaemon/config"
 	"NodeDaemon/pkg/handler"
 	"NodeDaemon/share/signal"
+	"NodeDaemon/share/static"
 	"errors"
+	"fmt"
+	"mime"
 	"net/http"
+	"strings"
 	"sync"
 
 	"github.com/gin-contrib/cors"
@@ -33,6 +37,31 @@ func RegisterHandlers(r *gin.Engine) {
 	namespace.POST("/:name/stop", handler.StopNsHandler)
 	namespace.DELETE("/:name", handler.DeleteNsHandler)
 	namespace.GET("/:name", handler.GetNodeInfoHandler)
+	node := api.Group("/node")
+	node.GET("/list", handler.GetNodeListHandler)
+	node.GET("/:node_index", handler.GetNodeInfoHandler)
+
+}
+
+func RegisterStatics(r *gin.Engine) {
+	r.NoRoute(func(c *gin.Context) { // 当 API 不存在时，返回静态文件
+		path := c.Request.URL.Path                                          // 获取请求路径
+		s := strings.Split(path, ".")                                       // 分割路径，获取文件后缀
+		prefix := "ui"                                                      // 前缀路径
+		if data, err := static.Static.ReadFile(prefix + path); err != nil { // 读取文件内容
+			// 如果文件不存在，返回首页 index.html
+			if data, err = static.Static.ReadFile(prefix + "/index.html"); err != nil {
+				c.JSON(404, gin.H{
+					"err": err,
+				})
+			} else {
+				c.Data(200, mime.TypeByExtension(".html"), data)
+			}
+		} else {
+			// 如果文件存在，根据请求的文件后缀，设置正确的mime type，并返回文件内容
+			c.Data(200, mime.TypeByExtension(fmt.Sprintf(".%s", s[len(s)-1])), data)
+		}
+	})
 }
 
 func masterDaemonFunc(sigChann chan int, errChann chan error) {
@@ -46,6 +75,7 @@ func masterDaemonFunc(sigChann chan int, errChann chan error) {
 	}
 	r.Use(cors.Default())
 	RegisterHandlers(r)
+	RegisterStatics(r)
 	srv := &http.Server{
 		Addr:    "0.0.0.0:8080",
 		Handler: r,

@@ -8,6 +8,11 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+type DevInfoType struct {
+	IfIndex int    `json:"if_index"`
+	Name    string `json:"name"`
+}
+
 var LinkDeviceInfoMap = map[string][2]model.DeviceRequireInfo{
 	VirtualLinkType: {
 		{

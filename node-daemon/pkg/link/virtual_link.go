@@ -45,10 +45,7 @@ var VirtualLinkParameterMap = map[string]model.ParameterInfo{
 	},
 }
 
-type DevInfoType struct {
-	IfIndex int    `json:"if_index"`
-	Name    string `json:"name"`
-}
+
 
 type VethLink struct {
 	model.LinkBase
@@ -63,7 +60,7 @@ func CreateVethLinkObject(initConfig model.LinkConfig) *VethLink {
 	return &VethLink{
 		LinkBase: model.LinkBase{
 			Enabled:           false,
-			CrossMachine:      false,
+			CrossMachine:      initConfig.InitEndInfos[0].EndNodeIndex != initConfig.InitEndInfos[1].EndNodeIndex,
 			SupportParameters: VirtualLinkParameterMap,
 			Parameter:         initConfig.InitParameter,
 			Config:            initConfig,
@@ -348,9 +345,12 @@ func (l *VethLink) SetParameters(para map[string]int64, operatorInfo *model.Netl
 	}
 
 	for i, v := range l.DevInfos {
+
 		if dirtyTbf {
 			tbfInfo := l.TbfQdiscTemplate
 			tbfInfo.Limit = uint32(l.Parameter[VethBandwidthParameter])
+			tbfInfo.Rate = uint64(l.Parameter[VethBandwidthParameter])
+			tbfInfo.Buffer = uint32(l.Parameter[VethBandwidthParameter])
 			setTbfReq := netreq.CreateSetQdiscReq(
 				v.IfIndex,
 				instanceInfos[i].Pid,
@@ -375,14 +375,14 @@ func (l *VethLink) SetParameters(para map[string]int64, operatorInfo *model.Netl
 				},
 			)
 
-			setTbfReq := netreq.CreateSetQdiscReq(
+			setNetemReq := netreq.CreateSetQdiscReq(
 				l.DevInfos[i].IfIndex,
 				instanceInfos[i].Pid,
 				netreq.ReplaceQdisc,
 				l.DevInfos[i].Name,
 				netemInfo,
 			)
-			operatorInfo.RequestChann <- &setTbfReq
+			operatorInfo.RequestChann <- &setNetemReq
 			err := <-operatorInfo.ErrChan
 			if err != nil {
 				logrus.Errorf("Update Netem for Link Between %s and %s Error: %s", l.EndInfos[0].InstanceID, l.EndInfos[1].InstanceID, err.Error())

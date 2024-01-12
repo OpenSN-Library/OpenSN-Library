@@ -17,7 +17,6 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
-	"time"
 
 	"sync"
 
@@ -343,23 +342,33 @@ type LinkModule struct {
 }
 
 func AddLinks(addList []string, operator *model.NetlinkOperatorInfo) error {
-	for _, v := range addList {
-		go func(v string) {
+	queue := addList
+
+	for {
+		if len(queue) == 0 {
+			break
+		}
+		var nextQueue []string
+		for i := 0; i < len(addList); i++ {
+			v := addList[i]
 			linkInfo := data.LinkMap[v]
-			utils.Spin(func() bool {
-				res := true
-				for _, v := range linkInfo.GetEndInfos() {
-					if v.InstanceID == "" {
-						continue
-					}
-					instanceInfo, ok := data.InstanceMap[v.InstanceID]
-					if !ok || instanceInfo.Pid == 0 {
-						res = false
-						break
-					}
+
+			ready := true
+			for _, v := range linkInfo.GetEndInfos() {
+				if v.InstanceID == "" {
+					continue
 				}
-				return res
-			}, 500*time.Millisecond)
+				instanceInfo, ok := data.InstanceMap[v.InstanceID]
+				if !ok || instanceInfo.Pid == 0 {
+					ready = false
+					break
+				}
+			}
+
+			if !ready {
+				nextQueue = append(nextQueue, addList[i])
+				continue
+			}
 
 			err := linkInfo.Enable(operator)
 			if err != nil {
@@ -375,7 +384,8 @@ func AddLinks(addList []string, operator *model.NetlinkOperatorInfo) error {
 				linkInfo.GetLinkConfig().InitEndInfos[1].InstanceID,
 				linkInfo.GetLinkType(),
 			)
-		}(v)
+		}
+		queue = nextQueue
 	}
 	return nil
 }

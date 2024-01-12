@@ -125,7 +125,6 @@ func CreateNsHandler(ctx *gin.Context) {
 			InstanceID:         fmt.Sprintf("%s_%s_%d", namespace.Name, v.Type, i),
 			Name:               fmt.Sprintf("%s_%d", v.Type, i),
 			Type:               v.Type,
-			PositionChangeable: v.PositionChangeable,
 			DeviceInfo:         make(map[string]model.DeviceRequireInfo),
 			Extra:              v.Extra,
 			Resource:           namespace.NsConfig.ResourceLimitMap[v.Type],

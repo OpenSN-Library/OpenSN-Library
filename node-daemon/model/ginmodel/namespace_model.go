@@ -13,7 +13,6 @@ type NsReqConfig struct {
 
 type InstanceReqConfig struct {
 	Type               string            `json:"type"`
-	PositionChangeable bool              `json:"position_changeable"`
 	Extra              map[string]string `json:"extra"`
 }
 

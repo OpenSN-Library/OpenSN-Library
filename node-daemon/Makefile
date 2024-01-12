@@ -1,12 +1,20 @@
 build:
-	echo "Build Commit:"`git rev-parse HEAD`", Build Time:"`date` > share/static/dist/version.txt
+	mkdir -p build/config
+	echo "Build Commit:"`git rev-parse HEAD`", Build Time:"`date`", Arch:"`go env GOARCH`"-"`go env GOOS` > share/static/dist/version.txt
 	go build
+	mv ./NodeDaemon ./build/NodeDaemon
+	cp ./config/config.json ./build/config/
+	cp share/static/dist/version.txt ./build/
+	tar cvf satellite-emulator-daemon.tar.gz build/*
+clean:
+	-rm -rf ./build
+	-rm satellite-emulator-daemon.tar.gz
 wrap:
 	sudo docker run --rm -v `pwd`:/workspace golang:1.21 sh -c "cd /workspace && go env -w GOPROXY=https://goproxy.cn,direct && go mod tidy && go build"
 	-sudo docker rmi -f satellite_emulator/node-daemon
 	sudo docker build . -t satellite_emulator/node-daemon
 run:
-	sudo ./NodeDaemon
+	cd build && sudo ./NodeDaemon
 dep:
 	-sudo docker stop emulator_etcd
 	-sudo docker stop emulator_redis
