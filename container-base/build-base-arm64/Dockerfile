@@ -13,7 +13,8 @@ RUN apt update && apt install -y iproute2 \
     tcpdump \
     vim \
     iputils-ping \
-    traceroute
+    traceroute \
+    iperf3
 COPY scripts/entrypoint /Workspace/entrypoint
 RUN chmod +x /Workspace/entrypoint
 CMD ["bash", "/Workspace/entrypoint"]

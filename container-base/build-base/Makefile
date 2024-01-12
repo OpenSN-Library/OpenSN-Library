@@ -1,2 +1,2 @@
 build:
-	sudo docker build . -t `basename \`pwd\``
+	sudo docker build . -t build-base

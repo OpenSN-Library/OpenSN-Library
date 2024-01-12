@@ -1,4 +1,5 @@
 build:
+	echo "Build Commit:"`git rev-parse HEAD`", Build Time:"`date` > share/static/dist/version.txt
 	go build
 wrap:
 	sudo docker run --rm -v `pwd`:/workspace golang:1.21 sh -c "cd /workspace && go env -w GOPROXY=https://goproxy.cn,direct && go mod tidy && go build"
