@@ -25,3 +25,4 @@ node-daemon/NodeDaemon
 
 #[Build Target]
 node-daemon/build
+tools/namespace-generator/generator
