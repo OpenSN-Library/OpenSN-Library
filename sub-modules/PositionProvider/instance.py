@@ -13,7 +13,7 @@ class Instance:
         self.links: dict[str,Link] = {}
         self.namespace = ns
 
-    def get_position_dict(self) -> dict:
+    def get_position_dict(self) -> dict[str,float]:
         return {
             "latitude" : self.latitude,
             "longitude" : self.longitude,

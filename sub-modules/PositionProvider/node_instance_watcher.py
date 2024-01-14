@@ -1,8 +1,7 @@
-from collections.abc import Callable, Iterable, Mapping
+
 import json, time
-from typing import Any
-from instance import Instance
 from satellite import Satellite
+from ground_station import GroundStation
 from loguru import logger
 from threading import Thread,RLock
 from link import ISL,GSL,Link
@@ -30,14 +29,21 @@ from const_var import \
     LINK_PARAMETER_FIELD,\
     NODE_INST_LIST_KEY_TEMPLATE,\
     INS_CONFIG_FIELD,\
-    INS_NS_FIELD
+    INS_NS_FIELD,\
+    EX_ALTITUDE_KEY,\
+    EX_LATITUDE_KEY,\
+    EX_LONGITUDE_KEY,\
+    LINK_CONFIG_FIELD,\
+    LINK_CONFIG_ID_FIELD
 
 from const_var import TYPE_SATELLITE
 
 
-MovingInstancesLock = RLock()
-MovingInstances: dict[bytes,Instance] = {}
+SatellitesLock = RLock()
+Satellites: dict[bytes,Satellite] = {}
 
+GroundStationsLock = RLock()
+GroundStations: dict[bytes,GroundStation] = {}
 
 '''
 type Instance struct {
@@ -75,6 +81,7 @@ def create_link_from_json(json_seq: bytes) -> Link:
     if link_dict[LINK_ENDINFO_FIELD][0][ENDINFO_INSTANCE_TYPE_FIELD] == TYPE_SATELLITE and \
         link_dict[LINK_ENDINFO_FIELD][1][ENDINFO_INSTANCE_TYPE_FIELD] == TYPE_SATELLITE :
         ret = ISL(
+            link_dict[LINK_CONFIG_FIELD][LINK_CONFIG_ID_FIELD],
             [
                 link_dict[LINK_ENDINFO_FIELD][0][ENDINFO_INSTANCE_ID_FIELD],
                 link_dict[LINK_ENDINFO_FIELD][1][ENDINFO_INSTANCE_ID_FIELD]
@@ -82,23 +89,19 @@ def create_link_from_json(json_seq: bytes) -> Link:
             link_dict[LINK_PARAMETER_FIELD],
             False
         )
-        if MovingInstances[ret.instance_id[0]].orbit_index != MovingInstances[ret.instance_id[1]].orbit_index :
+        if Satellites[ret.instance_id[0]].orbit_index != Satellites[ret.instance_id[1]].orbit_index :
             ret.is_inter_orbit = True
         else:
             ret.is_inter_orbit = False
     else:
         ret = GSL(
+            link_dict[LINK_CONFIG_FIELD][LINK_CONFIG_ID_FIELD],
             [
                 link_dict[LINK_ENDINFO_FIELD][0][ENDINFO_INSTANCE_ID_FIELD],
                 link_dict[LINK_ENDINFO_FIELD][1][ENDINFO_INSTANCE_ID_FIELD]
             ],
             link_dict[LINK_PARAMETER_FIELD],
-            True
         )
-        if ret.instance_id[0] == "" or ret.instance_id[1] == "" :
-            ret.is_float = True
-        else:
-            ret.is_float = False
     return ret
 
 def parse_node_instance_change(key_list : list[str],node_index:int):
@@ -106,13 +109,13 @@ def parse_node_instance_change(key_list : list[str],node_index:int):
     del_key : list[str] = []
     link_id_set : set[list] = set()
     for remote_key in key_list:
-        if remote_key not in MovingInstances.keys():
+        if remote_key not in Satellites.keys():
             add_key.append(remote_key)
-    for local_key in MovingInstances.keys():
+    for local_key in Satellites.keys():
         if local_key not in key_list:
             del_key.append(local_key)
     for to_del in del_key:
-        del MovingInstances[to_del]
+        del Satellites[to_del]
     if len(add_key) > 0:
         infos = redis_client.hmget(NODE_INS_INFO_KEY_TEMPLATE%node_index,add_key)
         for index in range(len(add_key)):
@@ -132,9 +135,19 @@ def parse_node_instance_change(key_list : list[str],node_index:int):
                 )
                 for link_id in instance_obj_dict[INS_CONFIG_FIELD][INS_LINK_ID_FIELD]:
                     link_id_set.add(link_id)
-                MovingInstances[add_key[index]]=inst
+                Satellites[add_key[index]]=inst
             elif instance_obj_dict[INS_CONFIG_FIELD][INS_TYPE_FIELD] == TYPE_GROUND_STATION:
-                pass
+                inst = GroundStation(
+                    add_key[index],
+                    instance_obj_dict[INS_NS_FIELD],
+                    node_index,
+                    instance_obj_dict[INS_CONFIG_FIELD][INS_EXTRA_FIELD][EX_LATITUDE_KEY],
+                    instance_obj_dict[INS_CONFIG_FIELD][INS_EXTRA_FIELD][EX_LONGITUDE_KEY],
+                    instance_obj_dict[INS_CONFIG_FIELD][INS_EXTRA_FIELD][EX_ALTITUDE_KEY]
+                )
+                for link_id in instance_obj_dict[INS_CONFIG_FIELD][INS_LINK_ID_FIELD]:
+                    link_id_set.add(link_id)
+                GroundStations[add_key[index]]=inst
     if len(link_id_set) > 0:
         link_id_list = list(link_id_set)
         link_info_seqs = redis_client.hmget(NODE_LINK_INFO_KEY_TEMPLATE%node_index,link_id_list)
@@ -142,8 +155,8 @@ def parse_node_instance_change(key_list : list[str],node_index:int):
             if link_info_seqs[link_info_index] is None:
                 continue
             link_obj = create_link_from_json(link_info_seqs[link_info_index])
-            MovingInstances[link_obj.instance_id[0]].links[link_id_list[link_info_index]] = link_obj
-            MovingInstances[link_obj.instance_id[1]].links[link_id_list[link_info_index]] = link_obj
+            Satellites[link_obj.instance_id[0]].links[link_id_list[link_info_index]] = link_obj
+            Satellites[link_obj.instance_id[1]].links[link_id_list[link_info_index]] = link_obj
         
 
 
@@ -169,9 +182,9 @@ class NodeInstanceWatcher(Thread):
         val,useless = etcd_client.get(self.watch_key)
         if val is not None:
             node_list = json.loads(val)
-            MovingInstancesLock.acquire()
+            SatellitesLock.acquire()
             parse_node_instance_change(node_list,self.node_index)
-            MovingInstancesLock.release()
+            SatellitesLock.release()
         while not self.stop_sig:
             try:
                 events,cancel = etcd_client.watch(self.watch_key)
@@ -179,9 +192,9 @@ class NodeInstanceWatcher(Thread):
                 for event in events:
                     instance_id_list = json.loads(event.value)
                     parse_node_instance_change(instance_id_list,self.node_index)
-                    MovingInstancesLock.acquire()
-                    MovingInstancesLock.release()
-                    print(MovingInstances)
+                    SatellitesLock.acquire()
+                    SatellitesLock.release()
+                    print(Satellites)
             except Exception as e:
                 logger.error("Watch instance list of node %d Error %s"%(self.node_index,str(e)))
                 time.sleep(10)

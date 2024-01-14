@@ -39,19 +39,19 @@ type LinkConfig struct {
 '''
 
 class Link:
-    def __init__(self,instance_id:dict[str,bool],parameters:dict[str,int]):
-        self.instance_id:dict[str,bool] = instance_id
+    def __init__(self,link_id:str,instance_id:list[str],parameters:dict[str,int]):
+        self.link_id = link_id
+        self.instance_id:list[str] = instance_id
         self.parameters:dict[str,int] = parameters
 
 class ISL(Link):
     
-    def __init__(self,instance_id:dict[str,bool],parameters:dict[str,int],is_inter_orbit:bool):
-        Link.__init__(self,instance_id,parameters)
+    def __init__(self,link_id:str,instance_id:list[str],parameters:dict[str,int],is_inter_orbit:bool):
+        Link.__init__(self,link_id,instance_id,parameters)
         self.is_inter_orbit = is_inter_orbit
 
 class GSL(Link):
 
-    def __init__(self,instance_id:dict[str,bool],parameters:dict[str,int],is_float:bool):
-        Link.__init__(self,instance_id,parameters)
-        self.is_float:bool = is_float
+    def __init__(self,link_id:str,instance_id:list[str],parameters:dict[str,int]):
+        Link.__init__(self,link_id,instance_id,parameters)
 
