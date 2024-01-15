@@ -2,6 +2,7 @@ package utils
 
 import (
 	"errors"
+	"sync"
 	"time"
 )
 
@@ -55,4 +56,41 @@ func Spin(check func() bool, gap time.Duration) {
 		}
 		time.Sleep(gap)
 	}
+}
+
+// pass by value, cannot have side-effect
+func ForEachWithThreadPool[T any](callable func(v T), array []T, maxRoutine int) *sync.WaitGroup {
+	chanBuf := make(chan bool, maxRoutine)
+	wg := new(sync.WaitGroup)
+	for _, v := range array {
+		chanBuf <- true
+		wg.Add(1)
+		go func(v T) {
+			callable(v)
+			<-chanBuf
+			wg.Done()
+		}(v)
+	}
+	return wg
+}
+
+// Pass by value, cannot have side-effect
+func ForEachUtilAllComplete[T any](callable func(v T) (bool, error), array []T) error {
+	var queue []T
+	var finalErr error
+	for _, v := range array {
+		queue = append(queue, v)
+	}
+	for len(queue) > 0 {
+		v := queue[0]
+		queue = queue[1:]
+		success, err := callable(v)
+		if err != nil {
+			finalErr = err
+		}
+		if !success {
+			queue = append(queue, v)
+		}
+	}
+	return finalErr
 }

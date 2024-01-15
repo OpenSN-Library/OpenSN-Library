@@ -46,74 +46,79 @@ func InitInstanceData() {
 var StopTimeoutSecond = 3
 
 func AddContainers(addList []string) error {
-	for _, v := range addList {
-		instance, ok := data.InstanceMap[v]
-		if ok {
-			err := utils.DoWithRetry(func() error {
-				containerConfig := &container.Config{
-					Hostname:    instance.Config.InstanceID,
-					Image:       instance.Config.Image,
-					Env:         []string{},
-					StopTimeout: &StopTimeoutSecond,
-				}
-				hostConfig := &container.HostConfig{
-					Privileged:  true,
-					NetworkMode: "none",
-					Binds: []string{
-						fmt.Sprintf("%s:%s", dir.MountShareData, "/share"),
-					},
-					Resources: container.Resources{
-						NanoCPUs: instance.Config.Resource.NanoCPU,
-						Memory:   instance.Config.Resource.MemoryByte,
-					},
-				}
+	utils.ForEachWithThreadPool[string](
+		func(v string) {
+			instance, ok := data.InstanceMap[v]
+			if ok {
+				err := utils.DoWithRetry(func() error {
+					containerConfig := &container.Config{
+						Hostname:    instance.Config.InstanceID,
+						Image:       instance.Config.Image,
+						Env:         []string{},
+						StopTimeout: &StopTimeoutSecond,
+					}
+					hostConfig := &container.HostConfig{
+						Privileged:  true,
+						NetworkMode: "none",
+						Binds: []string{
+							fmt.Sprintf("%s:%s", dir.MountShareData, "/share"),
+						},
+						Resources: container.Resources{
+							NanoCPUs: instance.Config.Resource.NanoCPU,
+							Memory:   instance.Config.Resource.MemoryByte,
+						},
+					}
 
-				createResp, err := utils.DockerClient.ContainerCreate(
-					context.Background(),
-					containerConfig,
-					hostConfig,
-					nil,
-					nil,
-					instance.Config.Name,
-				)
+					createResp, err := utils.DockerClient.ContainerCreate(
+						context.Background(),
+						containerConfig,
+						hostConfig,
+						nil,
+						nil,
+						instance.Config.Name,
+					)
 
-				data.InstanceMap[v].ContainerID = createResp.ID
+					data.InstanceMap[v].ContainerID = createResp.ID
 
-				return err
-			}, 2)
-			if err != nil {
-				logrus.Errorf("Creates Container %s Error: %s", v, err.Error())
-			} else {
-				logrus.Infof("Create and Start Container %s of %s Success.", data.InstanceMap[v].ContainerID, v)
-			}
-		}
-
-	}
-	for _, v := range addList {
-		_, ok := data.InstanceMap[v]
-		if ok {
-			err := utils.DoWithRetry(func() error {
-				err := utils.DockerClient.ContainerStart(
-					context.Background(),
-					data.InstanceMap[v].ContainerID,
-					types.ContainerStartOptions{},
-				)
-				if err != nil {
 					return err
-				}
-				inspect, err := utils.DockerClient.ContainerInspect(context.Background(), data.InstanceMap[v].ContainerID)
+				}, 2)
 				if err != nil {
-					return err
+					logrus.Errorf("Creates Container %s Error: %s", v, err.Error())
+				} else {
+					logrus.Infof("Create and Start Container %s of %s Success.", data.InstanceMap[v].ContainerID, v)
 				}
 
-				data.InstanceMap[v].Pid = inspect.State.Pid
-				return nil
-			}, 2)
-			if err != nil {
-				logrus.Errorf("Start Container %s Error: %s", v, err.Error())
 			}
-		}
-	}
+		}, addList, 128,
+	)
+	utils.ForEachWithThreadPool[string](
+		func(v string) {
+			_, ok := data.InstanceMap[v]
+			if ok {
+				err := utils.DoWithRetry(func() error {
+					err := utils.DockerClient.ContainerStart(
+						context.Background(),
+						data.InstanceMap[v].ContainerID,
+						types.ContainerStartOptions{},
+					)
+					if err != nil {
+						return err
+					}
+					inspect, err := utils.DockerClient.ContainerInspect(context.Background(), data.InstanceMap[v].ContainerID)
+					if err != nil {
+						return err
+					}
+
+					data.InstanceMap[v].Pid = inspect.State.Pid
+					return nil
+				}, 2)
+				if err != nil {
+					logrus.Errorf("Start Container %s Error: %s", v, err.Error())
+				}
+			}
+		}, addList, 32,
+	)
+
 	return nil
 }
 

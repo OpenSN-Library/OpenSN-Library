@@ -17,7 +17,6 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
-	"time"
 
 	"sync"
 
@@ -344,33 +343,29 @@ type LinkModule struct {
 
 func AddLinks(addList []string, operator *model.NetlinkOperatorInfo) error {
 
-	for i := 0; i < len(addList); i++ {
-		v := addList[i]
-		go func(v string) {
-			linkInfo := data.LinkMap[v]
+	err := utils.ForEachUtilAllComplete[string](
+		func(v string) (bool, error) {
 
-			utils.Spin(func() bool {
-				ready := true
-				for _, v := range linkInfo.GetEndInfos() {
-					if v.InstanceID == "" {
-						continue
-					}
-					instanceInfo, ok := data.InstanceMap[v.InstanceID]
-					if ok && instanceInfo.Pid == 0 {
-						ready = false
-						break
-					}
+			linkInfo := data.LinkMap[v]
+			for _, v := range linkInfo.GetEndInfos() {
+				if v.InstanceID == "" {
+					continue
 				}
-				return ready
-			}, 500*time.Millisecond)
+				instanceInfo, ok := data.InstanceMap[v.InstanceID]
+				if ok && instanceInfo.Pid == 0 {
+					return false, nil
+				}
+			}
 
 			err := linkInfo.Enable(operator)
 			if err != nil {
 				logrus.Errorf("Enable Link %s Error: %s", linkInfo.GetLinkID(), err.Error())
+				return false, err
 			}
 			err = linkInfo.Connect(operator)
 			if err != nil {
 				logrus.Errorf("Connect Link %s Error: %s", linkInfo.GetLinkID(), err.Error())
+				return false, err
 			}
 			logrus.Infof("Enable and Connect Link %s Between %s and %s, Type %s",
 				linkInfo.GetLinkID(),
@@ -378,7 +373,12 @@ func AddLinks(addList []string, operator *model.NetlinkOperatorInfo) error {
 				linkInfo.GetLinkConfig().InitEndInfos[1].InstanceID,
 				linkInfo.GetLinkType(),
 			)
-		}(v)
+			return true, nil
+		}, addList,
+	)
+	if err != nil {
+		logrus.Errorf("Add Links Error: %s", err.Error())
+		return err
 	}
 	return nil
 }
