@@ -6,6 +6,7 @@ import (
 	"NodeDaemon/utils"
 	"fmt"
 	"net"
+	"os"
 	"runtime"
 	"strconv"
 	"strings"
@@ -134,27 +135,29 @@ var NetReqFuncMap = map[int]func(link netlink.Link, req netreq.NetLinkRequest) e
 
 func NetLinkOperator(requestsChan chan []netreq.NetLinkRequest, sigChan chan int, index int) {
 	runtime.LockOSThread()
-	defer runtime.UnlockOSThread()
+	originNs, err := netns.Get()
+	if err != nil {
+		logrus.Errorf("Netlink Daemon Get Origin Netns Error: %s", err.Error())
+		return
+	}
 	for {
 		select {
 		case reqs := <-requestsChan:
 			for _, req := range reqs {
-				originNs, err := netns.Get()
-				if err != nil {
-					logrus.Errorf("Netlink Daemon Get Origin Netns Error: %s", err.Error())
-					return
-				}
-				linkNsFd, err := netns.GetFromPid(req.GetLinkNamespacePid())
-				if err != nil {
-					logrus.Errorf("Get net namespace from pid %d error: %s", req.GetLinkNamespacePid(), err.Error())
-				}
-				err = netns.Set(linkNsFd)
-				if err != nil {
-					logrus.Errorf("Set net namespace error: %s", err.Error())
+				var linkNsFd netns.NsHandle
+				if req.GetLinkNamespacePid() != os.Getpid() {
+					linkNsFd, err = netns.GetFromPid(req.GetLinkNamespacePid())
+					if err != nil {
+						logrus.Errorf("Get net namespace from pid %d error: %s", req.GetLinkNamespacePid(), err.Error())
+					}
+					err = netns.Set(linkNsFd)
+					if err != nil {
+						logrus.Errorf("Set net namespace error: %s", err.Error())
+					}
 				}
 				link, err := netlink.LinkByName(req.GetLinkName())
 				if err != nil {
-					logrus.Errorf("Get link from Name %s in %v error: %s", req.GetLinkName(), linkNsFd, err.Error())
+					logrus.Errorf("Get link from Name %s in %v ,pid %d error: %s", req.GetLinkName(), linkNsFd, req.GetLinkNamespacePid(), err.Error())
 				} else if operator, ok := NetReqFuncMap[req.GetRequestType()]; ok {
 					err := operator(link, req)
 					if err != nil {
@@ -163,13 +166,15 @@ func NetLinkOperator(requestsChan chan []netreq.NetLinkRequest, sigChan chan int
 				} else {
 					logrus.Errorf("Unsupport Request Type: %d", req.GetRequestType())
 				}
-				err = linkNsFd.Close()
-				if err != nil {
-					logrus.Errorf("Close Open Pid Netns Error: %s", err.Error())
-				}
-				err = netns.Set(originNs)
-				if err != nil {
-					logrus.Errorf("Set Back to Origin Netns Error: %s", err.Error())
+				if req.GetLinkNamespacePid() != os.Getpid() {
+					err = linkNsFd.Close()
+					if err != nil {
+						logrus.Errorf("Close Open Pid Netns Error: %s", err.Error())
+					}
+					err = netns.Set(originNs)
+					if err != nil {
+						logrus.Errorf("Set Back to Origin Netns Error: %s", err.Error())
+					}
 				}
 			}
 		case sig := <-sigChan:

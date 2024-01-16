@@ -16,7 +16,7 @@ wrap:
 run:
 	cd build && sudo ./NodeDaemon
 dep:
-	-sudo docker stop emulator_etcd
-	-sudo docker stop emulator_redis
+	-sudo docker rm -f emulator_etcd
+	-sudo docker rm -f  emulator_redis
 	sudo docker run -d --rm --name=emulator_etcd --cpus=0.25 -m 128m -p 2379:2379 satellite_emulator/etcd
 	sudo docker run -d --rm --name=emulator_redis --cpus=0.25 -m 128m -p 6379:6379 satellite_emulator/redis
