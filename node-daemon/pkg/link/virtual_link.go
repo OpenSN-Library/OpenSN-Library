@@ -90,11 +90,14 @@ func CreateVethLinkObject(initConfig model.LinkConfig) *VethLink {
 	}
 }
 
-func (l *VethLink) Connect(operatorInfo *model.NetlinkOperatorInfo) error {
+func (l *VethLink) Connect() ([]netreq.NetLinkRequest, error) {
 	if !l.Enabled {
 		logrus.Errorf("Connect %s and %s Error: %s is not enabled", l.EndInfos[0].InstanceID, l.EndInfos[1].InstanceID, l.Config.LinkID)
-		return fmt.Errorf("%s is not enabled", l.Config.LinkID)
+		return nil, fmt.Errorf("%s is not enabled", l.Config.LinkID)
 	}
+
+	var requests []netreq.NetLinkRequest
+
 	for i, v := range l.EndInfos {
 		if v.InstanceID == "" {
 			logrus.Infof("Skip Link %s, because it's float link", l.Config.LinkID)
@@ -104,26 +107,24 @@ func (l *VethLink) Connect(operatorInfo *model.NetlinkOperatorInfo) error {
 			continue
 		}
 		setStateReq := netreq.CreateSetStateReq(l.DevInfos[i].IfIndex, instanceInfo.Pid, l.DevInfos[i].Name, true)
-		operatorInfo.RequestChann <- &setStateReq
-		err := <-operatorInfo.ErrChan
-		if err != nil {
-			logrus.Errorf("Connect %s and %s Error: %s", l.EndInfos[0].InstanceID, l.EndInfos[1].InstanceID, err.Error())
-			return err
-		}
+		requests = append(requests, setStateReq)
 	}
 	logrus.Infof(
 		"Connect Link %s Between %s and %s Suucess",
 		l.GetLinkID(),
 		l.EndInfos[0].InstanceID, l.EndInfos[1].InstanceID,
 	)
-
-	return nil
+	l.Parameter[model.ConnectParameter] = 1
+	return requests, nil
 }
-func (l *VethLink) Disconnect(operatorInfo *model.NetlinkOperatorInfo) error {
+func (l *VethLink) Disconnect() ([]netreq.NetLinkRequest, error) {
 	if !l.Enabled {
 		logrus.Errorf("Connect %s and %s Error: %s is not enabled", l.EndInfos[0].InstanceID, l.EndInfos[1].InstanceID, l.Config.LinkID)
-		return fmt.Errorf("%s is not enabled", l.Config.LinkID)
+		return nil, fmt.Errorf("%s is not enabled", l.Config.LinkID)
 	}
+
+	var requests []netreq.NetLinkRequest
+
 	for i, v := range l.EndInfos {
 
 		instanceInfo, ok := data.InstanceMap[v.InstanceID]
@@ -131,21 +132,15 @@ func (l *VethLink) Disconnect(operatorInfo *model.NetlinkOperatorInfo) error {
 			continue
 		}
 		setStateReq := netreq.CreateSetStateReq(l.DevInfos[i].IfIndex, instanceInfo.Pid, l.DevInfos[i].Name, false)
-		operatorInfo.RequestChann <- &setStateReq
-		err := <-operatorInfo.ErrChan
-		if err != nil {
-			if err != nil {
-				logrus.Errorf("Disconnect %s and %s Error: %s", l.EndInfos[0].InstanceID, l.EndInfos[1].InstanceID, err.Error())
-				return err
-			}
-		}
+		requests = append(requests, setStateReq)
 	}
 	logrus.Infof(
-		"Disconnect Link %s Between %s and %s Suucess",
+		"Disconnect Link %s Between %s and %s Success",
 		l.GetLinkID(),
 		l.EndInfos[0].InstanceID, l.EndInfos[1].InstanceID,
 	)
-	return nil
+	l.Parameter[model.ConnectParameter] = 0
+	return requests, nil
 }
 
 func (l *VethLink) enableSameMachine() error {
@@ -214,7 +209,7 @@ func (l *VethLink) enableCrossMachine() error {
 	return nil
 }
 
-func (l *VethLink) Enable(operatorInfo *model.NetlinkOperatorInfo) error {
+func (l *VethLink) Enable() ([]netreq.NetLinkRequest, error) {
 	var err error
 	if l.CrossMachine {
 		err = l.enableCrossMachine()
@@ -223,29 +218,21 @@ func (l *VethLink) Enable(operatorInfo *model.NetlinkOperatorInfo) error {
 	}
 
 	if err != nil {
-		return err
+		return nil, err
 	}
+
+	var requests []netreq.NetLinkRequest
 
 	for i, v := range l.EndInfos {
 		instanceInfo, ok := data.InstanceMap[v.InstanceID]
 		if v.InstanceID == "" || !ok {
 			continue
 		}
+		requests = append(
+			requests, netreq.CreateSetNetNsReq(l.DevInfos[i].IfIndex, os.Getpid(), instanceInfo.Pid, l.DevInfos[i].Name),
+			netreq.CreateSetStateReq(l.DevInfos[i].IfIndex, instanceInfo.Pid, l.DevInfos[i].Name, true),
+		)
 
-		setNsreq := netreq.CreateSetNetNsReq(l.DevInfos[i].IfIndex, os.Getpid(), instanceInfo.Pid, l.DevInfos[i].Name)
-		operatorInfo.RequestChann <- &setNsreq
-		err := <-operatorInfo.ErrChan
-		if err != nil {
-			logrus.Errorf("Set Link Netns %d Error: %s", l.DevInfos[i].IfIndex, err.Error())
-			return err
-		}
-		setStateReq := netreq.CreateSetStateReq(l.DevInfos[i].IfIndex, instanceInfo.Pid, l.DevInfos[i].Name, true)
-		operatorInfo.RequestChann <- &setStateReq
-		err = <-operatorInfo.ErrChan
-		if err != nil {
-			logrus.Errorf("Set Link %d Up Error: %s", l.DevInfos[i].IfIndex, err.Error())
-			return err
-		}
 		if len(l.Config.IPInfos[i].V4Addr) > 0 {
 			setV4AddrReq := netreq.CreateSetV4AddrReq(
 				l.DevInfos[i].IfIndex,
@@ -253,12 +240,7 @@ func (l *VethLink) Enable(operatorInfo *model.NetlinkOperatorInfo) error {
 				l.DevInfos[i].Name,
 				l.Config.IPInfos[i].V4Addr,
 			)
-			operatorInfo.RequestChann <- &setV4AddrReq
-			err = <-operatorInfo.ErrChan
-			if err != nil {
-				logrus.Errorf("Set Link %d V4 Addr %s Error: %s", l.DevInfos[i].IfIndex, l.Config.IPInfos[i].V4Addr, err.Error())
-				return err
-			}
+			requests = append(requests, setV4AddrReq)
 		}
 		if len(l.Config.IPInfos[i].V6Addr) > 0 {
 			setV6AddrReq := netreq.CreateSetV6AddrReq(
@@ -267,63 +249,62 @@ func (l *VethLink) Enable(operatorInfo *model.NetlinkOperatorInfo) error {
 				l.DevInfos[i].Name,
 				l.Config.IPInfos[i].V6Addr,
 			)
-			operatorInfo.RequestChann <- &setV6AddrReq
-			err = <-operatorInfo.ErrChan
-			if err != nil {
-				logrus.Errorf("Set Link %d V6 Addr %s Error: %s", l.DevInfos[i].IfIndex, l.Config.IPInfos[i].V6Addr, err.Error())
-				return err
-			}
+			requests = append(requests, setV6AddrReq)
+
 		}
-		err = l.SetParameters(l.Config.InitParameter, operatorInfo)
-		if err != nil {
-			return err
+		parameterReqs, _ := l.SetParameters(l.Config.InitParameter)
+		if parameterReqs != nil {
+			requests = append(requests, parameterReqs...)
 		}
 	}
 	l.Enabled = true
-	return nil
+	return requests, nil
 }
-func (l *VethLink) Disable(operatorInfo *model.NetlinkOperatorInfo) error {
+func (l *VethLink) Disable() ([]netreq.NetLinkRequest, error) {
+
 	if !l.Enabled {
-		logrus.Errorf("Disable %s and %s Error: %s is not enabled", l.EndInfos[0].InstanceID, l.EndInfos[1].InstanceID, l.Config.LinkID)
-		return fmt.Errorf("%s is not enabled", l.Config.LinkID)
+		logrus.Errorf(
+			"Disable %s and %s Error: %s is not enabled",
+			l.EndInfos[0].InstanceID, l.EndInfos[1].InstanceID, l.Config.LinkID,
+		)
+		return nil, fmt.Errorf("%s is not enabled", l.Config.LinkID)
 	}
+
+	var requests []netreq.NetLinkRequest
+
 	if l.CrossMachine {
 		for i, v := range l.EndInfos {
 			if instanceInfo, ok := data.InstanceMap[v.InstanceID]; ok {
 				deleteLinkReq := netreq.CreateDeleteLinkReq(l.DevInfos[0].IfIndex, instanceInfo.Pid, l.DevInfos[i].Name)
-				operatorInfo.RequestChann <- &deleteLinkReq
-				err := <-operatorInfo.ErrChan
-				if err != nil {
-					logrus.Errorf("Delete Link %s Index %d Error: %s", l.Config.LinkID, l.DevInfos[i].IfIndex, err.Error())
-					return err
-				}
-				return nil
+				requests = append(requests, &deleteLinkReq)
+
+				return requests, nil
 			}
 		}
 	} else {
 		instanceInfo, ok := data.InstanceMap[l.EndInfos[0].InstanceID]
 		if !ok {
-			logrus.Errorf("Disable Link Between %s and %s Error: Instance %s is not in Node %d", l.EndInfos[0].InstanceID, l.EndInfos[1].InstanceID, l.EndInfos[0].InstanceID, key.NodeIndex)
-			return fmt.Errorf("%s is not in node %d", l.EndInfos[0].InstanceID, key.NodeIndex)
+			logrus.Errorf(
+				"Disable Link Between %s and %s Error: Instance %s is not in Node %d",
+				l.EndInfos[0].InstanceID, l.EndInfos[1].InstanceID, l.EndInfos[0].InstanceID, key.NodeIndex,
+			)
+			return nil, fmt.Errorf("%s is not in node %d", l.EndInfos[0].InstanceID, key.NodeIndex)
 		}
 		deleteLinkReq := netreq.CreateDeleteLinkReq(l.DevInfos[0].IfIndex, instanceInfo.Pid, l.DevInfos[0].Name)
-		operatorInfo.RequestChann <- &deleteLinkReq
-		err := <-operatorInfo.ErrChan
-		if err != nil {
-			logrus.Errorf("Delete Link %s Index %d Error: %s", l.Config.LinkID, l.DevInfos[0].IfIndex, err.Error())
-			return err
-		}
-		return nil
+		requests = append(requests, &deleteLinkReq)
+
+		return requests, nil
 	}
-	return nil
+	l.Enabled = false
+	return requests, nil
 }
 
-func (l *VethLink) SetParameters(para map[string]int64, operatorInfo *model.NetlinkOperatorInfo) error {
+func (l *VethLink) SetParameters(para map[string]int64) ([]netreq.NetLinkRequest, error) {
 	dirtyConnect := false
 	dirtyTbf := false
 	dirtyNetem := false
 	var instanceInfos [2]*model.Instance
-
+	var requests []netreq.NetLinkRequest
 	for i := 0; i < 2; i++ {
 		instanceInfo, ok := data.InstanceMap[l.Config.InitEndInfos[i].InstanceID]
 		if !ok {
@@ -353,6 +334,24 @@ func (l *VethLink) SetParameters(para map[string]int64, operatorInfo *model.Netl
 		}
 	}
 
+	if dirtyConnect {
+		if l.Parameter[model.ConnectParameter] == 0 {
+			disconnReqs, err := l.Disconnect()
+			if err != nil {
+				logrus.Errorf("Disconnect Link Between %s and %s Error: %s", l.EndInfos[0].InstanceID, l.EndInfos[1].InstanceID, err.Error())
+				return nil, err
+			}
+			return disconnReqs, err
+		} else {
+			connReqs, err := l.Connect()
+			if err != nil {
+				logrus.Errorf("Connect Link Between %s and %s Error: %s", l.EndInfos[0].InstanceID, l.EndInfos[1].InstanceID, err.Error())
+				return nil, err
+			}
+			requests = append(requests, connReqs...)
+		}
+	}
+
 	for i, v := range l.DevInfos {
 
 		if dirtyTbf {
@@ -367,12 +366,7 @@ func (l *VethLink) SetParameters(para map[string]int64, operatorInfo *model.Netl
 				v.Name,
 				&tbfInfo,
 			)
-			operatorInfo.RequestChann <- &setTbfReq
-			err := <-operatorInfo.ErrChan
-			if err != nil {
-				logrus.Errorf("Update Tbf for Link Between %s and %s Error: %s", l.EndInfos[0].InstanceID, l.EndInfos[1].InstanceID, err.Error())
-				return err
-			}
+			requests = append(requests, setTbfReq)
 		}
 
 		if dirtyNetem {
@@ -391,29 +385,10 @@ func (l *VethLink) SetParameters(para map[string]int64, operatorInfo *model.Netl
 				l.DevInfos[i].Name,
 				netemInfo,
 			)
-			operatorInfo.RequestChann <- &setNetemReq
-			err := <-operatorInfo.ErrChan
-			if err != nil {
-				logrus.Errorf("Update Netem for Link Between %s and %s Error: %s", l.EndInfos[0].InstanceID, l.EndInfos[1].InstanceID, err.Error())
-				return err
-			}
+			requests = append(requests, setNetemReq)
 		}
 
 	}
-	if dirtyConnect {
-		if l.Parameter[model.ConnectParameter] == 0 {
-			err := l.Disconnect(operatorInfo)
-			if err != nil {
-				logrus.Errorf("Disconnect Link Between %s and %s Error: %s", l.EndInfos[0].InstanceID, l.EndInfos[1].InstanceID, err.Error())
-				return err
-			}
-		} else {
-			err := l.Connect(operatorInfo)
-			if err != nil {
-				logrus.Errorf("Connect Link Between %s and %s Error: %s", l.EndInfos[0].InstanceID, l.EndInfos[1].InstanceID, err.Error())
-				return err
-			}
-		}
-	}
-	return nil
+
+	return requests, nil
 }

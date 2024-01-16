@@ -116,7 +116,7 @@ func getInterfaceInfo(ifName string, target *model.Node) error {
 	if err != nil {
 		return err
 	}
-	if len(linkV4Addrs) > 0 {
+	if len(linkV6Addrs) > 0 {
 		target.L3AddrV6 = linkV6Addrs[0].IP
 	}
 	return nil

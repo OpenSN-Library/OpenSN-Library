@@ -94,3 +94,31 @@ func ForEachUtilAllComplete[T any](callable func(v T) (bool, error), array []T) 
 	}
 	return finalErr
 }
+
+func ForEachUtilAllCompleteWithThreadPool[T any](callable func(v T) bool, array []T, maxRoutine int) *sync.WaitGroup {
+	var queue []T
+	chanBuf := make(chan bool, maxRoutine)
+	lock := new(sync.Mutex)
+	wg := new(sync.WaitGroup)
+	queue = append(queue, array...)
+
+	for len(queue) > 0 {
+		v := queue[0]
+		lock.Lock()
+		queue = queue[1:]
+		lock.Unlock()
+		chanBuf <- true
+		wg.Add(1)
+		go func(v T) {
+			success := callable(v)
+			if !success {
+				lock.Lock()
+				queue = append(queue, v)
+				lock.Unlock()
+			}
+			<-chanBuf
+			wg.Done()
+		}(v)
+	}
+	return wg
+}

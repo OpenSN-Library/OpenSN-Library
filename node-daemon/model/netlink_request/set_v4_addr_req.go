@@ -6,8 +6,8 @@ type SetV4AddrReq struct {
 	PrefixLen int
 }
 
-func CreateSetV4AddrReq(linkIndex, linkNamespacePid int, linkName string, v4Addr string) SetV4AddrReq {
-	return SetV4AddrReq{
+func CreateSetV4AddrReq(linkIndex, linkNamespacePid int, linkName string, v4Addr string) *SetV4AddrReq {
+	return &SetV4AddrReq{
 		NetLinkRequestBase: NetLinkRequestBase{
 			NamespacePid: linkNamespacePid,
 			LinkIndex:    linkIndex,

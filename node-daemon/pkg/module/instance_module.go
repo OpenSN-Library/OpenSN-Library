@@ -12,7 +12,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"sync"
-	"time"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
@@ -46,7 +45,7 @@ func InitInstanceData() {
 var StopTimeoutSecond = 3
 
 func AddContainers(addList []string) error {
-	utils.ForEachWithThreadPool[string](
+	wg := utils.ForEachWithThreadPool[string](
 		func(v string) {
 			instance, ok := data.InstanceMap[v]
 			if ok {
@@ -91,7 +90,8 @@ func AddContainers(addList []string) error {
 			}
 		}, addList, 128,
 	)
-	utils.ForEachWithThreadPool[string](
+	wg.Wait()
+	wg = utils.ForEachWithThreadPool[string](
 		func(v string) {
 			_, ok := data.InstanceMap[v]
 			if ok {
@@ -118,26 +118,26 @@ func AddContainers(addList []string) error {
 			}
 		}, addList, 32,
 	)
-
+	wg.Wait()
 	return nil
 }
 
 func DelContainers(delList []string) error {
-	for _, instanceID := range delList {
-		if instanceID != "" {
+	wg := utils.ForEachUtilAllCompleteWithThreadPool[string](
+		func(instanceID string) bool {
+			if instanceID == "" {
+				errMsg := fmt.Sprintf("Container id of Instance %s is Empty, Skipping...", instanceID)
+				logrus.Warnf(errMsg)
+				return true
+			}
 			v := data.InstanceMap[instanceID]
-			utils.Spin(func() bool {
-				res := true
-				for _, v := range v.LinkIDs {
-					info := data.LinkMap[v]
-
-					if info != nil && info.IsEnabled() {
-						logrus.Infof("Instance Check Link %s is %v", info.GetLinkID(), info)
-						res = false
-					}
+			for _, v := range v.LinkIDs {
+				info := data.LinkMap[v]
+				if info != nil && info.IsEnabled() {
+					logrus.Infof("Instance Check Link %s is %v", info.GetLinkID(), info)
+					return false
 				}
-				return res
-			}, 100*time.Millisecond)
+			}
 			err := utils.DoWithRetry(func() error {
 				return utils.DockerClient.ContainerStop(context.Background(), v.ContainerID, container.StopOptions{})
 			}, 2)
@@ -177,11 +177,9 @@ func DelContainers(delList []string) error {
 				logrus.Info(sucMsg)
 			}
 			delete(data.InstanceMap, instanceID)
-		} else {
-			errMsg := fmt.Sprintf("Container id of Instance %s is Empty, Skipping...", instanceID)
-			logrus.Error(errMsg)
-		}
-	}
+			return true
+		}, delList, 64)
+	wg.Wait()
 	return nil
 }
 

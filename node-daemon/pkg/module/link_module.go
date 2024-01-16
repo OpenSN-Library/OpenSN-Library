@@ -12,17 +12,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"net"
 	"path"
-	"runtime"
-	"strconv"
-	"strings"
 
 	"sync"
 
 	"github.com/sirupsen/logrus"
-	"github.com/vishvananda/netlink"
-	"github.com/vishvananda/netns"
 )
 
 func InitLinkData() {
@@ -97,123 +91,6 @@ func parseLinkChange(updateIdList []string) (addList []string, delList []model.L
 		}
 	}
 	return
-}
-
-func netLinkDaemon(requestChan chan netreq.NetLinkRequest, sigChan chan int, errChan chan error) {
-	runtime.LockOSThread()
-	defer runtime.UnlockOSThread()
-	originNs, err := netns.Get()
-	if err != nil {
-		logrus.Errorf("Netlink Daemon Get Origin Netns Error: %s", err.Error())
-		errChan <- err
-		return
-	}
-	for {
-		select {
-		case req := <-requestChan:
-			var opErr error
-			linkNsFd, err := netns.GetFromPid(req.GetLinkNamespacePid())
-
-			if err != nil {
-				logrus.Errorf("Get net namespace from pid %d error: %s", req.GetLinkNamespacePid(), err.Error())
-				errChan <- err
-				continue
-			}
-			err = netns.Set(linkNsFd)
-			if err != nil {
-				logrus.Errorf("Set net namespace error: %s", err.Error())
-				errChan <- err
-				continue
-			}
-			link, err := netlink.LinkByName(req.GetLinkName())
-			if err != nil {
-				logrus.Errorf("Get link from index %d error: %s", req.GetLinkIndex(), err.Error())
-				errChan <- err
-				continue
-			}
-			switch req.GetRequestType() {
-			case netreq.SetLinkState:
-				realReq := req.(*netreq.SetStateReq)
-				if realReq.Enable {
-					opErr = netlink.LinkSetUp(link)
-				} else {
-					opErr = netlink.LinkSetDown(link)
-				}
-			case netreq.SetV4Addr:
-				realReq := req.(*netreq.SetV4AddrReq)
-				addr := strings.Split(realReq.V4Addr, "/")
-				if len(addr) < 2 {
-					opErr = fmt.Errorf("invalid ipv4 addr %s", realReq.V4Addr)
-					break
-				}
-				ip := net.ParseIP(addr[0])
-				prefixLen, err := strconv.Atoi(addr[1])
-				if err != nil {
-					opErr = fmt.Errorf("invalid ipv4 addr prefix length %s", err.Error())
-					break
-				}
-
-				netlinkAddr := netlink.Addr{
-					IPNet: &net.IPNet{
-						IP:   ip,
-						Mask: utils.CreateV4InetMask(prefixLen),
-					},
-				}
-				opErr = netlink.AddrAdd(link, &netlinkAddr)
-			case netreq.SetV6Addr:
-				realReq := req.(*netreq.SetV6AddrReq)
-				addr := strings.Split(realReq.V6Addr, "/")
-				if len(addr) < 2 {
-					opErr = fmt.Errorf("invalid ipv4 addr %s", realReq.V6Addr)
-					break
-				}
-				ip := net.ParseIP(addr[0])
-				prefixLen, err := strconv.Atoi(addr[1])
-				if err != nil {
-					opErr = fmt.Errorf("invalid ipv4 addr %s", realReq.V6Addr)
-					break
-				}
-
-				netlinkAddr := netlink.Addr{
-					IPNet: &net.IPNet{
-						IP:   ip,
-						Mask: utils.CreateV6InetMask(prefixLen),
-					},
-				}
-				opErr = netlink.AddrAdd(link, &netlinkAddr)
-			case netreq.SetNetNs:
-				realReq := req.(*netreq.SetNetNsReq)
-				opErr = netlink.LinkSetNsPid(link, realReq.TargetNamespacePid)
-			case netreq.SetQdisc:
-				realReq := req.(*netreq.SetQdiscReq)
-				realReq.QdiscInfo.Attrs().LinkIndex = link.Attrs().Index
-				opErr = netlink.QdiscReplace(realReq.QdiscInfo)
-			case netreq.DeleteLink:
-				opErr = netlink.LinkDel(link)
-			default:
-				logrus.Errorf("Unsupport Request Type: %d", req.GetRequestType())
-			}
-			err = netns.Set(originNs)
-			if err != nil {
-				errChan <- err
-				continue
-			}
-			err = linkNsFd.Close()
-			if err != nil {
-				errChan <- err
-				continue
-			}
-			if opErr != nil {
-				logrus.Errorf("Netlink operation Error, Type %d, error: %s", req.GetRequestType(), opErr.Error())
-			}
-			errChan <- opErr
-		case sig := <-sigChan:
-			if sig == signal.STOP_SIGNAL {
-				logrus.Info("NetLink Daemon Routine Exit...")
-				return
-			}
-		}
-	}
 }
 
 func updateTopoInfoFile(addList []string, delList []model.Link) error {
@@ -328,7 +205,12 @@ func linkParameterWatcher(sigChan chan int, operator *model.NetlinkOperatorInfo)
 					if !link2Update.IsEnabled() {
 						continue
 					}
-					link2Update.SetParameters(parameter, operator)
+					reqs, err := link2Update.SetParameters(parameter)
+					if err != nil {
+						logrus.Errorf("Generate Update Parameter Requests of Link %s Error: %s", linkID, err.Error())
+						continue
+					}
+					operator.RequestChann <- reqs
 				}
 			}
 		}
@@ -349,7 +231,7 @@ func AddLinks(addList []string, operator *model.NetlinkOperatorInfo) error {
 			linkInfo := data.LinkMap[v]
 			for _, v := range linkInfo.GetEndInfos() {
 				if v.InstanceID == "" {
-					continue
+					return true, nil
 				}
 				instanceInfo, ok := data.InstanceMap[v.InstanceID]
 				if ok && instanceInfo.Pid == 0 {
@@ -357,16 +239,18 @@ func AddLinks(addList []string, operator *model.NetlinkOperatorInfo) error {
 				}
 			}
 
-			err := linkInfo.Enable(operator)
+			requests, err := linkInfo.Enable()
 			if err != nil {
-				logrus.Errorf("Enable Link %s Error: %s", linkInfo.GetLinkID(), err.Error())
-				return false, err
+				logrus.Errorf("Generate Enable Link %s Requests Error: %s", linkInfo.GetLinkID(), err.Error())
+				return true, err
 			}
-			err = linkInfo.Connect(operator)
+			connectReqs, err := linkInfo.Connect()
 			if err != nil {
 				logrus.Errorf("Connect Link %s Error: %s", linkInfo.GetLinkID(), err.Error())
-				return false, err
+				return true, err
 			}
+			requests = append(requests, connectReqs...)
+			operator.RequestChann <- requests
 			logrus.Infof("Enable and Connect Link %s Between %s and %s, Type %s",
 				linkInfo.GetLinkID(),
 				linkInfo.GetLinkConfig().InitEndInfos[0].InstanceID,
@@ -384,36 +268,45 @@ func AddLinks(addList []string, operator *model.NetlinkOperatorInfo) error {
 }
 
 func DelLinks(delList []model.Link, operator *model.NetlinkOperatorInfo) error {
-	for _, v := range delList {
-		logrus.Infof("Deleting Link %s: %v", v.GetLinkID(), v)
-		if v.IsConnected() {
-			err := v.Disconnect(operator)
-			if err != nil {
-				logrus.Errorf("Disconnect Link %s Error: %s", v.GetLinkID(), err.Error())
+
+	utils.ForEachWithThreadPool[model.Link](
+		func(v model.Link) {
+			var request []netreq.NetLinkRequest
+			logrus.Infof("Deleting Link %s: %v", v.GetLinkID(), v)
+			if v.IsConnected() {
+				disconnReqs, err := v.Disconnect()
+				if err != nil {
+					logrus.Errorf("Disconnect Link %s Error: %s", v.GetLinkID(), err.Error())
+				}
+				request = append(request, disconnReqs...)
 			}
-		}
-		err := v.Disable(operator)
-		if err != nil {
-			logrus.Errorf("Disable Link %s Error: %s", v.GetLinkID(), err.Error())
-		}
-		delete(data.LinkMap, v.GetLinkID())
-	}
+			disableReqs, err := v.Disable()
+			if err != nil {
+				logrus.Errorf("Disable Link %s Error: %s", v.GetLinkID(), err.Error())
+			}
+			request = append(request, disableReqs...)
+			operator.RequestChann <- request
+			delete(data.LinkMap, v.GetLinkID())
+		}, delList, 32,
+	)
+
 	return nil
 }
 
 func linkDaemonFunc(sigChan chan int, errChan chan error) {
 	InitLinkData()
+	operatorNum := 32
 	netOpInfo := model.NetlinkOperatorInfo{
-		RequestChann: make(chan netreq.NetLinkRequest),
-		ErrChan:      make(chan error),
+		RequestChann: make(chan []netreq.NetLinkRequest, operatorNum),
 	}
 	netLinkSigChan := make(chan int)
-
 	paraWatcherSigChan := make(chan int)
 
 	go linkParameterWatcher(paraWatcherSigChan, &netOpInfo)
+	for i := 0; i < operatorNum; i++ {
+		go NetLinkOperator(netOpInfo.RequestChann, netLinkSigChan, i)
+	}
 
-	go netLinkDaemon(netOpInfo.RequestChann, netLinkSigChan, netOpInfo.ErrChan)
 	ctx, cancel := context.WithCancel(context.Background())
 	watchChan := utils.EtcdClient.Watch(ctx, key.NodeLinkListKeySelf)
 	for {

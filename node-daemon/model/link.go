@@ -20,20 +20,19 @@ var ConnectParameterInfo = ParameterInfo{
 }
 
 type NetlinkOperatorInfo struct {
-	RequestChann chan netreq.NetLinkRequest
-	ErrChan      chan error
+	RequestChann chan []netreq.NetLinkRequest
 }
 
 type Link interface {
 	GetLinkConfig() LinkConfig
 	GetLinkID() string
 	GetLinkType() string
-	Connect(operatorInfo *NetlinkOperatorInfo) error
-	Disconnect(operatorInfo *NetlinkOperatorInfo) error
-	Enable(operatorInfo *NetlinkOperatorInfo) error
-	Disable(operatorInfo *NetlinkOperatorInfo) error
+	Connect() ([]netreq.NetLinkRequest, error)
+	Disconnect() ([]netreq.NetLinkRequest, error)
+	Enable() ([]netreq.NetLinkRequest, error)
+	Disable() ([]netreq.NetLinkRequest, error)
 	IsCrossMachine() bool
-	SetParameters(para map[string]int64, operatorInfo *NetlinkOperatorInfo) error
+	SetParameters(para map[string]int64) ([]netreq.NetLinkRequest, error)
 	IsEnabled() bool
 	IsConnected() bool
 	GetSupportParameters() map[string]ParameterInfo
