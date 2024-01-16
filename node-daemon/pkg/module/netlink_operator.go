@@ -135,15 +135,15 @@ var NetReqFuncMap = map[int]func(link netlink.Link, req netreq.NetLinkRequest) e
 func NetLinkOperator(requestsChan chan []netreq.NetLinkRequest, sigChan chan int, index int) {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
-	originNs, err := netns.Get()
-	if err != nil {
-		logrus.Errorf("Netlink Daemon Get Origin Netns Error: %s", err.Error())
-		return
-	}
 	for {
 		select {
 		case reqs := <-requestsChan:
 			for _, req := range reqs {
+				originNs, err := netns.Get()
+				if err != nil {
+					logrus.Errorf("Netlink Daemon Get Origin Netns Error: %s", err.Error())
+					return
+				}
 				linkNsFd, err := netns.GetFromPid(req.GetLinkNamespacePid())
 				if err != nil {
 					logrus.Errorf("Get net namespace from pid %d error: %s", req.GetLinkNamespacePid(), err.Error())
@@ -155,8 +155,7 @@ func NetLinkOperator(requestsChan chan []netreq.NetLinkRequest, sigChan chan int
 				link, err := netlink.LinkByName(req.GetLinkName())
 				if err != nil {
 					logrus.Errorf("Get link from Name %s in %v error: %s", req.GetLinkName(), linkNsFd, err.Error())
-				}
-				if operator, ok := NetReqFuncMap[req.GetRequestType()]; ok {
+				} else if operator, ok := NetReqFuncMap[req.GetRequestType()]; ok {
 					err := operator(link, req)
 					if err != nil {
 						logrus.Errorf("NetLink Operator Error, Type: %d, Error:%s", req.GetRequestType(), err.Error())
