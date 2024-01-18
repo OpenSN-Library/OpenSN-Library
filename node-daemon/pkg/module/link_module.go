@@ -100,7 +100,7 @@ func updateTopoInfoFile(addList []string, delList []model.Link) error {
 		for i, endInfo := range linkConfig.InitEndInfos {
 			targetIndex := 1 - i%2
 			targetInstanceID := linkConfig.InitEndInfos[targetIndex].InstanceID
-			if targetInstanceID == "" || data.InstanceMap[targetInstanceID] == nil {
+			if targetInstanceID == "" {
 				continue
 			} else {
 				dirtyMap[endInfo.InstanceID] = true
@@ -113,7 +113,7 @@ func updateTopoInfoFile(addList []string, delList []model.Link) error {
 				}
 				topoInfo.EndInfos[targetInstanceID] = &model.EndInfo{
 					InstanceID: targetInstanceID,
-					Type:       data.InstanceMap[targetInstanceID].Config.Type,
+					Type:       linkConfig.InitEndInfos[targetIndex].InstanceType,
 				}
 			} else {
 
@@ -128,7 +128,7 @@ func updateTopoInfoFile(addList []string, delList []model.Link) error {
 					EndInfos: map[string]*model.EndInfo{
 						targetInstanceID: {
 							InstanceID: targetInstanceID,
-							Type:       data.InstanceMap[targetInstanceID].Config.Type,
+							Type:       linkConfig.InitEndInfos[targetIndex].InstanceType,
 						},
 					},
 				}
