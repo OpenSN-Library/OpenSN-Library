@@ -1,38 +1,114 @@
 
-import { Form ,Button, Input,List,Card,} from "antd";
-import React, { useState } from "react";
+import { Tabs, Typography, Divider, Button, notification} from "antd";
+import React, { useState, useRef } from "react";
 import { CreateNamespaceReq } from "../Model/Namespace";
-
+import { ConfigNamespaceBasic } from "./ConfigNamesapceBasic";
+import { ConfigNamespaceInstance } from "./ConfigNamespaceInstance";
+import { ConfigNamespaceLink } from "./ConfigNamespaceLink";
 
 export function CreateNamespaceForm() {
+    const [api, contextHolder] = notification.useNotification();
+    const NotificationWithIcon = (type,msg,detail) => {
+        api[type]({
+            message: msg,
+            description:detail,
+        });
+    };
+    const inputRef = useRef(null);
     var [dataBuf,setDataBuf] = useState(new CreateNamespaceReq());
     return (
-        <div>
-            <Form label="创建命名空间">
-                <Form.Item label="命名空间名称">
-                    <Input type="text" onChange={(e) => {
-                        dataBuf.name = e.target.value;
-                        setDataBuf(dataBuf);
-                    }} />
-                </Form.Item>
-                <Form.Item label="实例类型与对应镜像">
-                    <Button>添加</Button>
-                    <List
-                        dataSource={dataBuf.ns_config.image_map.keys}
-                        renderItem={(item_key) => (
-                        <List.Item>
-                            <Card title={item_key}>
-                                {dataBuf.ns_config.image_map[item_key]}
-                                <Button>删除</Button>
-                            </Card>
-                        </List.Item>
-                        )}
-                    />
-                </Form.Item>
-                <Form.Item label="预设环境变量">
-                <Button>添加</Button>
-                </Form.Item>
-            </Form>
-        </div>
+        <div style={{height:"100%",overflowY:"scroll"}}>
+            {contextHolder}
+            <Typography.Title level={2}>创建命名空间</Typography.Title>
+            <Divider dashed />
+            <Tabs defaultActiveKey="1" 
+                tabPosition="left" 
+                tabBarExtraContent={{
+                        "left" : 
+                            <div>
+                                <div>
+                                    <input
+                                        style={{display: 'none'}}
+                                        ref={inputRef}
+                                        type="file"
+                                        onChange={(e) => {
+                                            try {
+                                                const fileObj = e.target.files && e.target.files[0];
+                                                console.log(fileObj);
+                                                const reader = new FileReader();
+                                                reader.onload = function (e) {
+                                                    try {
+                                                        dataBuf = JSON.parse(e.target.result)
+                                                        setDataBuf(dataBuf);
+                                                        console.log(dataBuf);
+                                                    }catch (e) {
+                                                        console.error(e);
+                                                        NotificationWithIcon("error","导入失败","Error:"+e.toString());
+                                                    }
+                                                };
+                                                reader.readAsText(fileObj);
+                                                NotificationWithIcon("success","导入成功","成功导入配置文件");
+                                            } catch (e) {
+                                                console.error(e);
+                                                NotificationWithIcon("error","导入失败","Error:"+e.toString());
+                                            }
+                                        }}
+                                    />
+                                    <Button 
+                                        style={{marginBottom:"15px"}}
+                                        onClick={() => {
+                                            inputRef.current.click();
+                                        }}
+                                    >
+                                        导入
+                                    </Button>
+                                </div>
+                                <div>
+                                    <Button 
+                                        style={{marginBottom:"15px"}}
+                                        onClick={() => {
+                                            const blob = new Blob([JSON.stringify(dataBuf)], {
+                                                type: 'application/json'
+                                            })
+                                            const objectURL = URL.createObjectURL(blob)
+                                            const domElement = document.createElement('a')
+                                            domElement.href = objectURL
+                                            domElement.download = "namespace_"+dataBuf.name+"_" + Date.now() + ".json"
+                                            domElement.click()
+                                            URL.revokeObjectURL(objectURL)
+                                        }}
+                                    >
+                                        导出
+                                    </Button>
+                                </div>
+                            </div>
+                        
+                   }}
+                items = {[
+                    {
+                        key :"Basic",
+                        label :"基本配置",
+                        children : <div >
+                            <ConfigNamespaceBasic  dataBuf={dataBuf} setDataBuf={setDataBuf}/>
+                        </div> 
+                    },
+                    {
+                        key :"Instance",
+                        label :"容器实例配置",
+                        children : <div >
+                            <ConfigNamespaceInstance  dataBuf={dataBuf} setDataBuf={setDataBuf}/>
+                        </div> 
+                    },
+                    {
+                        key :"Link",
+                        label :"链路实例配置",
+                        children : <div >
+                            <ConfigNamespaceLink  dataBuf={dataBuf} setDataBuf={setDataBuf}/>
+                        </div> 
+                    }
+                ]
+            }/>
+        </div>     
     )
 }
+
