@@ -18,11 +18,21 @@ import (
 )
 
 func GetNsListHandler(ctx *gin.Context) {
-	var list []model.Namespace
+	var list []ginmodel.NamespaceAbstract
 	data.NamespaceMapLock.RLock()
 	defer data.NamespaceMapLock.RUnlock()
 	for _, v := range data.NamespaceMap {
-		list = append(list, *v)
+		newAbstract := ginmodel.NamespaceAbstract{
+			Name:        v.Name,
+			InstanceNum: len(v.InstanceConfig),
+			LinkNum:     len(v.LinkConfig),
+			Running:     v.Running,
+			
+		}
+		if v.Running {
+			newAbstract.AllocNodeIndex = utils.MapKeys[int, []string](v.InstanceAllocInfo)
+		}
+		list = append(list, newAbstract)
 	}
 	resp := ginmodel.JsonResp{
 		Code:    0,
@@ -122,12 +132,12 @@ func CreateNsHandler(ctx *gin.Context) {
 	var linkArray []model.LinkConfig
 	for i, v := range reqObj.InstConfigs {
 		newInstance := model.InstanceConfig{
-			InstanceID:         fmt.Sprintf("%s_%s_%d", namespace.Name, v.Type, i),
-			Name:               fmt.Sprintf("%s_%d", v.Type, i),
-			Type:               v.Type,
-			DeviceInfo:         make(map[string]model.DeviceRequireInfo),
-			Extra:              v.Extra,
-			Resource:           namespace.NsConfig.ResourceLimitMap[v.Type],
+			InstanceID: fmt.Sprintf("%s_%s_%d", namespace.Name, v.Type, i),
+			Name:       fmt.Sprintf("%s_%d", v.Type, i),
+			Type:       v.Type,
+			DeviceInfo: make(map[string]model.DeviceRequireInfo),
+			Extra:      v.Extra,
+			Resource:   namespace.NsConfig.ResourceLimitMap[v.Type],
 		}
 
 		if imageName, ok := namespace.NsConfig.ImageMap[v.Type]; ok {

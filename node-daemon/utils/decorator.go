@@ -39,7 +39,7 @@ func SliceMap[I, O any](call func(i I) O, slice []I) []O {
 	return res
 }
 
-func MapKeys[K comparable](rawMap map[K]any) []K {
+func MapKeys[K comparable,V any](rawMap map[K]V) []K {
 	index := 0
 	res := make([]K, len(rawMap))
 	for k := range rawMap {

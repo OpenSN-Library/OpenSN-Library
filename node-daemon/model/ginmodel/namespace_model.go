@@ -12,8 +12,8 @@ type NsReqConfig struct {
 }
 
 type InstanceReqConfig struct {
-	Type               string            `json:"type"`
-	Extra              map[string]string `json:"extra"`
+	Type  string            `json:"type"`
+	Extra map[string]string `json:"extra"`
 }
 
 type LinkReqConfig struct {
@@ -44,4 +44,12 @@ type NsLinkData struct {
 type NamespaceInfoData struct {
 	Name    string `json:"name"`
 	Running bool   `json:"running"`
+}
+
+type NamespaceAbstract struct {
+	Name           string `json:"name"`
+	Running        bool   `json:"running"`
+	InstanceNum    int    `json:"instance_num"`
+	LinkNum        int    `json:"link_num"`
+	AllocNodeIndex []int  `json:"alloc_node_index"`
 }
