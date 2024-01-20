@@ -6,7 +6,7 @@ type NodeAbstract struct {
 	IsMasterNode bool   `json:"is_master_node"`
 	L3AddrV4     string `json:"l_3_addr_v_4"`
 	L3AddrV6     string `json:"l_3_addr_v_6"`
-	L2Addr       string `json:"l_2_addr"` // 低六字节储存MAC地址
+	L2Addr       string `json:"l_2_addr"`
 }
 
 type NodeDetail struct {

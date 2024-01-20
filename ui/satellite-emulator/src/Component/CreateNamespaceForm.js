@@ -5,6 +5,7 @@ import { CreateNamespaceReq } from "../Model/Namespace";
 import { ConfigNamespaceBasic } from "./ConfigNamesapceBasic";
 import { ConfigNamespaceInstance } from "./ConfigNamespaceInstance";
 import { ConfigNamespaceLink } from "./ConfigNamespaceLink";
+import {CreateNamespace} from "../Request/Namespace"
 
 export function CreateNamespaceForm() {
     const [api, contextHolder] = notification.useNotification();
@@ -40,7 +41,6 @@ export function CreateNamespaceForm() {
                                                     try {
                                                         dataBuf = JSON.parse(e.target.result)
                                                         setDataBuf(dataBuf);
-                                                        console.log(dataBuf);
                                                     }catch (e) {
                                                         console.error(e);
                                                         NotificationWithIcon("error","导入失败","Error:"+e.toString());
@@ -81,8 +81,14 @@ export function CreateNamespaceForm() {
                                         导出
                                     </Button>
                                 </div>
-                            </div>
-                        
+                            </div>,
+                    "right":<Button onClick={()=>{
+                        CreateNamespace(dataBuf,(response)=>{
+                            NotificationWithIcon("success","创建成功","成功创建命名空间")
+                        })
+                    }}> 
+                        确认
+                    </Button>  
                    }}
                 items = {[
                     {
@@ -111,4 +117,3 @@ export function CreateNamespaceForm() {
         </div>     
     )
 }
-

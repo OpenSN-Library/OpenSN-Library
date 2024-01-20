@@ -25,3 +25,24 @@ export class CreateNamespaceReq {
     }
 }
 
+export class NamespaceAbstrct {
+    constructor() {
+        this.name = "";
+        this.instance_num = 0;
+        this.link_num = 0;
+        this.running = false;
+        this.alloc_node_index = [];
+    }
+}
+
+export class Namespace {
+    constructor() {
+        this.name = "";
+        this.instance_num = 0;
+        this.link_num = 0;
+        this.running = false;
+        this.alloc_node_index = [];
+        this.instance_list = [];
+        this.link_list = [];
+    }
+}

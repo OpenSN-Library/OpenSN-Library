@@ -1,7 +1,9 @@
-import React from 'react';
+import {React,useState} from 'react';
 import { Breadcrumb, Layout, Menu, theme } from 'antd';
 import { MdOutlineSatelliteAlt } from "react-icons/md";
 import { CreateNamespaceForm } from '../Component/CreateNamespaceForm';
+import { NamespaceList } from '../Component/GetNamespaceList';
+import { NodeList } from '../Component/GetNodeList';
 const { Header, Content, Sider } = Layout;
 
 
@@ -24,7 +26,7 @@ const topBarItems = [
     }
 ];
 
-var consoleItems = [
+const consoleItems = [
   {
     key: `add_namespace`,
     label: `新建项目`,
@@ -47,17 +49,40 @@ var consoleItems = [
   }
 ]
 
+const fileItems = [
+  {
+    key: `file_manage`,
+    label: `文件管理`,
+    children: null
+  }
+]
+
+const AboutItem = [
+  {
+    key: `about`,
+    label: `关于`,
+    children: null
+  }
+]
+
+const componentMap = {
+    "add_namespace": <CreateNamespaceForm/>,
+    "namespace_list": <NamespaceList/>,
+    "node_list": <NodeList/>,
+}
+
 const siderMemuMap = {
-  "console": consoleItems
-  
+  "console": consoleItems,
+  "mount_manager": fileItems,
+  "about": AboutItem,
 }
 const App = () => {
   const {
     token: { colorBgContainer, borderRadiusLG },
   } = theme.useToken();
 
-  var [selectedTopBarItem,setSelectedTopBarItem] = React.useState("console");
-  var [selectedSiderItem,setSelectedSiderItem] = React.useState("add_namespace");
+  var [selectedTopBarItem,setSelectedTopBarItem] = useState("console");
+  var [selectedSiderItem,setSelectedSiderItem] = useState("add_namespace");
   return (
     <Layout style={{height: '100%'}}> 
       <Header
@@ -79,8 +104,10 @@ const App = () => {
             setSelectedTopBarItem(key);
             if (siderMemuMap[key] != null && siderMemuMap[key].length > 0){
               selectedSiderItem = siderMemuMap[key][0].key
+              setSelectedSiderItem(selectedSiderItem);
             } else {
               selectedSiderItem = ""
+              setSelectedSiderItem(selectedSiderItem);
             }
           }}
         />
@@ -129,7 +156,7 @@ const App = () => {
               borderRadius: borderRadiusLG,
             }}
           >
-            <CreateNamespaceForm/>
+            {componentMap[selectedSiderItem]}
           </Content>
         </Layout>
       </Layout>
