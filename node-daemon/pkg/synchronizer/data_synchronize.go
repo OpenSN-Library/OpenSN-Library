@@ -53,6 +53,66 @@ func PostNodeInstanceList(index int, list []string) error {
 	return nil
 }
 
+func GetInstanceInfos(index int, instancIDs []string) ([]*model.Instance, error) {
+	var ret []*model.Instance
+	if len(instancIDs) <= 0 {
+		return nil, nil
+	}
+	hmgetResp := utils.RedisClient.HMGet(
+		context.Background(),
+		fmt.Sprintf(key.NodeInstancesKeyTemplate, index),
+		instancIDs...,
+	)
+	if hmgetResp.Err() != nil {
+		errMsg := fmt.Sprintf("Get Instance Infos of Node %d to Etcd Error: %s", index, hmgetResp.Err().Error())
+		logrus.Error(errMsg)
+		return nil, hmgetResp.Err()
+	}
+	for i, byteSeq := range hmgetResp.Val() {
+		logrus.Infof("Get Instance Object %v", byteSeq)
+		if byteSeq == nil {
+			ret = append(ret, nil)
+			continue
+		}
+		obj := new(model.Instance)
+		err := json.Unmarshal([]byte(byteSeq.(string)), obj)
+		if err != nil {
+			errMsg := fmt.Sprintf("Parse Instance Info of %s Error: %s", instancIDs[i], err.Error())
+			logrus.Error(errMsg)
+			ret = append(ret, nil)
+			continue
+		}
+		ret = append(ret, obj)
+
+	}
+	return ret, nil
+}
+
+func UpdateInstanceInfo(index int, instance *model.Instance) error {
+	byteSeq, err := json.Marshal(instance)
+	if err != nil {
+		errMsg := fmt.Sprintf("Update Instance Info Error: parse instance info error: %s", err.Error())
+		logrus.Error(errMsg)
+		return err
+	}
+	setResp := utils.RedisClient.HSet(
+		context.Background(),
+		fmt.Sprintf(key.NodeInstancesKeyTemplate, index),
+		instance.Config.InstanceID,
+		string(byteSeq),
+	)
+	if setResp.Err() != nil {
+		errMsg := fmt.Sprintf(
+			"Update Instance Info %s to Redis error: %s",
+			instance.Config.InstanceID,
+			setResp.Err().Error(),
+		)
+		logrus.Error(errMsg)
+		return setResp.Err()
+	}
+	return nil
+}
+
 func AddInstanceInfosToNode(index int, instanceInfos []*model.InstanceConfig, namespace string, originInstanceList []string) ([]string, error) {
 	var idSet = map[string]bool{}
 	var redisValueArray []string
@@ -73,7 +133,8 @@ func AddInstanceInfosToNode(index int, instanceInfos []*model.InstanceConfig, na
 			Config:    *config,
 			NodeID:    uint32(index),
 			Namespace: namespace,
-			LinkIDs: config.LinkIDs,
+			LinkIDs:   config.InitLinkIDs,
+			State:     "Pending",
 		}
 		infoBytes, err := json.Marshal(info)
 		if err != nil {
@@ -180,6 +241,62 @@ func PostNodeLinkList(index int, list []string) error {
 	return nil
 }
 
+func UpdateLinkInfo(index int, link model.Link) error {
+	base := link.GetLinkBasePtr()
+	byteSeq, err := json.Marshal(base)
+
+	if err != nil {
+		errMsg := fmt.Sprintf("Serialize Link Info of %s error: %s", base.GetLinkID(), err.Error())
+		logrus.Error(errMsg)
+		return err
+	}
+	setResp := utils.RedisClient.HSet(
+		context.Background(),
+		fmt.Sprintf(key.NodeLinksKeyTemplate, index),
+		base.Config.LinkID,
+		string(byteSeq),
+	)
+	if setResp.Err() != nil {
+		errMsg := fmt.Sprintf("Update Link %s to Redis error: %s", base.GetLinkID(), setResp.Err().Error())
+		logrus.Error(errMsg)
+		return setResp.Err()
+	}
+	return nil
+}
+
+func GetLinkInfos(index int, linkIDs []string) ([]*model.LinkBase, error) {
+	var ret []*model.LinkBase
+	if len(linkIDs) <= 0 {
+		return nil, nil
+	}
+	hmgetResp := utils.RedisClient.HMGet(
+		context.Background(),
+		fmt.Sprintf(key.NodeLinksKeyTemplate, index),
+		linkIDs...,
+	)
+	if hmgetResp.Err() != nil {
+		errMsg := fmt.Sprintf("Get Link Infos of Node %d to Etcd Error: %s", index, hmgetResp.Err().Error())
+		logrus.Error(errMsg)
+		return nil, hmgetResp.Err()
+	}
+	for i, byteSeq := range hmgetResp.Val() {
+		if byteSeq == nil {
+			ret = append(ret, nil)
+			continue
+		}
+		obj := new(model.LinkBase)
+		err := json.Unmarshal([]byte(byteSeq.(string)), obj)
+		if err != nil {
+			errMsg := fmt.Sprintf("Parse Link Info of %s Error: %s", linkIDs[i], err.Error())
+			logrus.Error(errMsg)
+			ret = append(ret, nil)
+			continue
+		}
+		ret = append(ret, obj)
+	}
+	return ret, nil
+}
+
 func AddLinkInfosToNode(index int, linkInfos []*model.LinkConfig, namespace string, originLinkList []string) ([]string, error) {
 	var idSet = map[string]bool{}
 	var redisValueArray []string
@@ -195,7 +312,7 @@ func AddLinkInfosToNode(index int, linkInfos []*model.LinkConfig, namespace stri
 			continue
 		}
 
-		logrus.Infof("Set Instance %s to node %d Success.", config.LinkID, index)
+		logrus.Infof("Set Link %s to node %d Success.", config.LinkID, index)
 		info, err := link.ParseLinkFromConfig(*config, index)
 		if err != nil {
 			errMsg := fmt.Sprintf("Create Link %s Type %s error: %s", config.LinkID, config.Type, err.Error())
@@ -204,7 +321,7 @@ func AddLinkInfosToNode(index int, linkInfos []*model.LinkConfig, namespace stri
 		}
 		infoBytes, err := json.Marshal(info)
 		if err != nil {
-			errMsg := fmt.Sprintf("Serialize Instance Info of %s error: %s", config.LinkID, err.Error())
+			errMsg := fmt.Sprintf("Serialize Link Info of %s error: %s", config.LinkID, err.Error())
 			logrus.Error(errMsg)
 			return nil, err
 		}
@@ -266,7 +383,7 @@ func DelLinkInfosFromNode(index int, LinkIDs []string, namespace string, originL
 	return keepList, nil
 }
 
-func PostNamespaceInfo(ns *model.Namespace) error {
+func UpdateNamespaceInfo(ns *model.Namespace) error {
 	nsBytes, err := json.Marshal(ns)
 
 	if err != nil {
@@ -284,6 +401,30 @@ func PostNamespaceInfo(ns *model.Namespace) error {
 
 	if hsetResp.Err() != nil {
 		errMsg := fmt.Sprintf("Update Namespace %s Infomation Error: %s", ns.Name, hsetResp.Err().Error())
+		logrus.Error(errMsg)
+		return err
+	}
+	return nil
+}
+
+func UpdateNodeInfo(info *model.Node) error {
+	byteSeq, err := json.Marshal(info)
+
+	if err != nil {
+		errMsg := fmt.Sprintf("Serialize Node %d Infomation Error: %s", info.NodeID, err.Error())
+		logrus.Error(errMsg)
+		return err
+	}
+
+	hsetResp := utils.RedisClient.HSet(
+		context.Background(),
+		key.NodesKey,
+		info.NodeID,
+		string(byteSeq),
+	)
+
+	if hsetResp.Err() != nil {
+		errMsg := fmt.Sprintf("Update Node %d Infomation Error: %s", info.NodeID, hsetResp.Err().Error())
 		logrus.Error(errMsg)
 		return err
 	}

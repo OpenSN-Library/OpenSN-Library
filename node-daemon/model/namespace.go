@@ -19,14 +19,14 @@ type DeviceRequireInfo struct {
 }
 
 type InstanceConfig struct {
-	InstanceID string                       `json:"instance_id"`
-	Name       string                       `json:"name"`
-	Type       string                       `json:"type"`
-	Image      string                       `json:"position_changeable"`
-	Extra      map[string]string            `json:"extra"`
-	LinkIDs    []string                     `json:"link_ids"`
-	DeviceInfo map[string]DeviceRequireInfo `json:"device_need"`
-	Resource   ResourceLimit                `json:"resource"`
+	InstanceID  string                       `json:"instance_id"`
+	Name        string                       `json:"name"`
+	Type        string                       `json:"type"`
+	Image       string                       `json:"position_changeable"`
+	Extra       map[string]string            `json:"extra"`
+	InitLinkIDs []string                     `json:"link_ids"`
+	DeviceInfo  map[string]DeviceRequireInfo `json:"device_need"`
+	Resource    ResourceLimit                `json:"resource"`
 }
 
 type LinkConfig struct {

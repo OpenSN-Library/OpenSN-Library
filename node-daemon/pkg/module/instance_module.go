@@ -2,6 +2,7 @@ package module
 
 import (
 	"NodeDaemon/model"
+	"NodeDaemon/pkg/synchronizer"
 	"NodeDaemon/share/data"
 
 	"NodeDaemon/share/dir"
@@ -76,9 +77,12 @@ func AddContainers(addList []string) error {
 						nil,
 						instance.Config.Name,
 					)
-
+					if err != nil {
+						return err
+					}
+					data.InstanceMap[v].State = "Created"
 					data.InstanceMap[v].ContainerID = createResp.ID
-
+					err = synchronizer.UpdateInstanceInfo(key.NodeIndex, data.InstanceMap[v])
 					return err
 				}, 2)
 				if err != nil {
@@ -110,7 +114,9 @@ func AddContainers(addList []string) error {
 					}
 
 					data.InstanceMap[v].Pid = inspect.State.Pid
-					return nil
+					data.InstanceMap[v].State = "Running"
+					err = synchronizer.UpdateInstanceInfo(key.NodeIndex, data.InstanceMap[v])
+					return err
 				}, 2)
 				if err != nil {
 					logrus.Errorf("Start Container %s Error: %s", v, err.Error())

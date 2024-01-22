@@ -1,1 +1,0 @@
-sudo docker build . -t satellite_emulator/etcd

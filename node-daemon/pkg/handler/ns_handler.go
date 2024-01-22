@@ -27,7 +27,6 @@ func GetNsListHandler(ctx *gin.Context) {
 			InstanceNum: len(v.InstanceConfig),
 			LinkNum:     len(v.LinkConfig),
 			Running:     v.Running,
-			
 		}
 		if v.Running {
 			newAbstract.AllocNodeIndex = utils.MapKeys[int, []string](v.InstanceAllocInfo)
@@ -44,10 +43,11 @@ func GetNsListHandler(ctx *gin.Context) {
 }
 
 func GetNsInfoHandler(ctx *gin.Context) {
+	errMsg := "Success"
 	name := ctx.Param("name")
 	info, ok := data.NamespaceMap[name]
 	if !ok {
-		errMsg := fmt.Sprintf("Namespace %s Not Found", name)
+		errMsg = fmt.Sprintf("Namespace %s Not Found", name)
 		logrus.Error(errMsg)
 		resp := ginmodel.JsonResp{
 			Code:    -1,
@@ -56,9 +56,80 @@ func GetNsInfoHandler(ctx *gin.Context) {
 		ctx.JSON(http.StatusNotFound, resp)
 	}
 	infoData := ginmodel.NamespaceInfoData{
-		Name: info.Name,
+		Name:              info.Name,
+		Running:           info.Running,
+		InstanceAllocInfo: info.InstanceAllocInfo,
+		LinkAllocInfo:     info.LinkAllocInfo,
 	}
-	ctx.JSON(http.StatusOK, infoData)
+	if infoData.Running {
+		for nodeIndex, instanceIds := range infoData.InstanceAllocInfo {
+			infoArray, err := synchronizer.GetInstanceInfos(nodeIndex, instanceIds)
+			if err != nil {
+				errMsg = fmt.Sprintf("Get Instance Info of Node %d Error: %s", nodeIndex, err.Error())
+				logrus.Error(errMsg)
+				continue
+			}
+			for i, v := range infoArray {
+				if v == nil {
+					infoData.InstanceInfos = append(infoData.InstanceInfos, ginmodel.InstanceAbstract{
+						Name:       "Died",
+						InstanceID: instanceIds[i],
+						State:      "Died",
+						Type:       "Undefined",
+						Namespace:  info.Name,
+						LinkIDs:    nil,
+					})
+				} else {
+					infoData.InstanceInfos = append(infoData.InstanceInfos, ginmodel.InstanceAbstract{
+						Name:        v.Config.Name,
+						InstanceID:  v.Config.InstanceID,
+						ContainerID: v.ContainerID,
+						State:       v.State,
+						Type:        v.Config.Type,
+						Pid:         v.Pid,
+						Namespace:   v.Namespace,
+						LinkIDs:     v.LinkIDs,
+						Extra:       v.Config.Extra,
+					})
+				}
+			}
+
+		}
+
+		for nodeIndex, linkIds := range infoData.LinkAllocInfo {
+			infoArray, err := synchronizer.GetLinkInfos(nodeIndex, linkIds)
+			if err != nil {
+				errMsg = fmt.Sprintf("Get Link Info of Node %d Error: %s", nodeIndex, err.Error())
+				logrus.Error(errMsg)
+			}
+			for _, v := range infoArray {
+				if v == nil {
+					infoData.LinkInfos = append(infoData.LinkInfos, ginmodel.LinkAbstract{
+						LinkID: "Died",
+						Type:   "Died",
+					})
+				} else {
+					infoData.LinkInfos = append(infoData.LinkInfos, ginmodel.LinkAbstract{
+						LinkID:    v.Config.LinkID,
+						Type:      v.Config.Type,
+						Parameter: v.Parameter,
+						IPInfos:   v.Config.IPInfos,
+						ConnectIntance: [2]string{
+							v.EndInfos[0].InstanceID,
+							v.EndInfos[1].InstanceID,
+						},
+					})
+				}
+			}
+
+		}
+	}
+	jsonResp := ginmodel.JsonResp{
+		Code:    0,
+		Message: errMsg,
+		Data:    infoData,
+	}
+	ctx.JSON(http.StatusOK, jsonResp)
 }
 
 func CreateNsHandler(ctx *gin.Context) {
@@ -165,14 +236,14 @@ func CreateNsHandler(ctx *gin.Context) {
 				InstanceID:   instanceArray[v.InstanceIndex[0]].InstanceID,
 				InstanceType: instanceArray[v.InstanceIndex[0]].Type,
 			}
-			instanceArray[v.InstanceIndex[0]].LinkIDs = append(instanceArray[v.InstanceIndex[0]].LinkIDs, newLink.LinkID)
+			instanceArray[v.InstanceIndex[0]].InitLinkIDs = append(instanceArray[v.InstanceIndex[0]].InitLinkIDs, newLink.LinkID)
 		}
 		if v.InstanceIndex[1] >= 0 {
 			newLink.InitEndInfos[1] = model.EndInfoType{
 				InstanceID:   instanceArray[v.InstanceIndex[1]].InstanceID,
 				InstanceType: instanceArray[v.InstanceIndex[1]].Type,
 			}
-			instanceArray[v.InstanceIndex[1]].LinkIDs = append(instanceArray[v.InstanceIndex[1]].LinkIDs, newLink.LinkID)
+			instanceArray[v.InstanceIndex[1]].InitLinkIDs = append(instanceArray[v.InstanceIndex[1]].InitLinkIDs, newLink.LinkID)
 
 		}
 		if deviceInfo, ok := link.LinkDeviceInfoMap[newLink.Type]; ok {
@@ -195,7 +266,7 @@ func CreateNsHandler(ctx *gin.Context) {
 	data.NamespaceMapLock.Lock()
 	data.NamespaceMap[namespace.Name] = namespace
 	data.NamespaceMapLock.Unlock()
-	err = synchronizer.PostNamespaceInfo(namespace)
+	err = synchronizer.UpdateNamespaceInfo(namespace)
 	if err != nil {
 		data.NamespaceMapLock.Lock()
 		delete(data.NamespaceMap, namespace.Name)
@@ -326,6 +397,11 @@ Start:
 			errMsg = fmt.Sprintf("Update Instance List to Node %d Error: %s", index, err.Error())
 			goto Error500
 		}
+		err = synchronizer.UpdateNodeInfo(data.NodeMap[index])
+		if err != nil {
+			errMsg = fmt.Sprintf("Update Node Free Instance Num Error: %s", err.Error())
+			logrus.Error(errMsg)
+		}
 	}
 
 	linkTarget, err := arranger.ArrangeLink(ns, instanceTarget)
@@ -378,7 +454,7 @@ Start:
 
 	ns.Running = true
 
-	err = synchronizer.PostNamespaceInfo(ns)
+	err = synchronizer.UpdateNamespaceInfo(ns)
 
 	if err != nil {
 		errMsg = fmt.Sprintf("Update Namespace %s Info Error: %s", ns.Name, err.Error())
@@ -402,6 +478,12 @@ func stopInstances(name string) error {
 		if err != nil {
 			logrus.Errorf("Remove Instance Infos of Node %d Error: %s", k, err.Error())
 			return err
+		}
+		data.NodeMap[k].FreeInstance += len(v)
+		err = synchronizer.UpdateNodeInfo(data.NodeMap[k])
+		if err != nil {
+			errMsg := fmt.Sprintf("Update Node %d Info Error: %s", k, err.Error())
+			logrus.Error(errMsg)
 		}
 		err = synchronizer.PostNodeInstanceList(k, list)
 		if err != nil {
@@ -498,7 +580,7 @@ Start:
 	}
 
 	info.Running = false
-	synchronizer.PostNamespaceInfo(info)
+	err = synchronizer.UpdateNamespaceInfo(info)
 
 	if err != nil {
 		errMsg = fmt.Sprintf("Update Namespace %s Error: %s", info.Name, err.Error())

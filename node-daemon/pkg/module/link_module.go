@@ -4,6 +4,7 @@ import (
 	"NodeDaemon/model"
 	netreq "NodeDaemon/model/netlink_request"
 	"NodeDaemon/pkg/link"
+	"NodeDaemon/pkg/synchronizer"
 	"NodeDaemon/share/data"
 	"NodeDaemon/share/dir"
 	"NodeDaemon/share/key"
@@ -257,7 +258,8 @@ func AddLinks(addList []string, operator *model.NetlinkOperatorInfo) error {
 				linkInfo.GetLinkConfig().InitEndInfos[1].InstanceID,
 				linkInfo.GetLinkType(),
 			)
-			return true, nil
+			err = synchronizer.UpdateLinkInfo(key.NodeIndex, linkInfo)
+			return true, err
 		}, addList,
 	)
 	if err != nil {
@@ -295,7 +297,7 @@ func DelLinks(delList []model.Link, operator *model.NetlinkOperatorInfo) error {
 
 func linkDaemonFunc(sigChan chan int, errChan chan error) {
 	InitLinkData()
-	operatorNum := 32
+	operatorNum := 4
 	netOpInfo := model.NetlinkOperatorInfo{
 		RequestChann: make(chan []netreq.NetLinkRequest, operatorNum),
 	}

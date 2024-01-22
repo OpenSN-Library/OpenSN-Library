@@ -42,8 +42,12 @@ type NsLinkData struct {
 }
 
 type NamespaceInfoData struct {
-	Name    string `json:"name"`
-	Running bool   `json:"running"`
+	Name              string             `json:"name"`
+	Running           bool               `json:"running"`
+	InstanceAllocInfo map[int][]string   `json:"instance_alloc_info"`
+	LinkAllocInfo     map[int][]string     `json:"link_alloc_info"`
+	InstanceInfos     []InstanceAbstract `json:"instance_infos"`
+	LinkInfos         []LinkAbstract     `json:"link_infos"`
 }
 
 type NamespaceAbstract struct {
