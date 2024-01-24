@@ -5,7 +5,7 @@ export const NamespaceList = () => {
     let [namespaceList,setNamespaceList] = useState([])
     useEffect(()=>{
         GetNamespaceList((response)=>{
-            setNamespaceList(response.data.data)
+            setNamespaceList(response.data.data==null?[]:response.data.data)
         })
     },[])
     return (
@@ -36,7 +36,7 @@ export const NamespaceList = () => {
                         </Typography.Paragraph>
                         <Typography.Paragraph>
                             <Typography.Text>
-                                {`命名空间分配计算节点列表:${item.running?item.alloc_node_index:"未运行"}`}
+                                {`命名空间分配计算节点列表:${item.running?JSON.stringify(item.alloc_node_index):"未运行"}`}
                             </Typography.Text>
                         </Typography.Paragraph>
                        
@@ -66,7 +66,11 @@ export const NamespaceList = () => {
                                 {item.running?"停止":"启动"}
                             </Button>
                             <Button>编辑</Button>
-                            <Button>详细信息</Button>
+                            <Button
+                                onClick={()=>{
+                                    window.open(`/namespace/${item.name}/detail`, "_blank")
+                                }}
+                            >详细信息</Button>
                         </div>
                     </Card>
                    

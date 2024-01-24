@@ -5,12 +5,9 @@ export const NodeList = () => {
     let [nodeList,setNodeList] = useState([])
     useEffect(()=>{
         GetNodeList((response)=>{
-            console.log(response.data)
-            setNodeList(response.data.data)
-            console.log(nodeList)
+            setNodeList(response.data.data==null?[]:response.data.data)
         })
     },[])
-    console.log(nodeList)
     return (
         <List
                 bordered

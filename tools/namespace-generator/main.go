@@ -22,8 +22,8 @@ func main() {
 		ContainerEnvs: map[string]string{},
 		ResourceMap: map[string]ginmodel.ResourceLimit{
 			"Satellite": {
-				NanoCPU:    "100M",
-				MemoryByte: "32M",
+				NanoCPU:    "10M",
+				MemoryByte: "24M",
 			},
 		},
 	}
@@ -68,7 +68,7 @@ func main() {
 		for _, anthoer := range v {
 			thisIndex, _ := strconv.Atoi(k)
 			newLinkReq := ginmodel.LinkReqConfig{
-				Type:          "VirtualLink",
+				Type:          "vlink",
 				InstanceIndex: [2]int{thisIndex, anthoer},
 				Parameter:     map[string]int64{},
 			}

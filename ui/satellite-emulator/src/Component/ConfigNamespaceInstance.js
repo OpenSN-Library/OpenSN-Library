@@ -1,4 +1,4 @@
-import {Card,List,Button,Input,Typography,Divider} from "antd";
+import {Card,List,Button,Typography} from "antd";
 export function ConfigNamespaceInstance({dataBuf,setDataBuf}) {
     return (
         <Card title={"命名空间初始节点配置"}>

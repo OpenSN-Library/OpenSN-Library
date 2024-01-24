@@ -73,7 +73,7 @@ def generate_tle(orbit_num: int, orbit_satellite_num: int, latitude, longitude, 
 
 
 if __name__ == "__main__":
-    sat, topos = generate_tle(20, 20, 0, 0, 5, 0.05)
+    sat, topos = generate_tle(20, 10, 0, 0, 5, 0.05)
     tle_fd = open("tle/tle.tle","w")
     flat_sat =[]
     for tle in sat:

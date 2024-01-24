@@ -41,8 +41,8 @@ export class Namespace {
         this.instance_num = 0;
         this.link_num = 0;
         this.running = false;
-        this.alloc_node_index = [];
-        this.instance_list = [];
-        this.link_list = [];
+        this.instance_alloc_info = {};
+        this.instance_infos = [];
+        this.link_infos = [];
     }
 }

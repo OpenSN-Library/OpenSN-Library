@@ -3,8 +3,8 @@ import { ContainerEnvDrawer } from "./ContainerEnvDrawer";
 import { useState } from "react";
 import { InstanceTypeDrawer } from "./InstanceTypeDrawer";
 export function ConfigNamespaceBasic({dataBuf,setDataBuf}) {
-    const [envMapOpen,setEnvMapOpen] = useState(false)
-    const [instanceTypeOpen,setInstanceTypeOpen] = useState(false)
+    const [envMapOpen,setEnvMapOpen] = useState(false);
+    const [instanceTypeOpen,setInstanceTypeOpen] = useState(false);
     return (
 
             <Card title={"命名空间基本信息"}>

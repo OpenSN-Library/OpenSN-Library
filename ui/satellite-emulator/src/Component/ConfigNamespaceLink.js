@@ -1,4 +1,4 @@
-import {Card,List,Button,Input,Typography,Divider} from "antd";
+import {Card,List,Button,Typography} from "antd";
 
 export function ConfigNamespaceLink({dataBuf,setDataBuf}) {
     return (

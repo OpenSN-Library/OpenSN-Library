@@ -1,11 +1,13 @@
 import {React,useState} from 'react';
-import { Breadcrumb, Layout, Menu, theme } from 'antd';
+import {Layout, Menu, theme } from 'antd';
 import { MdOutlineSatelliteAlt } from "react-icons/md";
 import { CreateNamespaceForm } from '../Component/CreateNamespaceForm';
 import { NamespaceList } from '../Component/GetNamespaceList';
 import { NodeList } from '../Component/GetNodeList';
+import { ConsoleItems } from './ConsolePage';
+import { FileItems } from './FilePage';
+import ExportOutlined from '@ant-design/icons/ExportOutlined';
 const { Header, Content, Sider } = Layout;
-
 
 const topBarItems = [
     {
@@ -18,52 +20,22 @@ const topBarItems = [
     },
     {
         key:"help",
-        label: `使用文档`,
+        label: (<a href="/help" target="_blank">
+                  帮助文档<ExportOutlined />
+                </a>),
     },
     {
         key:"about",
-        label: `关于`,
+        label: (<a href="/about" target="_blank">
+                  关于<ExportOutlined />
+                </a>),
     }
 ];
 
-const consoleItems = [
-  {
-    key: `add_namespace`,
-    label: `新建项目`,
-    children: null
-  },
-  {
-    key: `namespace_list`,
-    label: `项目列表`,
-    children: null
-  },
-  {
-    key: `monitor`,
-    label: `监控`,
-    children: null
-  },
-  {
-    key: `node_list`,
-    label: `计算节点列表`,
-    children: null
-  }
-]
 
-const fileItems = [
-  {
-    key: `file_manage`,
-    label: `文件管理`,
-    children: null
-  }
-]
 
-const AboutItem = [
-  {
-    key: `about`,
-    label: `关于`,
-    children: null
-  }
-]
+
+
 
 const componentMap = {
     "add_namespace": <CreateNamespaceForm/>,
@@ -72,15 +44,13 @@ const componentMap = {
 }
 
 const siderMemuMap = {
-  "console": consoleItems,
-  "mount_manager": fileItems,
-  "about": AboutItem,
+  "console": ConsoleItems,
+  "mount_manager": FileItems,
 }
 const App = () => {
   const {
     token: { colorBgContainer, borderRadiusLG },
   } = theme.useToken();
-
   var [selectedTopBarItem,setSelectedTopBarItem] = useState("console");
   var [selectedSiderItem,setSelectedSiderItem] = useState("add_namespace");
   return (
@@ -101,13 +71,15 @@ const App = () => {
           items={topBarItems}
           style={{flex: 1, minWidth: 0}}
           onSelect={({key}) => {
-            setSelectedTopBarItem(key);
-            if (siderMemuMap[key] != null && siderMemuMap[key].length > 0){
-              selectedSiderItem = siderMemuMap[key][0].key
-              setSelectedSiderItem(selectedSiderItem);
-            } else {
-              selectedSiderItem = ""
-              setSelectedSiderItem(selectedSiderItem);
+            if (key in siderMemuMap) {
+              setSelectedTopBarItem(key);
+              if (siderMemuMap[key] != null && siderMemuMap[key].length > 0){
+                selectedSiderItem = siderMemuMap[key][0].key
+                setSelectedSiderItem(selectedSiderItem);
+              } else {
+                selectedSiderItem = ""
+                setSelectedSiderItem(selectedSiderItem);
+              }
             }
           }}
         />
@@ -122,7 +94,6 @@ const App = () => {
           <Menu
             mode="inline"
             defaultSelectedKeys={selectedSiderItem}
-            defaultOpenKeys={['sub1']}
             style={{
               height: '100%',
               borderRight: 0,
@@ -138,15 +109,6 @@ const App = () => {
             padding: '0 24px 24px',
           }}
         >
-          <Breadcrumb
-            style={{
-              margin: '16px 0',
-            }}
-          >
-            <Breadcrumb.Item>Home</Breadcrumb.Item>
-            <Breadcrumb.Item>List</Breadcrumb.Item>
-            <Breadcrumb.Item>App</Breadcrumb.Item>
-          </Breadcrumb>
           <Content
             style={{
               padding: 24,
