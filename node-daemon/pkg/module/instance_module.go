@@ -51,6 +51,16 @@ func AddContainers(addList []string) error {
 			instance, ok := data.InstanceMap[v]
 			if ok {
 				err := utils.DoWithRetry(func() error {
+					_, err := utils.DockerClient.ImagePull(
+						context.Background(),
+						instance.Config.Image,
+						types.ImagePullOptions{},
+					)
+					if err != nil {
+						errMsg := fmt.Sprintf("Pull Image %s Error: %s", instance.Config.Image, err.Error())
+						logrus.Warnf(errMsg)
+						return err
+					}
 					containerConfig := &container.Config{
 						Hostname:    instance.Config.InstanceID,
 						Image:       instance.Config.Image,

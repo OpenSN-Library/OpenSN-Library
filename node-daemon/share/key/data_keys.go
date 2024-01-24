@@ -13,12 +13,12 @@ const ( // Etcd Keys
 )
 
 const (
-	NodeInstanceListKeyTemplate  = "/node_%d/instance_list"
-	NodeLinkListKeyTemplate      = "/node_%d/link_list"
-	NodeInstancesKeyTemplate     = "node_%d_instances"
-	NodeLinksKeyTemplate         = "node_%d_links"
-	NodeNsKeyTemplate            = "/node_%d/ns_list"
-	NodeLinkParameterKeyTemplate = "/node_%d/link_paramter"
+	NodeInstanceListKeyTemplate       = "/node_%d/instance_list"
+	NodeLinkListKeyTemplate           = "/node_%d/link_list"
+	NodeInstancesKeyTemplate          = "node_%d_instances"
+	NodeLinksKeyTemplate              = "node_%d_links"
+	NodeNsKeyTemplate                 = "/node_%d/ns_list"
+	NodeLinkParameterKeyTemplate      = "/node_%d/link_paramter"
 	NamespaceInstancePositionTemplate = "/positions/%s/"
 )
 
@@ -36,6 +36,12 @@ var (
 	NodeLinkListKeySelf      = ""
 	NodeNsKeySelf            = ""
 	NodeLinkParameterKeySelf = ""
+)
+
+var (
+	NodePerformanceKey = "node_performance"
+	LinkPerformanceKey = "link_performance"
+	InstancePerformanceKey = "instance_performance"
 )
 
 func InitKeys() {

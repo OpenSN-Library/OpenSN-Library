@@ -34,6 +34,20 @@ func GetRedisAddressHandler(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, resp)
 }
 
+func GetInfluxDBAddressHandler(ctx *gin.Context) {
+	resp := ginmodel.JsonResp{
+		Code:    0,
+		Message: "success",
+		Data: ginmodel.InfluxDBConfiguration{
+			Address: config.GlobalConfig.Dependency.InfluxdbAddr,
+			Port:    config.GlobalConfig.Dependency.InfluxdbPort,
+			Token:   config.GlobalConfig.Dependency.InfluxdbToken,
+			Enable:  config.GlobalConfig.App.EnableMonitor,
+		},
+	}
+	ctx.JSON(http.StatusOK, resp)
+}
+
 func GetPlatformStatus(ctx *gin.Context) {
 	resp := ginmodel.JsonResp{
 		Code:    0,

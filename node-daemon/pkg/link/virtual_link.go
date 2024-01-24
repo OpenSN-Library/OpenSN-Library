@@ -6,13 +6,12 @@ import (
 	"NodeDaemon/share/data"
 	"NodeDaemon/share/key"
 	"fmt"
-	"os"
 
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 )
 
-const VirtualLinkType = "VirtualLink"
+const VirtualLinkType = "vlink"
 
 const (
 	VethDelayParameter     = "delay"
@@ -66,11 +65,11 @@ func CreateVethLinkObject(initConfig model.LinkConfig) *VethLink {
 		},
 		DevInfos: [2]DevInfoType{
 			{
-				Name:    fmt.Sprintf("%s_0", initConfig.LinkID),
+				Name:    initConfig.LinkID,
 				IfIndex: -1,
 			},
 			{
-				Name:    fmt.Sprintf("%s_1", initConfig.LinkID),
+				Name:    initConfig.LinkID,
 				IfIndex: -1,
 			},
 		},
@@ -149,12 +148,13 @@ func (l *VethLink) enableSameMachine() error {
 		logrus.Errorf("Enable %s and %s Error: %s has already been enabled", l.EndInfos[0].InstanceID, l.EndInfos[1].InstanceID, l.Config.LinkID)
 		return fmt.Errorf("%s is enabled", l.Config.LinkID)
 	}
-
 	veth := &netlink.Veth{
 		LinkAttrs: netlink.LinkAttrs{
-			Name: l.DevInfos[0].Name,
+			Name:      l.DevInfos[0].Name,
+			Namespace: netlink.NsPid(data.InstanceMap[l.EndInfos[0].InstanceID].Pid),
 		},
-		PeerName: l.DevInfos[1].Name,
+		PeerName:      l.DevInfos[1].Name,
+		PeerNamespace: netlink.NsPid(data.InstanceMap[l.EndInfos[1].InstanceID].Pid),
 	}
 
 	err := netlink.LinkAdd(veth)
@@ -162,18 +162,6 @@ func (l *VethLink) enableSameMachine() error {
 	if err != nil {
 		logrus.Errorf("Add Veth Peer Link Error: %s", err.Error())
 		return err
-	}
-
-	l.DevInfos[0].IfIndex = veth.Index
-	peerIndex, err := netlink.VethPeerIndex(veth)
-	if err != nil {
-		logrus.Errorf("Get Peer Link Index of %d Error: %s", veth.Attrs().Index, err.Error())
-		return err
-	}
-
-	l.DevInfos[1].IfIndex = peerIndex
-	if err != nil {
-		logrus.Errorf("Get Init Net Namespace Error: %s", err.Error())
 	}
 
 	return nil
@@ -185,8 +173,9 @@ func (l *VethLink) enableCrossMachine() error {
 		if ok {
 			vxlanDev := netlink.Vxlan{
 				LinkAttrs: netlink.LinkAttrs{
-					Name:   l.DevInfos[i].Name,
-					TxQLen: -1,
+					Name:      l.DevInfos[i].Name,
+					Namespace: netlink.NsPid(data.InstanceMap[l.EndInfos[i].InstanceID].Pid),
+					TxQLen:    -1,
 				},
 				VxlanId:  l.Config.LinkIndex,
 				SrcAddr:  data.NodeMap[key.NodeIndex].L3AddrV4,
@@ -229,7 +218,7 @@ func (l *VethLink) Enable() ([]netreq.NetLinkRequest, error) {
 			continue
 		}
 		requests = append(
-			requests, netreq.CreateSetNetNsReq(l.DevInfos[i].IfIndex, os.Getpid(), instanceInfo.Pid, l.DevInfos[i].Name),
+			requests,
 			netreq.CreateSetStateReq(l.DevInfos[i].IfIndex, instanceInfo.Pid, l.DevInfos[i].Name, true),
 		)
 

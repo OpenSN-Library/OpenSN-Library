@@ -1,4 +1,4 @@
 package link
 
 
-const MultiplexPhysicalLinkType = "MultiplexPhysicalLink" 
+const MultiplexPhysicalLinkType = "mplink" 

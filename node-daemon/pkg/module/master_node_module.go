@@ -28,6 +28,7 @@ func RegisterHandlers(r *gin.Engine) {
 	platform := api.Group("/platform")
 	platform.GET("/address/etcd", handler.GetEtcdAddressHandler)
 	platform.GET("/address/redis", handler.GetRedisAddressHandler)
+	platform.GET("/address/influxdb", handler.GetInfluxDBAddressHandler)
 	platform.GET("/status", handler.GetPlatformStatus)
 	namespace := api.Group("/namespace")
 	namespace.GET("/list", handler.GetNsListHandler)
@@ -79,7 +80,7 @@ func masterDaemonFunc(sigChann chan int, errChann chan error) {
 	RegisterHandlers(r)
 	RegisterStatics(r)
 	srv := &http.Server{
-		Addr:    "0.0.0.0:8080",
+		Addr:    fmt.Sprintf("0.0.0.0:%d", config.GlobalConfig.App.ListenPort),
 		Handler: r,
 	}
 	go func() {

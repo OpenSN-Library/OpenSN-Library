@@ -22,6 +22,8 @@ type AppConfigType struct {
 	IsServant        bool   `json:"is_servant"`
 	MasterAddress    string `json:"master_address"`
 	InterfaceName    string `json:"interface_name"`
+	ListenPort       int    `json:"listen_port"`
+	EnableMonitor    bool   `json:"enable_monitor"`
 	Debug            bool   `json:"debug"`
 	InstanceCapacity int    `json:"instance_capacity"`
 }
@@ -34,6 +36,11 @@ type DependencyConfigType struct {
 	RedisDBIndex   int    `json:"redis_db_index"`
 	RedisPassword  string `json:"redis_password"`
 	DockerHostPath string `json:"docker_host_path"`
+	InfluxdbAddr   string `json:"influxdb_addr"`
+	InfluxdbPort   int    `json:"influxdb_port"`
+	InfluxdbToken  string `json:"influxdb_token"`
+	InfluxdbOrg    string `json:"influxdb_org"`
+	InfluxdbBucket string `json:"influxdb_bucket"`
 }
 
 type GlobalConfigType struct {
@@ -109,6 +116,7 @@ func InitConfig(jsonPath string) {
 		GlobalConfig.App.MasterAddress = addresses[0].IP.String()
 		GlobalConfig.Dependency.EtcdAddr = GlobalConfig.App.MasterAddress
 		GlobalConfig.Dependency.RedisAddr = GlobalConfig.App.MasterAddress
+		GlobalConfig.Dependency.InfluxdbAddr = GlobalConfig.App.MasterAddress
 	} else {
 		GlobalConfig.App.MasterAddress = GetConfigEnvString("MASTER_ADDRESS", GlobalConfig.App.MasterAddress)
 	}
@@ -122,17 +130,24 @@ func InitConfig(jsonPath string) {
 }
 
 func InitConfigMasterMode() error {
-
+	GlobalConfig.Dependency.RedisAddr = GetConfigEnvString("REDIS_ADDR", GlobalConfig.Dependency.RedisAddr)
+	GlobalConfig.Dependency.EtcdAddr = GetConfigEnvString("ETCD_ADDR", GlobalConfig.Dependency.EtcdAddr)
 	GlobalConfig.Dependency.EtcdPort = GetConfigEnvNumber("ETCD_PORT", GlobalConfig.Dependency.EtcdPort)
 	GlobalConfig.Dependency.RedisPort = GetConfigEnvNumber("REDIS_PORT", GlobalConfig.Dependency.RedisPort)
 	GlobalConfig.Dependency.RedisPassword = GetConfigEnvString("REDIS_PASSWORD", GlobalConfig.Dependency.RedisPassword)
 	GlobalConfig.Dependency.RedisDBIndex = GetConfigEnvNumber("REDIS_DB_INDEX", GlobalConfig.Dependency.RedisDBIndex)
+	GlobalConfig.Dependency.InfluxdbAddr = GetConfigEnvString("INFLUXDB_ADDR", GlobalConfig.Dependency.InfluxdbAddr)
+	GlobalConfig.Dependency.InfluxdbPort = GetConfigEnvNumber("ETCD_PORT", GlobalConfig.Dependency.InfluxdbPort)
+	GlobalConfig.Dependency.InfluxdbToken = GetConfigEnvString("INFLUXDB_TOKEN", GlobalConfig.Dependency.InfluxdbToken)
+	GlobalConfig.Dependency.InfluxdbOrg = GetConfigEnvString("INFLUXDB_ORG", GlobalConfig.Dependency.InfluxdbOrg)
+	GlobalConfig.Dependency.InfluxdbBucket = GetConfigEnvString("INFLUXDB_BUCKET", GlobalConfig.Dependency.InfluxdbBucket)
 	return nil
 }
 
 func InitConfigServantMode(masterAddr string) error {
-	redisReqUrl := fmt.Sprintf("http://%s:8080%s", masterAddr, RedisConfigurationUrl)
-	etcdReqUrl := fmt.Sprintf("http://%s:8080%s", masterAddr, EtcdConfigurationUrl)
+	redisReqUrl := fmt.Sprintf("http://%s:%d%s", masterAddr, GlobalConfig.App.ListenPort, RedisConfigurationUrl)
+	etcdReqUrl := fmt.Sprintf("http://%s:%d%s", masterAddr, GlobalConfig.App.ListenPort, EtcdConfigurationUrl)
+	influxDBUrl := fmt.Sprintf("http://%s:%d%s", masterAddr, GlobalConfig.App.ListenPort, EtcdConfigurationUrl)
 	err := utils.DoWithRetry(func() error {
 		var obj ginmodel.JsonResp
 		redisResp, err := http.Get(redisReqUrl)
@@ -142,8 +157,10 @@ func InitConfigServantMode(masterAddr string) error {
 		err = json.NewDecoder(redisResp.Body).Decode(&obj)
 
 		if err != nil {
-			logrus.Error("Unmashal Error")
 			return err
+		}
+		if obj.Code != 0 {
+			return fmt.Errorf("response code is %d", obj.Code)
 		}
 
 		GlobalConfig.Dependency.RedisAddr = obj.Data.(map[string]interface{})["address"].(string)
@@ -169,6 +186,9 @@ func InitConfigServantMode(masterAddr string) error {
 		if err != nil {
 			return err
 		}
+		if obj.Code != 0 {
+			return fmt.Errorf("response code is %d", obj.Code)
+		}
 
 		GlobalConfig.Dependency.EtcdAddr = obj.Data.(map[string]interface{})["address"].(string)
 		GlobalConfig.Dependency.EtcdPort = int(obj.Data.(map[string]interface{})["port"].(float64))
@@ -180,5 +200,38 @@ func InitConfigServantMode(masterAddr string) error {
 		logrus.Error(errMsg)
 		return err
 	}
+
+	err = utils.DoWithRetry(func() error {
+		var obj ginmodel.JsonResp
+		etcdResp, err := http.Get(influxDBUrl)
+		if err != nil {
+			return err
+		}
+		err = json.NewDecoder(etcdResp.Body).Decode(&obj)
+		if err != nil {
+			return err
+		}
+		if obj.Code != 0 {
+			return fmt.Errorf("response code is %d", obj.Code)
+		}
+		if obj.Data.(map[string]interface{})["enable"].(bool) {
+			GlobalConfig.App.EnableMonitor = true
+			GlobalConfig.Dependency.InfluxdbAddr = obj.Data.(map[string]interface{})["address"].(string)
+			GlobalConfig.Dependency.InfluxdbPort = int(obj.Data.(map[string]interface{})["port"].(float64))
+			GlobalConfig.Dependency.InfluxdbToken = obj.Data.(map[string]interface{})["token"].(string)
+			GlobalConfig.Dependency.InfluxdbOrg = obj.Data.(map[string]interface{})["org"].(string)
+			GlobalConfig.Dependency.InfluxdbBucket = obj.Data.(map[string]interface{})["bucket"].(string)
+		} else {
+			GlobalConfig.App.EnableMonitor = false
+		}
+		return nil
+	}, 4)
+
+	if err != nil {
+		errMsg := fmt.Sprintf("Fetch InfluxDB Configuration error: %s", err.Error())
+		logrus.Error(errMsg)
+		return err
+	}
+
 	return nil
 }

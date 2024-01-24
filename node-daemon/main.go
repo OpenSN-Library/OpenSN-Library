@@ -49,6 +49,7 @@ func main() {
 		module.CreateLinkModuleTask(),
 		module.CreateStatusUpdateModule(),
 		module.CreateNodeWatchTask(),
+		module.CreateMonitorModule(),
 	}
 
 	if !config.GlobalConfig.App.IsServant {

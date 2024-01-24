@@ -1,4 +1,4 @@
 package link
 
-const FixPhysicalLinkType = "FixPhysicalLink"
+const FixPhysicalLinkType = "fplink"
 

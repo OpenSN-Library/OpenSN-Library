@@ -127,6 +127,20 @@ func NodeInit() error {
 	if err != nil {
 		return err
 	}
+	if !config.GlobalConfig.App.IsServant {
+		key.NodeIndex = 0
+		err := config.InitConfigMasterMode()
+		if err != nil {
+			return err
+		}
+
+	} else {
+		err := config.InitConfigServantMode(config.GlobalConfig.App.MasterAddress)
+		if err != nil {
+			return err
+		}
+	}
+
 	err = utils.InitEtcdClient(
 		config.GlobalConfig.Dependency.EtcdAddr,
 		config.GlobalConfig.Dependency.EtcdPort,
@@ -144,26 +158,32 @@ func NodeInit() error {
 	if err != nil {
 		return err
 	}
-	if !config.GlobalConfig.App.IsServant {
-		key.NodeIndex = 0
-		err := config.InitConfigMasterMode()
+
+	if config.GlobalConfig.App.EnableMonitor {
+		err := utils.InitInfluxDB(
+			config.GlobalConfig.Dependency.InfluxdbAddr,
+			config.GlobalConfig.Dependency.InfluxdbToken,
+			config.GlobalConfig.Dependency.InfluxdbOrg,
+			config.GlobalConfig.Dependency.InfluxdbBucket,
+			config.GlobalConfig.Dependency.InfluxdbPort,
+		)
 		if err != nil {
 			return err
 		}
+	}
+
+	if !config.GlobalConfig.App.IsServant {
 		setResp := utils.RedisClient.Set(context.Background(), key.NextNodeIndexKey, "1", -1)
 		if setResp.Err() != nil {
 			return err
 		}
 	} else {
-		err := config.InitConfigServantMode(config.GlobalConfig.App.MasterAddress)
-		if err != nil {
-			return err
-		}
 		err = allocNodeIndex()
 		if err != nil {
 			return fmt.Errorf("alloc node index error: %s", err.Error())
 		}
 	}
+
 	key.InitKeys()
 	selfInfo := &model.Node{
 		NodeID:             uint32(key.NodeIndex),

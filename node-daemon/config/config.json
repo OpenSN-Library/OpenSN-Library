@@ -2,21 +2,28 @@
   "app": {
     "is_servant": false,
     "master_address": "172.16.208.128",
+    "listen_port": 8080,
+    "enable_monitor": true,
     "interface_name": "ens160",
     "debug": false,
-    "instance_capacity" : 400
+    "instance_capacity": 400
   },
   "dependency": {
-    "etcd_addr"      : "172.16.208.128",
-    "etcd_port"      : 2379,
-    "redis_addr"     : "172.16.208.128",
-    "redis_port"     : 6379,
-    "redis_db_index"  : 0,
-    "redis_password" : "1145141919810",
-    "docker_host_path"    : "/var/run/docker.sock"
+    "etcd_addr": "172.16.208.128",
+    "etcd_port": 2379,
+    "redis_addr": "172.16.208.128",
+    "redis_port": 6379,
+    "redis_db_index": 0,
+    "redis_password": "1145141919810",
+    "influxdb_addr": "172.16.208.128",
+    "influxdb_port": 8086,
+    "influxdb_token": "1145141919810",
+    "influxdb_org" : "satellite_emulator",
+    "influxdb_bucket": "monitor",
+    "docker_host_path": "/var/run/docker.sock"
   },
   "device": {
-    "FixPhysicalLink" : [],
-    "MultiplexPhysicalLink" : []
+    "FixPhysicalLink": [],
+    "MultiplexPhysicalLink": []
   }
 }
