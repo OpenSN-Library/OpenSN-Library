@@ -1,11 +1,11 @@
 import ephem
 import json
 import datetime
-from link import Link
+from link import LinkBase
 from instance import Instance
 from tools import ra2deg
 from const_var import TYPE_SATELLITE
-
+from threading import RLock
 
 '''
 type Position struct {
@@ -14,6 +14,8 @@ type Position struct {
     Altiutde  float64
 }
 '''
+
+
 
 
 class Satellite(Instance):

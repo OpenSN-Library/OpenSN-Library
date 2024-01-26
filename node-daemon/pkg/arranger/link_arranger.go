@@ -2,8 +2,14 @@ package arranger
 
 import (
 	"NodeDaemon/model"
+	"NodeDaemon/share/key"
+	"NodeDaemon/utils"
+	"context"
+	"fmt"
+	"strconv"
 	"sync"
 
+	"github.com/redis/go-redis/v9"
 	"github.com/sirupsen/logrus"
 )
 
@@ -11,6 +17,21 @@ var nextIndex int = 1
 var nextIndexLock *sync.Mutex = new(sync.Mutex)
 
 func ArrangeLink(namespace *model.Namespace, instanceTarget map[int][]*model.InstanceConfig) (map[int][]*model.LinkConfig, error) {
+	nextIndexLock.Lock()
+	defer nextIndexLock.Unlock()
+	getResp := utils.RedisClient.Get(
+		context.Background(),
+		key.NextLinkIndexKey,
+	)
+	if getResp.Err() != nil && getResp.Err() != redis.Nil {
+		errMsg := fmt.Sprintf("Get Next Link Index Key Error: %s", getResp.Err().Error())
+		logrus.Error(errMsg)
+		return nil, getResp.Err()
+	} else if getResp.Err() == redis.Nil {
+		nextIndex = 1
+	} else {
+		nextIndex, _ = strconv.Atoi(getResp.Val())
+	}
 	actions := make(map[int][]*model.LinkConfig)
 	nodeIndexSet := make(map[string]int)
 	for index, v := range instanceTarget {
@@ -19,27 +40,27 @@ func ArrangeLink(namespace *model.Namespace, instanceTarget map[int][]*model.Ins
 		}
 	}
 	for link_index, linkInfo := range namespace.LinkConfig {
-		nextIndexLock.Lock()
+
 		namespace.LinkConfig[link_index].LinkIndex = nextIndex
 		nextIndex = (nextIndex + 1) % (1 << 24)
-		nextIndexLock.Unlock()
-		if linkInfo.InitEndInfos[0].InstanceID == "" {
-			targetIndex1 := nodeIndexSet[linkInfo.InitEndInfos[1].InstanceID]
-			namespace.LinkConfig[link_index].InitEndInfos[1].EndNodeIndex = targetIndex1
+
+		if linkInfo.EndInfos[0].InstanceID == "" {
+			targetIndex1 := nodeIndexSet[linkInfo.EndInfos[1].InstanceID]
+			namespace.LinkConfig[link_index].EndInfos[1].EndNodeIndex = targetIndex1
 			actions[targetIndex1] = append(actions[targetIndex1], &namespace.LinkConfig[link_index])
 
-		} else if linkInfo.InitEndInfos[1].InstanceID == "" {
-			targetIndex0 := nodeIndexSet[linkInfo.InitEndInfos[0].InstanceID]
-			namespace.LinkConfig[link_index].InitEndInfos[0].EndNodeIndex = targetIndex0
+		} else if linkInfo.EndInfos[1].InstanceID == "" {
+			targetIndex0 := nodeIndexSet[linkInfo.EndInfos[0].InstanceID]
+			namespace.LinkConfig[link_index].EndInfos[0].EndNodeIndex = targetIndex0
 			actions[targetIndex0] = append(actions[targetIndex0], &namespace.LinkConfig[link_index])
 
 		} else {
-			targetIndex0 := nodeIndexSet[linkInfo.InitEndInfos[0].InstanceID]
-			targetIndex1 := nodeIndexSet[linkInfo.InitEndInfos[1].InstanceID]
-			namespace.LinkConfig[link_index].InitEndInfos[0].EndNodeIndex = targetIndex0
-			namespace.LinkConfig[link_index].InitEndInfos[1].EndNodeIndex = targetIndex1
+			targetIndex0 := nodeIndexSet[linkInfo.EndInfos[0].InstanceID]
+			targetIndex1 := nodeIndexSet[linkInfo.EndInfos[1].InstanceID]
+			namespace.LinkConfig[link_index].EndInfos[0].EndNodeIndex = targetIndex0
+			namespace.LinkConfig[link_index].EndInfos[1].EndNodeIndex = targetIndex1
 
-			logrus.Infof("Add Link Between %s and %s", linkInfo.InitEndInfos[0].InstanceID, linkInfo.InitEndInfos[1].InstanceID)
+			logrus.Infof("Add Link Between %s and %s", linkInfo.EndInfos[0].InstanceID, linkInfo.EndInfos[1].InstanceID)
 			if targetIndex0 == targetIndex1 {
 				actions[targetIndex0] = append(actions[targetIndex0], &namespace.LinkConfig[link_index])
 			} else {
@@ -47,6 +68,16 @@ func ArrangeLink(namespace *model.Namespace, instanceTarget map[int][]*model.Ins
 				actions[targetIndex1] = append(actions[targetIndex1], &namespace.LinkConfig[link_index])
 			}
 		}
+	}
+	setResp := utils.RedisClient.Set(
+		context.Background(),
+		key.NextLinkIndexKey,
+		nextIndex,
+		0,
+	)
+	if setResp.Err() != nil {
+		errMsg := fmt.Sprintf("Set Next Link Index Key Error: %s", getResp.Err().Error())
+		logrus.Error(errMsg)
 	}
 	return actions, nil
 }

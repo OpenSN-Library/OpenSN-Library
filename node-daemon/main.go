@@ -50,6 +50,7 @@ func main() {
 		module.CreateStatusUpdateModule(),
 		module.CreateNodeWatchTask(),
 		module.CreateMonitorModule(),
+		module.CreateConfigWriteModule(),
 	}
 
 	if !config.GlobalConfig.App.IsServant {

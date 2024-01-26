@@ -14,6 +14,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 )
 
@@ -110,14 +111,9 @@ func GetNsInfoHandler(ctx *gin.Context) {
 					})
 				} else {
 					infoData.LinkInfos = append(infoData.LinkInfos, ginmodel.LinkAbstract{
-						LinkID:    v.Config.LinkID,
-						Type:      v.Config.Type,
-						Parameter: v.Parameter,
-						IPInfos:   v.Config.IPInfos,
-						ConnectIntance: [2]string{
-							v.EndInfos[0].InstanceID,
-							v.EndInfos[1].InstanceID,
-						},
+						LinkID:       v.Config.LinkID,
+						Type:         v.Config.Type,
+						Parameter:    v.Parameter,
 					})
 				}
 			}
@@ -203,7 +199,7 @@ func CreateNsHandler(ctx *gin.Context) {
 	var linkArray []model.LinkConfig
 	for i, v := range reqObj.InstConfigs {
 		newInstance := model.InstanceConfig{
-			InstanceID: fmt.Sprintf("%s_%s_%d", namespace.Name, v.Type, i),
+			InstanceID: uuid.NewString()[:8],
 			Name:       fmt.Sprintf("%s_%d", v.Type, i),
 			Type:       v.Type,
 			DeviceInfo: make(map[string]model.DeviceRequireInfo),
@@ -225,21 +221,21 @@ func CreateNsHandler(ctx *gin.Context) {
 		}
 		instanceArray = append(instanceArray, newInstance)
 	}
-	for i, v := range reqObj.LinkConfigs {
+	for _, v := range reqObj.LinkConfigs {
 		newLink := model.LinkConfig{
-			LinkID:        fmt.Sprintf("%s_%s%d", namespace.Name, v.Type[0:1], i), // Max Len:12
+			LinkID:        uuid.NewString()[:8], // Max Len:12
 			Type:          v.Type,
 			InitParameter: v.Parameter,
 		}
 		if v.InstanceIndex[0] >= 0 {
-			newLink.InitEndInfos[0] = model.EndInfoType{
+			newLink.EndInfos[0] = model.EndInfoType{
 				InstanceID:   instanceArray[v.InstanceIndex[0]].InstanceID,
 				InstanceType: instanceArray[v.InstanceIndex[0]].Type,
 			}
 			instanceArray[v.InstanceIndex[0]].InitLinkIDs = append(instanceArray[v.InstanceIndex[0]].InitLinkIDs, newLink.LinkID)
 		}
 		if v.InstanceIndex[1] >= 0 {
-			newLink.InitEndInfos[1] = model.EndInfoType{
+			newLink.EndInfos[1] = model.EndInfoType{
 				InstanceID:   instanceArray[v.InstanceIndex[1]].InstanceID,
 				InstanceType: instanceArray[v.InstanceIndex[1]].Type,
 			}
@@ -260,7 +256,7 @@ func CreateNsHandler(ctx *gin.Context) {
 	namespace.InstanceConfig = instanceArray
 	namespace.LinkConfig = linkArray
 	namespace.AllocatedInstances = len(instanceArray)
-	arranger.ArrangeV4Addr(namespace, 30)
+	// arranger.ArrangeV4Addr(namespace, 30)
 	// arranger.ArrangeV6Addr(namespace, 62)
 	namespace.Running = false
 	data.NamespaceMapLock.Lock()
@@ -287,47 +283,6 @@ func CreateNsHandler(ctx *gin.Context) {
 		Message: "Success",
 	}
 	ctx.JSON(http.StatusOK, resp)
-}
-
-func UpdateNsHandler(ctx *gin.Context) {
-	var req ginmodel.UpdateNamespaceReq
-	name := ctx.Param("name")
-	info, ok := data.NamespaceMap[name]
-	if !ok {
-		errMsg := fmt.Sprintf("Namespace %s Not Found", name)
-		logrus.Error(errMsg)
-		resp := ginmodel.JsonResp{
-			Code:    -1,
-			Message: errMsg,
-		}
-		ctx.JSON(http.StatusNotFound, resp)
-	}
-	if info.Running {
-		errMsg := fmt.Sprintf("Namespace %s is Running", name)
-		logrus.Error(errMsg)
-		resp := ginmodel.JsonResp{
-			Code:    -1,
-			Message: errMsg,
-		}
-		ctx.JSON(http.StatusBadRequest, resp)
-	}
-	err := ctx.Bind(req)
-	if err != nil {
-		errMsg := fmt.Sprintf("Parse Request Data Error : %s", err.Error())
-		logrus.Error(errMsg)
-		resp := ginmodel.JsonResp{
-			Code:    -1,
-			Message: errMsg,
-		}
-		ctx.JSON(http.StatusBadRequest, resp)
-		return
-	}
-	info.NsConfig.ImageMap = req.NsConfig.ImageMap
-	info.NsConfig.ContainerEnvs = req.NsConfig.ContainerEnvs
-	info.InstanceConfig = make([]model.InstanceConfig, len(req.InstConfigs))
-	info.LinkConfig = make([]model.LinkConfig, len(req.LinkConfigs))
-	info.AllocatedInstances = len(req.InstConfigs)
-
 }
 
 func StartNsHandler(ctx *gin.Context) {

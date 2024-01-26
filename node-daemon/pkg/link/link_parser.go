@@ -2,6 +2,7 @@ package link
 
 import (
 	"NodeDaemon/model"
+	"NodeDaemon/share/key"
 	"encoding/json"
 	"fmt"
 
@@ -60,28 +61,8 @@ func ParseLinkFromBytes(seq []byte) (model.Link, error) {
 		logrus.Error("Unmarshal Json Data to Link Base Error, Redis Data May Crash: ", err.Error())
 		return nil, err
 	}
-
-	switch baseLink.Config.Type {
-	case VirtualLinkType:
-		vLink := new(VethLink)
-		err := json.Unmarshal(seq, &vLink)
-		if err != nil {
-			logrus.Error("Unmarshal Json Data to Veth Link Error, Redis Data May Crash: ", err.Error())
-			return nil, err
-		}
-		for k, v := range VirtualLinkParameterMap {
-			if _, ok := vLink.Config.InitParameter[k]; !ok {
-				vLink.Config.InitParameter[k] = v.DefaultVal
-			}
-		}
-		realLink = vLink
-	default:
-		err := fmt.Errorf("unsupported link type: %s", baseLink.GetLinkType())
-		logrus.Errorf("Parse Link Error: %s", err.Error())
-		return nil, err
-	}
-	realLink.GetLinkBasePtr().Parameter = realLink.GetLinkConfig().InitParameter
-	return realLink, nil
+	realLink, err = ParseLinkFromConfig(baseLink.Config, key.NodeIndex)
+	return realLink, err
 }
 
 func ParseLinkFromConfig(config model.LinkConfig, nodeIndex int) (model.Link, error) {
@@ -98,6 +79,6 @@ func ParseLinkFromConfig(config model.LinkConfig, nodeIndex int) (model.Link, er
 		return nil, err
 	}
 	realLink.GetLinkBasePtr().Parameter = realLink.GetLinkConfig().InitParameter
-	realLink.GetLinkBasePtr().CrossMachine = config.InitEndInfos[0].EndNodeIndex != config.InitEndInfos[1].EndNodeIndex
+	realLink.GetLinkBasePtr().CrossMachine = config.EndInfos[0].EndNodeIndex != config.EndInfos[1].EndNodeIndex
 	return realLink, nil
 }

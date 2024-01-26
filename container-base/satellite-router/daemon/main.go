@@ -6,6 +6,7 @@ import (
 	"os/signal"
 	"satellite/data"
 	"satellite/pkg/frr"
+	"satellite/pkg/ifconfig"
 	"syscall"
 
 	"github.com/sirupsen/logrus"
@@ -17,10 +18,12 @@ func main() {
 		panic(err)
 	}
 	data.InitTopoInfoData()
+	ifconfig.InitAddress()
 	err = frr.InitConfigBatch()
 	if err != nil {
 		panic(err)
 	}
+	
 	for i := 0; i < 32; i++ {
 		err = frr.WriteOspfConfig(frr.CommandBatchPath)
 		if err != nil {

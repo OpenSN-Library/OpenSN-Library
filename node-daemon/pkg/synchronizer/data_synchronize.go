@@ -69,7 +69,6 @@ func GetInstanceInfos(index int, instancIDs []string) ([]*model.Instance, error)
 		return nil, hmgetResp.Err()
 	}
 	for i, byteSeq := range hmgetResp.Val() {
-		logrus.Infof("Get Instance Object %v", byteSeq)
 		if byteSeq == nil {
 			ret = append(ret, nil)
 			continue

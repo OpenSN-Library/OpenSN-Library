@@ -1,57 +1,84 @@
+import uuid
+from threading import RLock
 
-'''
+class LinkEndInfo():
 
-type ParameterInfo struct {
-	Name           string `json:"name"`
-	MinVal         int64  `json:"min_val"`
-	MaxVal         int64  `json:"max_val"`
-	DefinitionFrac int64  `json:"definition_frac"`
-}
+	def __init__(self,instance_id:str, instance_type:str):
+		self.instance_id = ""
+		self.instance_type = ""
+		self.node_index = 0
 
-type IPInfoType struct {
-	V4Addr string `json:"v4_addr"`
-	V6Addr string `json:"v6_addr"`
-}
+	def __init__(self,obj: dict):
+		for k,v in obj.items():
+			setattr(self,k,v)
 
-type EndInfoType struct {
-	InstanceID   string `json:"instance_id"`
-	InstanceType string `json:"instance_type"`
-}
+class LinkConfig:
 
-type LinkBase struct {
-	Enabled           bool                     `json:"enabled"`
-	CrossMachine      bool                     `json:"cross_machine"`
-	SupportParameters map[string]ParameterInfo `json:"support_parameters"`
-	Parameter         map[string]int64         `json:"parameter"`
-	Config            LinkConfig               `json:"config"`
-	NodeIndex         int                      `json:"node_index"`
-	EndInfos          [2]EndInfoType           `json:"end_infos"`
-}
+	def __init__(self,link_index:int,link_type:str,init_parameter:dict,end_infos:list[LinkEndInfo]):
+		self.link_index:int = 0
+		self.type:str = link_type
+		self.link_id:str = str(uuid.uuid4().hex)[:8]
+		self.address_infos:list[dict[str,str]] = []
+		self.init_parameter:dict[str,int] = init_parameter
+		self.init_end_infos:list[LinkEndInfo] = end_infos
 
-type LinkConfig struct {
-	LinkID         string           `json:"link_id"`
-	InitInstanceID [2]string        `json:"init_instance_id"`
-	Type           string           `json:"type"`
-	InitParameter  map[string]int64 `json:"init_parameter"`
-	IPInfos        [2]IPInfoType    `json:"ip_infos"`
-}
+	def __init__(self):
+		pass
 
-'''
+	def __init__(self,obj: dict):
+		for k,v in obj.items():
+			if k == "init_end_infos":
+				self.init_end_infos = []
+				for item in v:
+					self.init_end_infos.append(LinkEndInfo(item))
+			else:
+				setattr(self,k,v)
 
-class Link:
-    def __init__(self,link_id:str,instance_id:list[str],parameters:dict[str,int]):
-        self.link_id = link_id
-        self.instance_id:list[str] = instance_id
-        self.parameters:dict[str,int] = parameters
+class LinkBase:
+	def __init__(self,
+			  link_id:str,
+			  instance_id:list[str],
+			  parameter:dict[str,int],
+			  node_index:int,
+			  link_index:int,
+			  link_type:int,
+			  init_parameter:dict,
+			  end_infos:dict,
+			):
+		self.enabled = False
+		self.cross_machine = instance_id[0] != instance_id[1]
+		self.config = LinkConfig(node_index,link_index,link_type,init_parameter,end_infos)
+		self.parameter:dict[str,int] = parameter
 
-class ISL(Link):
+	def __init__(self):
+		pass
+
+	def __init__(self,obj: dict):
+		for k,v in obj.items():
+			if k == "config":
+				self.config = LinkConfig(v)
+			else:
+				setattr(self,k,v)
+
+Links : dict[str,LinkBase] = {}
+LinksLock = RLock()
+
+class ISL(LinkBase):
     
-    def __init__(self,link_id:str,instance_id:list[str],parameters:dict[str,int],is_inter_orbit:bool):
-        Link.__init__(self,link_id,instance_id,parameters)
-        self.is_inter_orbit = is_inter_orbit
+	def __init__(self, base: LinkBase):
+		for k,v in base.__dict__.items:
+			setattr(self,k,v)
+		self.is_inter_orbit = False
 
-class GSL(Link):
+	def __init__(self,obj: dict):
+		LinkBase.__init__(self,obj)
 
-    def __init__(self,link_id:str,instance_id:list[str],parameters:dict[str,int]):
-        Link.__init__(self,link_id,instance_id,parameters)
+class GSL(LinkBase):
+    
+	def __init__(self, base: LinkBase):
+		for k,v in base.__dict__.items:
+			setattr(self,k,v)
+
+	def __init__(self,obj: dict):
+		LinkBase.__init__(self,obj)
 

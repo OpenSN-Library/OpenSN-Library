@@ -33,7 +33,6 @@ func RegisterHandlers(r *gin.Engine) {
 	namespace := api.Group("/namespace")
 	namespace.GET("/list", handler.GetNsListHandler)
 	namespace.POST("/create", handler.CreateNsHandler)
-	namespace.POST("/:name/update", handler.UpdateNsHandler)
 	namespace.POST("/:name/start", handler.StartNsHandler)
 	namespace.POST("/:name/stop", handler.StopNsHandler)
 	namespace.DELETE("/:name", handler.DeleteNsHandler)

@@ -30,12 +30,12 @@ type InstanceConfig struct {
 }
 
 type LinkConfig struct {
-	LinkID        string           `json:"link_id"`
-	InitEndInfos  [2]EndInfoType   `json:"init_end_infos"`
-	Type          string           `json:"type"`
-	InitParameter map[string]int64 `json:"init_parameter"`
-	IPInfos       [2]IPInfoType    `json:"ip_infos"`
-	LinkIndex     int              `json:"link_index"`
+	LinkID        string               `json:"link_id"`
+	EndInfos      [2]EndInfoType       `json:"init_end_infos"`
+	Type          string               `json:"type"`
+	InitParameter map[string]int64     `json:"init_parameter"`
+	AddressInfos  [2]map[string]string `json:"address_infos"`
+	LinkIndex     int                  `json:"link_index"`
 }
 
 type Namespace struct {

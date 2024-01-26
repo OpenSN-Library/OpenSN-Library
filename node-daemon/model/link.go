@@ -35,13 +35,12 @@ type Link interface {
 	SetParameters(para map[string]int64) ([]netreq.NetLinkRequest, error)
 	IsEnabled() bool
 	IsConnected() bool
-	GetSupportParameters() map[string]ParameterInfo
 	GetParameter(name string) (int64, error)
 	GetEndInfos() [2]EndInfoType
 	GetLinkBasePtr() *LinkBase
 }
 
-type IPInfoType struct {
+type AddressInfoType struct {
 	V4Addr string `json:"v4_addr"`
 	V6Addr string `json:"v6_addr"`
 }
@@ -53,13 +52,12 @@ type EndInfoType struct {
 }
 
 type LinkBase struct {
-	Enabled           bool                     `json:"enabled"`
-	CrossMachine      bool                     `json:"cross_machine"`
-	SupportParameters map[string]ParameterInfo `json:"support_parameters"`
-	Parameter         map[string]int64         `json:"parameter"`
-	Config            LinkConfig               `json:"config"`
-	NodeIndex         int                      `json:"node_index"`
-	EndInfos          [2]EndInfoType           `json:"end_infos"`
+	Enabled      bool `json:"enabled"`
+	CrossMachine bool `json:"cross_machine"`
+	// SupportParameters map[string]ParameterInfo `json:"support_parameters"`
+	Parameter map[string]int64 `json:"parameter"`
+	Config    LinkConfig       `json:"config"`
+	NodeIndex int              `json:"node_index"`
 }
 
 func (l *LinkBase) GetLinkConfig() LinkConfig {
@@ -86,16 +84,12 @@ func (l *LinkBase) IsCrossMachine() bool {
 	return l.CrossMachine
 }
 
-func (l *LinkBase) GetSupportParameters() map[string]ParameterInfo {
-	return l.SupportParameters
-}
-
 func (l *LinkBase) GetParameter(name string) (int64, error) {
 	return l.Parameter[name], nil
 }
 
 func (l *LinkBase) GetEndInfos() [2]EndInfoType {
-	return l.EndInfos
+	return l.Config.EndInfos
 }
 
 func (l *LinkBase) GetLinkBasePtr() *LinkBase {

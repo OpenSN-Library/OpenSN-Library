@@ -4,7 +4,12 @@ from satellite import Satellite
 from ground_station import GroundStation
 from loguru import logger
 from threading import Thread,RLock
-from link import ISL,GSL,Link
+from link import ISL,GSL,LinkBase,LinksLock,Links
+from instance import Instance,InstanceLock,Instances
+from satellite import Satellite
+from address_allocator import alloc_ipv4,format_ipv4
+from instance_config import InstancConfig, EndInfo, LinkInfo
+from tools import object2Map
 
 from dependency_client import \
         redis_client,\
@@ -34,88 +39,26 @@ from const_var import \
     EX_LATITUDE_KEY,\
     EX_LONGITUDE_KEY,\
     LINK_CONFIG_FIELD,\
-    LINK_CONFIG_ID_FIELD
+    LINK_CONFIG_ID_FIELD,\
+    NODE_INSTANCE_CONFIG_KEY_TEMPLATE,\
+    LINK_V4_ADDR_KEY
 
 from const_var import TYPE_SATELLITE
-
-
-SatellitesLock = RLock()
-Satellites: dict[bytes,Satellite] = {}
-
-GroundStationsLock = RLock()
-GroundStations: dict[bytes,GroundStation] = {}
-
-'''
-type Instance struct {
-	Config      InstanceConfig `json:"config"`
-	ContainerID string         `json:"container_id"`
-	Pid         int            `json:"pid"`
-	NodeID      uint32         `json:"node_id"`
-	Namespace   string         `json:"namespace"`
-	LinksID     []string       `json:"links_id"`
-}
-
-type InstanceConfig struct {
-	InstanceID         string                       `json:"instance_id"`
-	Name               string                       `json:"name"`
-	Type               string                       `json:"type"`
-	Image              string                       `json:"image"`
-	PositionChangeable bool                         `json:"position_changeable"`
-	Extra              map[string]string            `json:"extra"`
-	LinkIDs            []string                     `json:"link_ids"`
-	DeviceInfo         map[string]DeviceRequireInfo `json:"device_need"`
-}
-
-Type = SATELLITE = "Satellite"
-
-Extra Has
-TLE_0 -> TLE_LINE0
-TLE_1 -> TLE_LINE1
-TLE_2 -> TLE_LINE2
-OrbitIndex -> Oribit Index Of Satellite
-SatelliteIndex -> Index Of Satellite in its Orbit
-'''
-
-def create_link_from_json(json_seq: bytes) -> Link:
-    link_dict = json.loads(json_seq)
-    if link_dict[LINK_ENDINFO_FIELD][0][ENDINFO_INSTANCE_TYPE_FIELD] == TYPE_SATELLITE and \
-        link_dict[LINK_ENDINFO_FIELD][1][ENDINFO_INSTANCE_TYPE_FIELD] == TYPE_SATELLITE :
-        ret = ISL(
-            link_dict[LINK_CONFIG_FIELD][LINK_CONFIG_ID_FIELD],
-            [
-                link_dict[LINK_ENDINFO_FIELD][0][ENDINFO_INSTANCE_ID_FIELD],
-                link_dict[LINK_ENDINFO_FIELD][1][ENDINFO_INSTANCE_ID_FIELD]
-            ],
-            link_dict[LINK_PARAMETER_FIELD],
-            False
-        )
-        if Satellites[ret.instance_id[0]].orbit_index != Satellites[ret.instance_id[1]].orbit_index :
-            ret.is_inter_orbit = True
-        else:
-            ret.is_inter_orbit = False
-    else:
-        ret = GSL(
-            link_dict[LINK_CONFIG_FIELD][LINK_CONFIG_ID_FIELD],
-            [
-                link_dict[LINK_ENDINFO_FIELD][0][ENDINFO_INSTANCE_ID_FIELD],
-                link_dict[LINK_ENDINFO_FIELD][1][ENDINFO_INSTANCE_ID_FIELD]
-            ],
-            link_dict[LINK_PARAMETER_FIELD],
-        )
-    return ret
 
 def parse_node_instance_change(key_list : list[str],node_index:int):
     add_key : list[str] = []
     del_key : list[str] = []
     link_id_set : set[list] = set()
     for remote_key in key_list:
-        if remote_key not in Satellites.keys():
+        if remote_key not in Instances.keys():
             add_key.append(remote_key)
-    for local_key in Satellites.keys():
+    for local_key in Instances.keys():
         if local_key not in key_list:
             del_key.append(local_key)
+            etcd_client.delete(NODE_INSTANCE_CONFIG_KEY_TEMPLATE%Instances[local_key].node_index+Instances[local_key].instance_id)
     for to_del in del_key:
-        del Satellites[to_del]
+        del Instances[to_del]
+    config_instance_array:list[Instance] = []
     if len(add_key) > 0:
         infos = redis_client.hmget(NODE_INS_INFO_KEY_TEMPLATE%node_index,add_key)
         for index in range(len(add_key)):
@@ -135,29 +78,49 @@ def parse_node_instance_change(key_list : list[str],node_index:int):
                 )
                 for link_id in instance_obj_dict[INS_CONFIG_FIELD][INS_LINK_ID_FIELD]:
                     link_id_set.add(link_id)
-                Satellites[add_key[index]]=inst
+                Instances[add_key[index]]=inst
+                config_instance_array.append(inst)
             elif instance_obj_dict[INS_CONFIG_FIELD][INS_TYPE_FIELD] == TYPE_GROUND_STATION:
                 inst = GroundStation(
                     add_key[index],
                     instance_obj_dict[INS_NS_FIELD],
                     node_index,
-                    instance_obj_dict[INS_CONFIG_FIELD][INS_EXTRA_FIELD][EX_LATITUDE_KEY],
-                    instance_obj_dict[INS_CONFIG_FIELD][INS_EXTRA_FIELD][EX_LONGITUDE_KEY],
-                    instance_obj_dict[INS_CONFIG_FIELD][INS_EXTRA_FIELD][EX_ALTITUDE_KEY]
+                    float(instance_obj_dict[INS_CONFIG_FIELD][INS_EXTRA_FIELD][EX_LATITUDE_KEY]),
+                    float(instance_obj_dict[INS_CONFIG_FIELD][INS_EXTRA_FIELD][EX_LONGITUDE_KEY]),
+                    float(instance_obj_dict[INS_CONFIG_FIELD][INS_EXTRA_FIELD][EX_ALTITUDE_KEY])
                 )
-                for link_id in instance_obj_dict[INS_CONFIG_FIELD][INS_LINK_ID_FIELD]:
-                    link_id_set.add(link_id)
-                GroundStations[add_key[index]]=inst
-    if len(link_id_set) > 0:
-        link_id_list = list(link_id_set)
-        link_info_seqs = redis_client.hmget(NODE_LINK_INFO_KEY_TEMPLATE%node_index,link_id_list)
-        for link_info_index in range(len(link_info_seqs)):
-            if link_info_seqs[link_info_index] is None:
-                continue
-            link_obj = create_link_from_json(link_info_seqs[link_info_index])
-            Satellites[link_obj.instance_id[0]].links[link_id_list[link_info_index]] = link_obj
-            Satellites[link_obj.instance_id[1]].links[link_id_list[link_info_index]] = link_obj
-        
+                if instance_obj_dict[INS_CONFIG_FIELD][INS_LINK_ID_FIELD] is not None:
+                    for link_id in instance_obj_dict[INS_CONFIG_FIELD][INS_LINK_ID_FIELD]:
+                        if link_id in Links.keys():
+                            link_id_set.add(Links[link_id])
+                Instances[add_key[index]]=inst
+                config_instance_array.append(inst)
+
+    if len(add_key) > 0:
+        for instance_info in config_instance_array:
+            config = InstancConfig(instance_info.instance_id)
+            for link_id,link_info in instance_info.links.items():
+                if link_info.config.init_end_infos[0].instance_id == instance_info.instance_id:
+                    config.link_infos[link_id] = LinkInfo(link_info.config.address_infos[0][LINK_V4_ADDR_KEY],"")
+                    config.end_infos[link_id] = EndInfo(
+                        link_info.config.init_end_infos[1].instance_id,
+                        link_info.config.init_end_infos[1].instance_type,
+                    )
+                else:
+                    config.link_infos[link_id] = LinkInfo(link_info.config.address_infos[1][LINK_V4_ADDR_KEY],"")
+                    config.end_infos[link_id] = EndInfo(
+                        link_info.config.init_end_infos[0].instance_id,
+                        link_info.config.init_end_infos[0].instance_type,
+                    )
+
+            etcd_client.put(
+                NODE_INSTANCE_CONFIG_KEY_TEMPLATE%(
+                    Instances[instance_info.instance_id].node_index
+                )+Instances[instance_info.instance_id].instance_id,
+                
+                json.dumps(object2Map(config))
+            )
+                
 
 
 class NodeInstanceWatcher(Thread):
@@ -182,19 +145,25 @@ class NodeInstanceWatcher(Thread):
         val,useless = etcd_client.get(self.watch_key)
         if val is not None:
             node_list = json.loads(val)
-            SatellitesLock.acquire()
+            InstanceLock.acquire()
+            LinksLock.acquire()
             parse_node_instance_change(node_list,self.node_index)
-            SatellitesLock.release()
+            LinksLock.release()
+            InstanceLock.release()
         while not self.stop_sig:
             try:
                 events,cancel = etcd_client.watch(self.watch_key)
                 self.cancel = cancel
                 for event in events:
                     instance_id_list = json.loads(event.value)
-                    parse_node_instance_change(instance_id_list,self.node_index)
-                    SatellitesLock.acquire()
-                    SatellitesLock.release()
-                    print(Satellites)
+                    InstanceLock.acquire()
+                    LinksLock.acquire()
+                    try:
+                        parse_node_instance_change(instance_id_list,self.node_index)
+                    except Exception as e1:
+                        logger.error(e1)
+                    LinksLock.release()
+                    InstanceLock.release()
             except Exception as e:
                 logger.error("Watch instance list of node %d Error %s"%(self.node_index,str(e)))
                 time.sleep(10)

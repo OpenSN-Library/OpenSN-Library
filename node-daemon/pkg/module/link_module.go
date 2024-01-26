@@ -6,14 +6,16 @@ import (
 	"NodeDaemon/pkg/link"
 	"NodeDaemon/pkg/synchronizer"
 	"NodeDaemon/share/data"
-	"NodeDaemon/share/dir"
+
+	// "NodeDaemon/share/dir"
 	"NodeDaemon/share/key"
 	"NodeDaemon/share/signal"
 	"NodeDaemon/utils"
 	"context"
 	"encoding/json"
 	"fmt"
-	"path"
+
+	// "path"
 
 	"sync"
 
@@ -50,21 +52,24 @@ func parseLinkChange(updateIdList []string) (addList []string, delList []model.L
 	for _, v := range updateIdList {
 		updateIDMap[v] = true
 	}
+	data.LinkMapLock.RLock()
 	for k := range updateIDMap {
 		if _, ok := data.LinkMap[k]; !ok {
 			addList = append(addList, k)
 		}
 	}
-
 	for k := range data.LinkMap {
 		if ok := updateIDMap[k]; !ok {
 			delIDList = append(delIDList, k)
 		}
 	}
+	data.LinkMapLock.RUnlock()
 
 	for _, v := range delIDList {
 		delList = append(delList, data.LinkMap[v])
+		data.LinkMapLock.Lock()
 		delete(data.LinkMap, v)
+		data.LinkMapLock.Unlock()
 	}
 
 	if len(addList) > 0 {
@@ -87,97 +92,99 @@ func parseLinkChange(updateIdList []string) (addList []string, delList []model.L
 					logrus.Error("Unmarshal Json Data to Link Base Error, Redis Data May Crash: ", err.Error())
 					continue
 				}
+				data.LinkMapLock.Lock()
 				data.LinkMap[addList[i]] = newLink
+				data.LinkMapLock.Unlock()
 			}
 		}
 	}
 	return
 }
 
-func updateTopoInfoFile(addList []string, delList []model.Link) error {
-	dirtyMap := make(map[string]bool)
-	for _, v := range addList {
-		linkConfig := data.LinkMap[v].GetLinkConfig()
-		for i, endInfo := range linkConfig.InitEndInfos {
-			targetIndex := 1 - i%2
-			targetInstanceID := linkConfig.InitEndInfos[targetIndex].InstanceID
-			if targetInstanceID == "" {
-				continue
-			} else {
-				dirtyMap[endInfo.InstanceID] = true
-			}
-			if topoInfo, ok := data.TopoInfoMap[endInfo.InstanceID]; ok {
+// func updateTopoInfoFile(addList []string, delList []model.Link) error {
+// 	dirtyMap := make(map[string]bool)
+// 	for _, v := range addList {
+// 		linkConfig := data.LinkMap[v].GetLinkConfig()
+// 		for i, endInfo := range linkConfig.EndInfos {
+// 			targetIndex := 1 - i%2
+// 			targetInstanceID := linkConfig.EndInfos[targetIndex].InstanceID
+// 			if targetInstanceID == "" {
+// 				continue
+// 			} else {
+// 				dirtyMap[endInfo.InstanceID] = true
+// 			}
+// 			if topoInfo, ok := data.TopoInfoMap[endInfo.InstanceID]; ok {
 
-				topoInfo.LinkInfos[targetInstanceID] = &model.LinkInfo{
-					V4Addr: linkConfig.IPInfos[targetIndex].V4Addr,
-					V6Addr: linkConfig.IPInfos[targetIndex].V6Addr,
-				}
-				topoInfo.EndInfos[targetInstanceID] = &model.EndInfo{
-					InstanceID: targetInstanceID,
-					Type:       linkConfig.InitEndInfos[targetIndex].InstanceType,
-				}
-			} else {
+// 				topoInfo.LinkInfos[targetInstanceID] = &model.LinkInfo{
+// 					V4Addr: linkConfig.AddressInfos[targetIndex].V4Addr,
+// 					V6Addr: linkConfig.AddressInfos[targetIndex].V6Addr,
+// 				}
+// 				topoInfo.EndInfos[targetInstanceID] = &model.EndInfo{
+// 					InstanceID: targetInstanceID,
+// 					Type:       linkConfig.EndInfos[targetIndex].InstanceType,
+// 				}
+// 			} else {
 
-				data.TopoInfoMap[endInfo.InstanceID] = &model.TopoInfo{
-					InstanceID: endInfo.InstanceID,
-					LinkInfos: map[string]*model.LinkInfo{
-						targetInstanceID: {
-							V4Addr: linkConfig.IPInfos[targetIndex].V4Addr,
-							V6Addr: linkConfig.IPInfos[targetIndex].V6Addr,
-						},
-					},
-					EndInfos: map[string]*model.EndInfo{
-						targetInstanceID: {
-							InstanceID: targetInstanceID,
-							Type:       linkConfig.InitEndInfos[targetIndex].InstanceType,
-						},
-					},
-				}
+// 				data.TopoInfoMap[endInfo.InstanceID] = &model.TopoInfo{
+// 					InstanceID: endInfo.InstanceID,
+// 					LinkInfos: map[string]*model.LinkInfo{
+// 						targetInstanceID: {
+// 							V4Addr: linkConfig.AddressInfos[targetIndex].V4Addr,
+// 							V6Addr: linkConfig.AddressInfos[targetIndex].V6Addr,
+// 						},
+// 					},
+// 					EndInfos: map[string]*model.EndInfo{
+// 						targetInstanceID: {
+// 							InstanceID: targetInstanceID,
+// 							Type:       linkConfig.EndInfos[targetIndex].InstanceType,
+// 						},
+// 					},
+// 				}
 
-			}
-		}
-	}
+// 			}
+// 		}
+// 	}
 
-	for _, v := range delList {
-		linkConfig := v.GetLinkConfig()
-		for i, endInfo := range linkConfig.InitEndInfos {
-			targetIndex := 1 - i%2
-			targetInstanceID := linkConfig.InitEndInfos[targetIndex].InstanceID
-			if targetInstanceID == "" || data.InstanceMap[targetInstanceID] == nil {
-				continue
-			} else {
-				dirtyMap[endInfo.InstanceID] = true
-			}
+// 	for _, v := range delList {
+// 		linkConfig := v.GetLinkConfig()
+// 		for i, endInfo := range linkConfig.EndInfos {
+// 			targetIndex := 1 - i%2
+// 			targetInstanceID := linkConfig.EndInfos[targetIndex].InstanceID
+// 			if targetInstanceID == "" || data.InstanceMap[targetInstanceID] == nil {
+// 				continue
+// 			} else {
+// 				dirtyMap[endInfo.InstanceID] = true
+// 			}
 
-			delete(data.TopoInfoMap[endInfo.InstanceID].EndInfos, targetInstanceID)
-			delete(data.TopoInfoMap[endInfo.InstanceID].LinkInfos, targetInstanceID)
+// 			delete(data.TopoInfoMap[endInfo.InstanceID].EndInfos, targetInstanceID)
+// 			delete(data.TopoInfoMap[endInfo.InstanceID].LinkInfos, targetInstanceID)
 
-			if len(data.TopoInfoMap[endInfo.InstanceID].LinkInfos) == 0 {
-				delete(data.TopoInfoMap, endInfo.InstanceID)
-			}
-		}
-	}
+// 			if len(data.TopoInfoMap[endInfo.InstanceID].LinkInfos) == 0 {
+// 				delete(data.TopoInfoMap, endInfo.InstanceID)
+// 			}
+// 		}
+// 	}
 
-	for instanceID := range dirtyMap {
-		jsonPath := path.Join(dir.TopoInfoDir, fmt.Sprintf("%s.json", instanceID))
-		if topoInfo, ok := data.TopoInfoMap[instanceID]; ok {
-			fileContent, _ := json.Marshal(topoInfo)
-			err := utils.WriteToFile(jsonPath, fileContent)
-			if err != nil {
-				logrus.Errorf("Write Topo Infomation of %s to path %s Error: %s", instanceID, jsonPath, err.Error())
-				return err
-			}
-		} else {
-			err := utils.DeleteFile(jsonPath)
-			if err != nil {
-				logrus.Errorf("Delete Topo Infomation of %s from path %s Error: %s", instanceID, jsonPath, err.Error())
-				return err
-			}
-		}
-	}
+// 	for instanceID := range dirtyMap {
+// 		jsonPath := path.Join(dir.TopoInfoDir, fmt.Sprintf("%s.json", instanceID))
+// 		if topoInfo, ok := data.TopoInfoMap[instanceID]; ok {
+// 			fileContent, _ := json.Marshal(topoInfo)
+// 			err := utils.WriteToFile(jsonPath, fileContent)
+// 			if err != nil {
+// 				logrus.Errorf("Write Topo Infomation of %s to path %s Error: %s", instanceID, jsonPath, err.Error())
+// 				return err
+// 			}
+// 		} else {
+// 			err := utils.DeleteFile(jsonPath)
+// 			if err != nil {
+// 				logrus.Errorf("Delete Topo Infomation of %s from path %s Error: %s", instanceID, jsonPath, err.Error())
+// 				return err
+// 			}
+// 		}
+// 	}
 
-	return nil
-}
+// 	return nil
+// }
 
 func linkParameterWatcher(sigChan chan int, operator *model.NetlinkOperatorInfo) {
 	ctx, cancel := context.WithCancel(context.Background())
@@ -201,6 +208,7 @@ func linkParameterWatcher(sigChan chan int, operator *model.NetlinkOperatorInfo)
 			if err != nil {
 				logrus.Error("Parse Update Link Parameter String Info Error: ", err.Error())
 			}
+			data.LinkMapLock.RLock()
 			for linkID, parameter := range newLinkParameter {
 				if link2Update, ok := data.LinkMap[linkID]; ok {
 					if !link2Update.IsEnabled() {
@@ -214,6 +222,7 @@ func linkParameterWatcher(sigChan chan int, operator *model.NetlinkOperatorInfo)
 					operator.RequestChann <- reqs
 				}
 			}
+			data.LinkMapLock.RUnlock()
 		}
 	}
 }
@@ -228,8 +237,9 @@ func AddLinks(addList []string, operator *model.NetlinkOperatorInfo) error {
 
 	err := utils.ForEachUtilAllComplete[string](
 		func(v string) (bool, error) {
-
+			data.LinkMapLock.RLock()
 			linkInfo := data.LinkMap[v]
+			data.LinkMapLock.RUnlock()
 			for _, v := range linkInfo.GetEndInfos() {
 				if v.InstanceID == "" {
 					return true, nil
@@ -254,8 +264,8 @@ func AddLinks(addList []string, operator *model.NetlinkOperatorInfo) error {
 			operator.RequestChann <- requests
 			logrus.Infof("Enable and Connect Link %s Between %s and %s, Type %s",
 				linkInfo.GetLinkID(),
-				linkInfo.GetLinkConfig().InitEndInfos[0].InstanceID,
-				linkInfo.GetLinkConfig().InitEndInfos[1].InstanceID,
+				linkInfo.GetLinkConfig().EndInfos[0].InstanceID,
+				linkInfo.GetLinkConfig().EndInfos[1].InstanceID,
 				linkInfo.GetLinkType(),
 			)
 			err = synchronizer.UpdateLinkInfo(key.NodeIndex, linkInfo)
@@ -288,7 +298,9 @@ func DelLinks(delList []model.Link, operator *model.NetlinkOperatorInfo) error {
 			}
 			request = append(request, disableReqs...)
 			operator.RequestChann <- request
+			data.LinkMapLock.Lock()
 			delete(data.LinkMap, v.GetLinkID())
+			data.LinkMapLock.Unlock()
 		}, delList, 32,
 	)
 
@@ -338,13 +350,13 @@ func linkDaemonFunc(sigChan chan int, errChan chan error) {
 			} else {
 				logrus.Infof("Parse Update Link Info Success: Addlist:%v,Dellist: %v", addList, delList)
 			}
-			err = updateTopoInfoFile(addList, delList)
+			// err = updateTopoInfoFile(addList, delList)
 
-			if err != nil {
-				errMsg := fmt.Sprintf("Update Container Topo Infomation Error: %s", err.Error())
-				logrus.Error(errMsg)
-				errChan <- err
-			}
+			// if err != nil {
+			// 	errMsg := fmt.Sprintf("Update Container Topo Infomation Error: %s", err.Error())
+			// 	logrus.Error(errMsg)
+			// 	errChan <- err
+			// }
 			go func() {
 				err = DelLinks(delList, &netOpInfo)
 				if err != nil {

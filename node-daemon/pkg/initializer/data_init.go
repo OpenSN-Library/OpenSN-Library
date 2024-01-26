@@ -69,9 +69,9 @@ func initLinkMap() error {
 			logrus.Error("Unmarshal Json Data to Link Base Error, Redis Data May Crash: ", err.Error())
 			continue
 		}
-
+		data.LinkMapLock.Lock()
 		data.LinkMap[indexStr] = newLink
-
+		data.LinkMapLock.Unlock()
 	}
 	return nil
 }

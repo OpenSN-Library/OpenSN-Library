@@ -46,21 +46,33 @@ func InitInstanceData() {
 var StopTimeoutSecond = 3
 
 func AddContainers(addList []string) error {
+	// imageSet := make(map[string]bool)
+	// for _, instanceID := range addList {
+	// 	if !imageSet[data.InstanceMap[instanceID].Config.Image] {
+	// 		imageSet[data.InstanceMap[instanceID].Config.Image] = true
+	// 	}
+	// }
+
+	// for image, _ := range imageSet {
+	// 	err := utils.DoWithRetry(func() error {
+	// 		_, err := utils.DockerClient.ImagePull(
+	// 			context.Background(),
+	// 			image,
+	// 			types.ImagePullOptions{},
+	// 		)
+	// 		return err
+	// 	}, 4)
+	// 	if err != nil {
+	// 		logrus.Errorf("Pull Image %s Error: %s", image, err.Error())
+	// 		// return err
+	// 	}
+	// }
+
 	wg := utils.ForEachWithThreadPool[string](
 		func(v string) {
 			instance, ok := data.InstanceMap[v]
 			if ok {
 				err := utils.DoWithRetry(func() error {
-					_, err := utils.DockerClient.ImagePull(
-						context.Background(),
-						instance.Config.Image,
-						types.ImagePullOptions{},
-					)
-					if err != nil {
-						errMsg := fmt.Sprintf("Pull Image %s Error: %s", instance.Config.Image, err.Error())
-						logrus.Warnf(errMsg)
-						return err
-					}
 					containerConfig := &container.Config{
 						Hostname:    instance.Config.InstanceID,
 						Image:       instance.Config.Image,
@@ -148,7 +160,9 @@ func DelContainers(delList []string) error {
 			}
 			v := data.InstanceMap[instanceID]
 			for _, v := range v.LinkIDs {
+				data.LinkMapLock.RLock()
 				info := data.LinkMap[v]
+				data.LinkMapLock.RUnlock()
 				if info != nil && info.IsEnabled() {
 					logrus.Infof("Instance Check Link %s is %v", info.GetLinkID(), info)
 					return false

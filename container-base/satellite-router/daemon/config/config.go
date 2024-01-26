@@ -9,7 +9,7 @@ import (
 
 const Type = "Satellite"
 
-var TopoInfoPath = "/share/topo/%s.json"
+var TopoInfoPath = "/share/topo/%s"
 
 var HostName string
 

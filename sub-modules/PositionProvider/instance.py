@@ -1,6 +1,7 @@
-from link import Link
+from link import LinkBase
 from const_var import R_EARTH,LIGHT_SPEED_M_S
 import math
+from threading import RLock
 class Instance:
 
     def __init__(self,instance_id:str,instance_type:str,ns:str,node_index:int,):
@@ -10,7 +11,7 @@ class Instance:
         self.latitude = 0.0 # radius
         self.longitude = 0.0 # radius
         self.altitude = 0.0 # meter
-        self.links: dict[str,Link] = {}
+        self.links: dict[str,LinkBase] = {}
         self.namespace = ns
 
     def get_position_dict(self) -> dict[str,float]:
@@ -33,3 +34,6 @@ def distance(one:Instance,another:Instance) -> float: # meter
 
 def get_propagation_delay(distance_meter:float) -> float: # second
     return distance_meter / LIGHT_SPEED_M_S
+
+InstanceLock = RLock()
+Instances: dict[bytes,Instance] = {}

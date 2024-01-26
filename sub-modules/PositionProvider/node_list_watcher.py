@@ -2,6 +2,7 @@
 import time,json
 from loguru import logger
 from node_instance_watcher import NodeInstanceWatcher
+from node_link_watcher import NodeLinkWatcher
 from threading import Thread
 
 from dependency_client import \
@@ -10,24 +11,29 @@ from dependency_client import \
 
 from const_var import NODE_LIST_KEY
 
-NodeThreadingMap: dict[int,NodeInstanceWatcher] = {}
+NodeInstanceThreadingMap: dict[int,NodeInstanceWatcher] = {}
+NodeLinkThreadingMap: dict[int,NodeLinkWatcher] = {}
 
 def parse_node_change(node_list: list[int]):
     node_set:set[int] = set(node_list)
     del_set:set[int] = set()
 
-    for current_node_index in NodeThreadingMap.keys():
+    for current_node_index in NodeInstanceThreadingMap.keys():
         if current_node_index not in node_set:
             del_set.add(current_node_index)
 
     for del_node_index in del_set:
-        NodeThreadingMap[del_node_index].terminate()
-        del NodeThreadingMap[del_node_index]
+        NodeInstanceThreadingMap[del_node_index].terminate()
+        del NodeInstanceThreadingMap[del_node_index]
 
     for node_index in node_set:
-        if node_index not in NodeThreadingMap:
-            NodeThreadingMap[node_index] = NodeInstanceWatcher(node_index)
-            NodeThreadingMap[node_index].start()
+        if node_index not in NodeInstanceThreadingMap:
+            NodeInstanceThreadingMap[node_index] = NodeInstanceWatcher(node_index)
+            NodeInstanceThreadingMap[node_index].start()
+            NodeLinkThreadingMap[node_index] = NodeLinkWatcher(node_index)
+            NodeLinkThreadingMap[node_index].start()
+
+            
 
         
 class NodeListWatcher(Thread):
