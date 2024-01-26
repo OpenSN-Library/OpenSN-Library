@@ -18,12 +18,17 @@ func main() {
 	req.NsConfig = ginmodel.NsReqConfig{
 		ImageMap: map[string]string{
 			"Satellite": "docker.io/realssd/satellite-router:latest",
+			"GroundStation":"docker.io/realssd/satellite-router:latest",
 		},
 		ContainerEnvs: map[string]string{},
 		ResourceMap: map[string]ginmodel.ResourceLimit{
 			"Satellite": {
 				NanoCPU:    "10M",
 				MemoryByte: "24M",
+			},
+			"GroundStation": {
+				NanoCPU:    "30M",
+				MemoryByte: "32M",
 			},
 		},
 	}
@@ -38,7 +43,7 @@ func main() {
 	}
 	for i := 0; i < len(bufs)/3; i++ {
 		newInstConfig := ginmodel.InstanceReqConfig{
-			Type:               "Satellite",
+			Type: "Satellite",
 			Extra: map[string]string{
 				"TLE_0":          string(bufs[3*i]),
 				"TLE_1":          string(bufs[3*i+1]),
@@ -50,6 +55,20 @@ func main() {
 		fmt.Printf("Add Instance %d", i)
 		req.InstConfigs = append(req.InstConfigs, newInstConfig)
 	}
+
+	for i := 0; i < 10; i++ {
+		newInstConfig := ginmodel.InstanceReqConfig{
+			Type: "GroundStation",
+			Extra: map[string]string{
+				"latitude":     strconv.FormatFloat(0.1*float64(i), 'f', 6, 64),
+				"longitude":    strconv.FormatFloat(0.1*float64(i), 'f', 6, 64),
+				"altitude":     "0",
+				"ground_index": strconv.Itoa(i),
+			},
+		}
+		req.InstConfigs = append(req.InstConfigs, newInstConfig)
+	}
+
 	topo_fd, err := os.Open("tle/topo.json")
 	if err != nil {
 		panic(err)
