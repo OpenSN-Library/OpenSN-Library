@@ -11,7 +11,7 @@ import (
 
 var EtcdClient *clientv3.Client
 
-func InitEtcdClient(addr string,port int) error {
+func InitEtcdClient(addr string, port int) error {
 	cliConfig := clientv3.Config{
 		Endpoints: []string{
 			fmt.Sprintf("%s:%d", addr, port),

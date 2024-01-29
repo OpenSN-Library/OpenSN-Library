@@ -156,3 +156,8 @@ func FormatMacAddr(addr []byte) string {
 		addr[5],
 	)
 }
+
+func GetEtcdLastKey(key string) (string, int) {
+	seq := strings.Split(key, "/")
+	return seq[len(seq)-1], len(seq)
+}

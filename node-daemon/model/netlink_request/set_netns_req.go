@@ -5,11 +5,10 @@ type SetNetNsReq struct {
 	TargetNamespacePid int
 }
 
-func CreateSetNetNsReq(linkIndex, linkNamespacePid, namespacePid int, linkName string) *SetNetNsReq {
+func CreateSetNetNsReq(linkNamespacePid, namespacePid int, linkName string) *SetNetNsReq {
 	return &SetNetNsReq{
 		NetLinkRequestBase: NetLinkRequestBase{
 			NamespacePid: linkNamespacePid,
-			LinkIndex:    linkIndex,
 			RequestType:  SetNetNs,
 			LinkName:     linkName,
 		},

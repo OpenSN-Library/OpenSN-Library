@@ -24,7 +24,6 @@ type NetlinkOperatorInfo struct {
 }
 
 type Link interface {
-	GetLinkConfig() LinkConfig
 	GetLinkID() string
 	GetLinkType() string
 	Connect() ([]netreq.NetLinkRequest, error)
@@ -40,36 +39,31 @@ type Link interface {
 	GetLinkBasePtr() *LinkBase
 }
 
-type AddressInfoType struct {
-	V4Addr string `json:"v4_addr"`
-	V6Addr string `json:"v6_addr"`
-}
-
 type EndInfoType struct {
 	InstanceID   string `json:"instance_id"`
 	InstanceType string `json:"instance_type"`
+	InstancePid  int    `json:"instance_pid"`
 	EndNodeIndex int    `json:"end_node_index"`
 }
 
 type LinkBase struct {
-	Enabled      bool `json:"enabled"`
-	CrossMachine bool `json:"cross_machine"`
-	// SupportParameters map[string]ParameterInfo `json:"support_parameters"`
-	Parameter map[string]int64 `json:"parameter"`
-	Config    LinkConfig       `json:"config"`
-	NodeIndex int              `json:"node_index"`
-}
-
-func (l *LinkBase) GetLinkConfig() LinkConfig {
-	return l.Config
+	LinkID        string               `json:"link_id"`
+	EndInfos      [2]EndInfoType       `json:"init_end_infos"`
+	Type          string               `json:"type"`
+	AddressInfos  [2]map[string]string `json:"address_infos"`
+	LinkIndex     int                  `json:"link_index"`
+	Enabled       bool                 `json:"enabled"`
+	CrossMachine  bool                 `json:"cross_machine"`
+	Parameter     map[string]int64     `json:"parameter"`
+	NodeIndex     int                  `json:"node_index"`
 }
 
 func (l *LinkBase) GetLinkID() string {
-	return l.Config.LinkID
+	return l.LinkID
 }
 
 func (l *LinkBase) GetLinkType() string {
-	return l.Config.Type
+	return l.Type
 }
 
 func (l *LinkBase) IsConnected() bool {
@@ -89,7 +83,7 @@ func (l *LinkBase) GetParameter(name string) (int64, error) {
 }
 
 func (l *LinkBase) GetEndInfos() [2]EndInfoType {
-	return l.Config.EndInfos
+	return l.EndInfos
 }
 
 func (l *LinkBase) GetLinkBasePtr() *LinkBase {

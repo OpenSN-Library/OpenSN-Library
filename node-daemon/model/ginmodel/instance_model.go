@@ -7,7 +7,7 @@ type InstanceAbstract struct {
 	LinkIDs     []string          `json:"link_ids"`
 	ContainerID string            `json:"container_id"`
 	Pid         int               `json:"pid"`
-	Namespace   string            `json:"namespace"`
 	State       string            `json:"state"`
 	Extra       map[string]string `json:"extra"`
 }
+

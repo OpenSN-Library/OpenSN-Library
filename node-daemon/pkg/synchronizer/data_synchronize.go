@@ -2,7 +2,6 @@ package synchronizer
 
 import (
 	"NodeDaemon/model"
-	"NodeDaemon/pkg/link"
 	"NodeDaemon/share/key"
 	"NodeDaemon/utils"
 	"context"
@@ -10,422 +9,381 @@ import (
 	"fmt"
 
 	"github.com/sirupsen/logrus"
+	clientv3 "go.etcd.io/etcd/client/v3"
+	"go.etcd.io/etcd/client/v3/concurrency"
 )
 
-func GetNodeInstanceList(index int) ([]string, error) {
-	var list []string
-	etcdResp, err := utils.EtcdClient.Get(
+func GetEmulationInfo() (*model.EmulationInfo, error) {
+	etcdNodeInfo, err := utils.EtcdClient.Get(
 		context.Background(),
-		fmt.Sprintf(key.NodeInstanceListKeyTemplate, index),
+		key.EmulationConfigKey,
 	)
-	logrus.Infof("Get Instance List of node %d Success.", index)
+
 	if err != nil {
-		errMsg := fmt.Sprintf("Get Instance List of node %d error: %s", index, err.Error())
-		logrus.Error(errMsg)
+		err := fmt.Errorf("get emulation info error: %s", err.Error())
 		return nil, err
 	}
-	err = json.Unmarshal(etcdResp.Kvs[0].Value, &list)
+
+	if len(etcdNodeInfo.Kvs) <= 0 {
+		newInfo, _ := json.Marshal(model.EmulationInfo{})
+
+		utils.EtcdClient.Put(
+			context.Background(),
+			key.EmulationConfigKey,
+			string(newInfo),
+		)
+		return &model.EmulationInfo{}, nil
+	}
+
+	v := new(model.EmulationInfo)
+	err = json.Unmarshal(etcdNodeInfo.Kvs[0].Value, v)
 	if err != nil {
-		errMsg := fmt.Sprintf("Parse Instance List of node %d error: %s", index, err.Error())
-		logrus.Error(errMsg)
+		err := fmt.Errorf(
+			"unable to parse emulation info from etcd value %s, error:%s",
+			string(etcdNodeInfo.Kvs[0].Value),
+			err.Error(),
+		)
 		return nil, err
 	}
-	return list, err
+	return v, nil
 }
 
-func PostNodeInstanceList(index int, list []string) error {
-	newListStr, err := json.Marshal(list)
+func UpdateEmulationInfo(update func(*model.EmulationInfo) error) error {
+	_, err := concurrency.NewSTM(utils.EtcdClient, func(s concurrency.STM) error {
+		etcdEmulationInfo := s.Get(key.EmulationConfigKey)
+		updateEmulationInfo := new(model.EmulationInfo)
+		json.Unmarshal([]byte(etcdEmulationInfo), updateEmulationInfo)
+		if updateEmulationInfo.TypeConfig == nil {
+			updateEmulationInfo.TypeConfig = make(map[string]model.InstanceTypeConfig)
+		}
+		err := update(updateEmulationInfo)
+		if err != nil {
+			return fmt.Errorf("update local new emulation info error: %s", err.Error())
+		}
+		nodeSeq, err := json.Marshal(updateEmulationInfo)
+		if err != nil {
+			err = fmt.Errorf("format emulation config error: %s", err.Error())
+			return err
+		}
+		s.Put(
+			key.EmulationConfigKey,
+			string(nodeSeq),
+		)
+
+		if err != nil {
+			err := fmt.Errorf("update emulation info to etcd error: %s", err.Error())
+			return err
+		}
+		return nil
+	})
+
+	return err
+}
+
+func GetNodeList() ([]*model.Node, error) {
+
+	var nodeList []*model.Node
+
+	nodeListEtcd, err := utils.EtcdClient.Get(
+		context.Background(),
+		key.NodeIndexListKey,
+		clientv3.WithPrefix(),
+	)
 	if err != nil {
-		errMsg := fmt.Sprintf("Serialize Instance List of Node %d Error: %s", index, err.Error())
-		logrus.Error(errMsg)
+		err := fmt.Errorf("get node list from etcd error:%s", err.Error())
+		return nil, err
+	}
+
+	for _, v := range nodeListEtcd.Kvs {
+		nodeInfo := new(model.Node)
+		err = json.Unmarshal(v.Value, nodeInfo)
+		if err != nil {
+			errMsg := fmt.Sprintf("Unable to parse node info from etcd value %s, Error:%s", string(v.Value), err.Error())
+			logrus.Debug(errMsg)
+			continue
+		}
+		nodeList = append(nodeList, nodeInfo)
+	}
+	return nodeList, nil
+}
+
+func GetInstanceList(nodeIndex int) ([]*model.Instance, error) {
+
+	var instanceList []*model.Instance
+	instanceInfoKeyBase := fmt.Sprintf(key.NodeInstanceListKeyTemplate, nodeIndex)
+	nodeListEtcd, err := utils.EtcdClient.Get(
+		context.Background(),
+		instanceInfoKeyBase,
+		clientv3.WithPrefix(),
+	)
+	if err != nil {
+		err := fmt.Errorf("get instance list from etcd error:%s", err.Error())
+		return nil, err
+	}
+
+	for _, v := range nodeListEtcd.Kvs {
+		instanceInfo := new(model.Instance)
+		err = json.Unmarshal(v.Value, instanceInfo)
+		if err != nil {
+			errMsg := fmt.Sprintf("Unable to parse instance info from etcd value %s, Error:%s", string(v.Value), err.Error())
+			logrus.Debug(errMsg)
+			continue
+		}
+		instanceList = append(instanceList, instanceInfo)
+	}
+	return instanceList, nil
+}
+
+func GetInstanceRuntimeList(nodeIndex int) ([]*model.InstanceRuntime, error) {
+
+	var instanceRuntimeList []*model.InstanceRuntime
+	instanceRuntimeKeyBase := fmt.Sprintf(key.NodeInstanceRuntimeKeyTemplate, nodeIndex)
+	nodeListEtcd, err := utils.EtcdClient.Get(
+		context.Background(),
+		instanceRuntimeKeyBase,
+		clientv3.WithPrefix(),
+	)
+	if err != nil {
+		err := fmt.Errorf("get instance list from etcd error:%s", err.Error())
+		return nil, err
+	}
+
+	for _, v := range nodeListEtcd.Kvs {
+		instanceRuntimeInfo := new(model.InstanceRuntime)
+		err = json.Unmarshal(v.Value, instanceRuntimeInfo)
+		if err != nil {
+			errMsg := fmt.Sprintf("Unable to parse instance info from etcd value %s, Error:%s", string(v.Value), err.Error())
+			logrus.Debug(errMsg)
+			continue
+		}
+		instanceRuntimeList = append(instanceRuntimeList, instanceRuntimeInfo)
+	}
+	return instanceRuntimeList, nil
+}
+
+func AddNode(nodeInfo *model.Node) error {
+	nodeInfoKey := fmt.Sprintf("%s/%d", key.NodeIndexListKey, nodeInfo.NodeIndex)
+	nodeSeq, err := json.Marshal(nodeInfo)
+	if err != nil {
+		err = fmt.Errorf("format node info of %d error: %s", nodeInfo.NodeIndex, err.Error())
 		return err
 	}
 	_, err = utils.EtcdClient.Put(
 		context.Background(),
-		fmt.Sprintf(key.NodeInstanceListKeyTemplate, index),
-		string(newListStr),
+		nodeInfoKey,
+		string(nodeSeq),
 	)
+
 	if err != nil {
-		errMsg := fmt.Sprintf("Update Instance List of Node %d to Etcd Error: %s", index, err.Error())
-		logrus.Error(errMsg)
+		err := fmt.Errorf("add node %d info to etcd error:%s", nodeInfo.NodeIndex, err.Error())
 		return err
 	}
 	return nil
 }
 
-func GetInstanceInfos(index int, instancIDs []string) ([]*model.Instance, error) {
-	var ret []*model.Instance
-	if len(instancIDs) <= 0 {
-		return nil, nil
-	}
-	hmgetResp := utils.RedisClient.HMGet(
+func DelNode(index int) error {
+	nodeInfoKey := fmt.Sprintf("%s/%d", key.NodeIndexListKey, index)
+	_, err := utils.EtcdClient.Delete(
 		context.Background(),
-		fmt.Sprintf(key.NodeInstancesKeyTemplate, index),
-		instancIDs...,
+		nodeInfoKey,
 	)
-	if hmgetResp.Err() != nil {
-		errMsg := fmt.Sprintf("Get Instance Infos of Node %d to Etcd Error: %s", index, hmgetResp.Err().Error())
-		logrus.Error(errMsg)
-		return nil, hmgetResp.Err()
-	}
-	for i, byteSeq := range hmgetResp.Val() {
-		if byteSeq == nil {
-			ret = append(ret, nil)
-			continue
-		}
-		obj := new(model.Instance)
-		err := json.Unmarshal([]byte(byteSeq.(string)), obj)
-		if err != nil {
-			errMsg := fmt.Sprintf("Parse Instance Info of %s Error: %s", instancIDs[i], err.Error())
-			logrus.Error(errMsg)
-			ret = append(ret, nil)
-			continue
-		}
-		ret = append(ret, obj)
 
-	}
-	return ret, nil
-}
-
-func UpdateInstanceInfo(index int, instance *model.Instance) error {
-	byteSeq, err := json.Marshal(instance)
 	if err != nil {
-		errMsg := fmt.Sprintf("Update Instance Info Error: parse instance info error: %s", err.Error())
-		logrus.Error(errMsg)
+		err := fmt.Errorf("delete node %d info from etcd error: %s", index, err.Error())
 		return err
-	}
-	setResp := utils.RedisClient.HSet(
-		context.Background(),
-		fmt.Sprintf(key.NodeInstancesKeyTemplate, index),
-		instance.Config.InstanceID,
-		string(byteSeq),
-	)
-	if setResp.Err() != nil {
-		errMsg := fmt.Sprintf(
-			"Update Instance Info %s to Redis error: %s",
-			instance.Config.InstanceID,
-			setResp.Err().Error(),
-		)
-		logrus.Error(errMsg)
-		return setResp.Err()
 	}
 	return nil
 }
 
-func AddInstanceInfosToNode(index int, instanceInfos []*model.InstanceConfig, namespace string, originInstanceList []string) ([]string, error) {
-	var idSet = map[string]bool{}
-	var redisValueArray []string
-
-	for _, v := range originInstanceList {
-		idSet[v] = true
-	}
-
-	for _, config := range instanceInfos {
-
-		if idSet[config.InstanceID] {
-			logrus.Warnf("Instance %s is already in Node %d.", config.InstanceID, index)
-			continue
-		}
-
-		logrus.Infof("Set Instance %s to node %d Success.", config.InstanceID, index)
-		info := model.Instance{
-			Config:    *config,
-			NodeID:    uint32(index),
-			Namespace: namespace,
-			LinkIDs:   config.InitLinkIDs,
-			State:     "Pending",
-		}
-		infoBytes, err := json.Marshal(info)
-		if err != nil {
-			errMsg := fmt.Sprintf("Serialize Instance Info of %s error: %s", info.Config.InstanceID, err.Error())
-			logrus.Error(errMsg)
-			return nil, err
-		}
-		redisValueArray = append(redisValueArray, config.InstanceID, string(infoBytes))
-		originInstanceList = append(originInstanceList, config.InstanceID)
-	}
-	if len(redisValueArray) > 0 {
-		setResp := utils.RedisClient.HMSet(
-			context.Background(),
-			fmt.Sprintf(key.NodeInstancesKeyTemplate, index),
-			redisValueArray,
-		)
-		if setResp.Err() != nil {
-			errMsg := fmt.Sprintf("Update Instances Info %d to Redis error: %s", index, setResp.Err().Error())
-			logrus.Error(errMsg)
-			return nil, setResp.Err()
-		}
-	}
-	return originInstanceList, nil
-}
-
-func DelInstanceInfosFromNode(index int, instanceIDs []string, namespace string, originInstanceList []string) ([]string, error) {
-	var idSet = map[string]bool{}
-	var delSet = map[string]bool{}
-	for _, v := range originInstanceList {
-		idSet[v] = true
-	}
-
-	for _, id := range instanceIDs {
-		if !idSet[id] {
-			logrus.Warnf("Instance %s is not in Node %d.", id, index)
-			continue
-		}
-		delSet[id] = true
-	}
-
-	delList := make([]string, 0, len(delSet))
-	keepList := make([]string, 0, len(originInstanceList)-len(delSet))
-	for _, v := range originInstanceList {
-		if delSet[v] {
-			delList = append(delList, v)
-		} else {
-			keepList = append(keepList, v)
-		}
-	}
-
-	if len(delSet) > 0 {
-		setResp := utils.RedisClient.HDel(
-			context.Background(),
-			fmt.Sprintf(key.NodeInstancesKeyTemplate, index),
-			delList...,
-		)
-		if setResp.Err() != nil {
-			errMsg := fmt.Sprintf("Update Instances Info %d to Redis error: %s", index, setResp.Err().Error())
-			logrus.Error(errMsg)
-			return nil, setResp.Err()
-		}
-	}
-	return keepList, nil
-}
-
-func GetNodeLinkList(index int) ([]string, error) {
-	var list []string
-	etcdResp, err := utils.EtcdClient.Get(
+func GetNode(index int) (*model.Node, error) {
+	nodeInfoKey := fmt.Sprintf("%s/%d", key.NodeIndexListKey, index)
+	etcdNodeInfo, err := utils.EtcdClient.Get(
 		context.Background(),
-		fmt.Sprintf(key.NodeLinkListKeyTemplate, index),
+		nodeInfoKey,
 	)
-	logrus.Infof("Get Link List of node %d Success.", index)
+
 	if err != nil {
-		errMsg := fmt.Sprintf("Get Link List of node %d error: %s", index, err.Error())
-		logrus.Error(errMsg)
+		err := fmt.Errorf("get node %d info from etcd error: %s", index, err.Error())
 		return nil, err
 	}
-	err = json.Unmarshal(etcdResp.Kvs[0].Value, &list)
+
+	if len(etcdNodeInfo.Kvs) <= 0 {
+		return nil, fmt.Errorf("node %d not found", index)
+
+	}
+
+	v := new(model.Node)
+	err = json.Unmarshal(etcdNodeInfo.Kvs[0].Value, v)
 	if err != nil {
-		errMsg := fmt.Sprintf("Parse Link List of node %d error: %s", index, err.Error())
-		logrus.Error(errMsg)
+		err := fmt.Errorf(
+			"unable to parse node info from etcd value %s, Error:%s",
+			string(etcdNodeInfo.Kvs[0].Value),
+			err.Error(),
+		)
 		return nil, err
 	}
-	return list, err
+	return v, nil
 }
 
-func PostNodeLinkList(index int, list []string) error {
-	newListStr, err := json.Marshal(list)
+func GetLinkInfo(index int, linkID string) (*model.LinkBase, error) {
+	linkInfoKeyBase := fmt.Sprintf(key.NodeLinkListKeyTemplate, index)
+	linkInfoKey := fmt.Sprintf("%s/%s", linkInfoKeyBase, linkID)
+	etcdLinkInfo, err := utils.EtcdClient.Get(
+		context.Background(),
+		linkInfoKey,
+	)
+
 	if err != nil {
-		errMsg := fmt.Sprintf("Serialize Link List of Node %d Error: %s", index, err.Error())
-		logrus.Error(errMsg)
+		return nil, fmt.Errorf("get link %s info from etcd error: %s", linkID, err.Error())
+	}
+
+	if len(etcdLinkInfo.Kvs) <= 0 {
+		return nil, fmt.Errorf("link info of %s not found", linkID)
+	}
+
+	v := new(model.LinkBase)
+	err = json.Unmarshal(etcdLinkInfo.Kvs[0].Value, v)
+	if err != nil {
+		err := fmt.Errorf(
+			"unable to parse link info from etcd value %s, Error:%s",
+			string(etcdLinkInfo.Kvs[0].Value),
+			err.Error(),
+		)
+		return nil, err
+	}
+	return v, nil
+}
+
+func GetInstanceRuntime(index int, instanceID string) (*model.InstanceRuntime, error) {
+	instanceRuntimeKeyBase := fmt.Sprintf(key.NodeInstanceRuntimeKeyTemplate, index)
+	instanceRuntimeKey := fmt.Sprintf("%s/%s", instanceRuntimeKeyBase, instanceID)
+	etcdInstanceRuntimeInfo, err := utils.EtcdClient.Get(
+		context.Background(),
+		instanceRuntimeKey,
+	)
+
+	if err != nil {
+		return nil, fmt.Errorf("get instance %s runtime info from etcd error: %s", instanceID, err.Error())
+	}
+
+	if len(etcdInstanceRuntimeInfo.Kvs) <= 0 {
+		return nil, fmt.Errorf("instance runtime info of %s Not Found", instanceID)
+	}
+
+	v := new(model.InstanceRuntime)
+	err = json.Unmarshal(etcdInstanceRuntimeInfo.Kvs[0].Value, v)
+	if err != nil {
+		err := fmt.Errorf(
+			"unable to parse instance runtime info from etcd value %s, Error:%s",
+			string(etcdInstanceRuntimeInfo.Kvs[0].Value),
+			err.Error(),
+		)
+		return nil, err
+	}
+	return v, nil
+}
+
+func AddInstanceInfo(nodeIndex int, instanceInfo *model.Instance) error {
+	instanceInfoKeyBase := fmt.Sprintf(key.NodeInstanceListKeyTemplate, nodeIndex)
+	instanceInfoKey := fmt.Sprintf("%s/%s", instanceInfoKeyBase, instanceInfo.InstanceID)
+	instanceSeq, err := json.Marshal(instanceInfo)
+	if err != nil {
+		err = fmt.Errorf("format instance info of %s error: %s", instanceInfo.InstanceID, err.Error())
 		return err
 	}
 	_, err = utils.EtcdClient.Put(
 		context.Background(),
-		fmt.Sprintf(key.NodeLinkListKeyTemplate, index),
-		string(newListStr),
+		instanceInfoKey,
+		string(instanceSeq),
 	)
+
 	if err != nil {
-		errMsg := fmt.Sprintf("Update Link List of Node %d to Etcd Error: %s", index, err.Error())
-		logrus.Error(errMsg)
+		err := fmt.Errorf("add instance %s info to etcd error:%s", instanceInfo.InstanceID, err.Error())
 		return err
 	}
 	return nil
 }
 
-func UpdateLinkInfo(index int, link model.Link) error {
-	base := link.GetLinkBasePtr()
-	byteSeq, err := json.Marshal(base)
-
+func AddLinkInfo(nodeIndex int, linkInfo *model.LinkBase) error {
+	linkInfoKeyBase := fmt.Sprintf(key.NodeLinkListKeyTemplate, nodeIndex)
+	linkInfoKey := fmt.Sprintf("%s/%s", linkInfoKeyBase, linkInfo.GetLinkID())
+	linkSeq, err := json.Marshal(linkInfo)
 	if err != nil {
-		errMsg := fmt.Sprintf("Serialize Link Info of %s error: %s", base.GetLinkID(), err.Error())
-		logrus.Error(errMsg)
+		err = fmt.Errorf("format link info of %s error: %s", linkInfo.GetLinkID(), err.Error())
 		return err
 	}
-	setResp := utils.RedisClient.HSet(
+	_, err = utils.EtcdClient.Put(
 		context.Background(),
-		fmt.Sprintf(key.NodeLinksKeyTemplate, index),
-		base.Config.LinkID,
-		string(byteSeq),
+		linkInfoKey,
+		string(linkSeq),
 	)
-	if setResp.Err() != nil {
-		errMsg := fmt.Sprintf("Update Link %s to Redis error: %s", base.GetLinkID(), setResp.Err().Error())
-		logrus.Error(errMsg)
-		return setResp.Err()
+
+	if err != nil {
+		err := fmt.Errorf("add link %s info to etcd error:%s", linkInfo.GetLinkID(), err.Error())
+		return err
 	}
 	return nil
 }
 
-func GetLinkInfos(index int, linkIDs []string) ([]*model.LinkBase, error) {
-	var ret []*model.LinkBase
-	if len(linkIDs) <= 0 {
-		return nil, nil
-	}
-	hmgetResp := utils.RedisClient.HMGet(
-		context.Background(),
-		fmt.Sprintf(key.NodeLinksKeyTemplate, index),
-		linkIDs...,
-	)
-	if hmgetResp.Err() != nil {
-		errMsg := fmt.Sprintf("Get Link Infos of Node %d to Etcd Error: %s", index, hmgetResp.Err().Error())
-		logrus.Error(errMsg)
-		return nil, hmgetResp.Err()
-	}
-	for i, byteSeq := range hmgetResp.Val() {
-		if byteSeq == nil {
-			ret = append(ret, nil)
-			continue
-		}
-		obj := new(model.LinkBase)
-		err := json.Unmarshal([]byte(byteSeq.(string)), obj)
+func UpdateInstanceInfo(nodeIndex int, instanceID string, update func(*model.Instance) error) error {
+	instanceInfoKeyBase := fmt.Sprintf(key.NodeInstanceListKeyTemplate, nodeIndex)
+	instanceInfoKey := fmt.Sprintf("%s/%s", instanceInfoKeyBase, instanceID)
+	_, err := concurrency.NewSTM(utils.EtcdClient, func(s concurrency.STM) error {
+		etcdOldInstance := s.Get(instanceInfoKey)
+		instance := new(model.Instance)
+		json.Unmarshal([]byte(etcdOldInstance), instance)
+		err := update(instance)
 		if err != nil {
-			errMsg := fmt.Sprintf("Parse Link Info of %s Error: %s", linkIDs[i], err.Error())
-			logrus.Error(errMsg)
-			ret = append(ret, nil)
-			continue
+			return fmt.Errorf("update local new instance of %s error: %s", instanceInfoKey, err.Error())
 		}
-		ret = append(ret, obj)
-	}
-	return ret, nil
-}
-
-func AddLinkInfosToNode(index int, linkInfos []*model.LinkConfig, namespace string, originLinkList []string) ([]string, error) {
-	var idSet = map[string]bool{}
-	var redisValueArray []string
-
-	for _, v := range originLinkList {
-		idSet[v] = true
-	}
-
-	for _, config := range linkInfos {
-
-		if idSet[config.LinkID] {
-			logrus.Warnf("Link %s is already in Node %d.", config.LinkID, index)
-			continue
-		}
-
-		logrus.Infof("Set Link %s to node %d Success.", config.LinkID, index)
-		info, err := link.ParseLinkFromConfig(*config, index)
+		etcdNewInstance, err := json.Marshal(instance)
 		if err != nil {
-			errMsg := fmt.Sprintf("Create Link %s Type %s error: %s", config.LinkID, config.Type, err.Error())
-			logrus.Error(errMsg)
-			return nil, err
+			return fmt.Errorf("format local new instance of %s error: %s", instanceInfoKey, err.Error())
 		}
-		infoBytes, err := json.Marshal(info)
+		s.Put(instanceInfoKey, string(etcdNewInstance))
+		return nil
+	})
+	return err
+}
+
+func UpdateLinkInfo(nodeIndex int, linkID string, update func(*model.LinkBase) error) error {
+	linkInfoKeyBase := fmt.Sprintf(key.NodeLinkListKeyTemplate, nodeIndex)
+	linkInfoKey := fmt.Sprintf("%s/%s", linkInfoKeyBase, linkID)
+	_, err := concurrency.NewSTM(utils.EtcdClient, func(s concurrency.STM) error {
+		etcdOldLink := s.Get(linkInfoKey)
+		updateLink := new(model.LinkBase)
+		json.Unmarshal([]byte(etcdOldLink), updateLink)
+		err := update(updateLink)
 		if err != nil {
-			errMsg := fmt.Sprintf("Serialize Link Info of %s error: %s", config.LinkID, err.Error())
-			logrus.Error(errMsg)
-			return nil, err
+			return fmt.Errorf("update local new link of %s error: %s", linkInfoKey, err.Error())
 		}
-		redisValueArray = append(redisValueArray, config.LinkID, string(infoBytes))
-		originLinkList = append(originLinkList, config.LinkID)
-	}
-	if len(redisValueArray) > 0 {
-		setResp := utils.RedisClient.HMSet(
-			context.Background(),
-			fmt.Sprintf(key.NodeLinksKeyTemplate, index),
-			redisValueArray,
-		)
-		if setResp.Err() != nil {
-			errMsg := fmt.Sprintf("Update Instances Info %d to Redis error: %s", index, setResp.Err().Error())
-			logrus.Error(errMsg)
-			return nil, setResp.Err()
+		etcdNewLink, err := json.Marshal(updateLink)
+		if err != nil {
+			return fmt.Errorf("format local new link of %s error: %s", linkInfoKey, err.Error())
 		}
-	}
-	return originLinkList, nil
+		s.Put(linkInfoKey, string(etcdNewLink))
+		return nil
+	})
+	return err
 }
 
-func DelLinkInfosFromNode(index int, LinkIDs []string, namespace string, originLinkList []string) ([]string, error) {
-	var idSet = map[string]bool{}
-	var delSet = map[string]bool{}
-	for _, v := range originLinkList {
-		idSet[v] = true
-	}
-
-	for _, id := range LinkIDs {
-		if !idSet[id] {
-			logrus.Warnf("Link %s is not in Node %d.", id, index)
-			continue
+func UpdateInstanceRuntimeInfo(nodeIndex int, instanceID string, update func(*model.InstanceRuntime) error) error {
+	instanceRuntimeKeyBase := fmt.Sprintf(key.NodeInstanceRuntimeKeyTemplate, nodeIndex)
+	instanceRuntimeKey := fmt.Sprintf("%s/%s", instanceRuntimeKeyBase, instanceID)
+	_, err := concurrency.NewSTM(utils.EtcdClient, func(s concurrency.STM) error {
+		etcdOldInstanceRuntime := s.Get(instanceRuntimeKey)
+		updateInstanceRuntime := new(model.InstanceRuntime)
+		json.Unmarshal([]byte(etcdOldInstanceRuntime), updateInstanceRuntime)
+		err := update(updateInstanceRuntime)
+		if err != nil {
+			return fmt.Errorf("update local new instance runtime of %s error: %s", instanceRuntimeKey, err.Error())
 		}
-		delSet[id] = true
-	}
-
-	delList := make([]string, 0, len(delSet))
-	keepList := make([]string, 0, len(originLinkList)-len(delSet))
-	for _, v := range originLinkList {
-		if delSet[v] {
-			delList = append(delList, v)
-		} else {
-			keepList = append(keepList, v)
+		etcdNewInstanceRuntime, err := json.Marshal(updateInstanceRuntime)
+		if err != nil {
+			return fmt.Errorf("format local new instance runtime of %s error: %s", instanceRuntimeKey, err.Error())
 		}
-	}
-
-	if len(delSet) > 0 {
-		setResp := utils.RedisClient.HDel(
-			context.Background(),
-			fmt.Sprintf(key.NodeLinksKeyTemplate, index),
-			delList...,
-		)
-		if setResp.Err() != nil {
-			errMsg := fmt.Sprintf("Update Links Info %d to Redis error: %s", index, setResp.Err().Error())
-			logrus.Error(errMsg)
-			return nil, setResp.Err()
-		}
-	}
-	return keepList, nil
-}
-
-func UpdateNamespaceInfo(ns *model.Namespace) error {
-	nsBytes, err := json.Marshal(ns)
-
-	if err != nil {
-		errMsg := fmt.Sprintf("Serialize Namespace %s Infomation Error: %s", ns.Name, err.Error())
-		logrus.Error(errMsg)
-		return err
-	}
-
-	hsetResp := utils.RedisClient.HSet(
-		context.Background(),
-		key.NamespacesKey,
-		ns.Name,
-		string(nsBytes),
-	)
-
-	if hsetResp.Err() != nil {
-		errMsg := fmt.Sprintf("Update Namespace %s Infomation Error: %s", ns.Name, hsetResp.Err().Error())
-		logrus.Error(errMsg)
-		return err
-	}
-	return nil
-}
-
-func UpdateNodeInfo(info *model.Node) error {
-	byteSeq, err := json.Marshal(info)
-
-	if err != nil {
-		errMsg := fmt.Sprintf("Serialize Node %d Infomation Error: %s", info.NodeID, err.Error())
-		logrus.Error(errMsg)
-		return err
-	}
-
-	hsetResp := utils.RedisClient.HSet(
-		context.Background(),
-		key.NodesKey,
-		info.NodeID,
-		string(byteSeq),
-	)
-
-	if hsetResp.Err() != nil {
-		errMsg := fmt.Sprintf("Update Node %d Infomation Error: %s", info.NodeID, hsetResp.Err().Error())
-		logrus.Error(errMsg)
-		return err
-	}
-	return nil
+		s.Put(instanceRuntimeKey, string(etcdNewInstanceRuntime))
+		return nil
+	})
+	return err
 }

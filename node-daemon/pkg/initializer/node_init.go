@@ -3,19 +3,15 @@ package initializer
 import (
 	"NodeDaemon/config"
 	"NodeDaemon/model"
-	"NodeDaemon/pkg/link"
+	"NodeDaemon/pkg/synchronizer"
 	"NodeDaemon/share/key"
 	"NodeDaemon/utils"
-	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"slices"
 	"strconv"
-	"time"
 
-	"github.com/redis/go-redis/v9"
 	"github.com/vishvananda/netlink"
+	"go.etcd.io/etcd/client/v3/concurrency"
 )
 
 type Parameter struct {
@@ -25,59 +21,22 @@ type Parameter struct {
 }
 
 func allocNodeIndex() error {
-	getResp := utils.RedisClient.Get(context.Background(), key.NextNodeIndexKey)
 
-	if getResp.Err() != nil && getResp.Err() != redis.Nil {
-		return getResp.Err()
-	} else {
-		nodeIndex, err := strconv.Atoi(getResp.Val())
-		if err != nil {
-			return err
+	_, err := concurrency.NewSTM(utils.EtcdClient, func(s concurrency.STM) error {
+		indexStr := s.Get(key.NextNodeIndexKey)
+
+		if len(indexStr) <= 0 {
+			key.NodeIndex = 0
+		} else {
+			nodeIndex, err := strconv.Atoi(indexStr)
+			if err != nil {
+				return err
+			}
+			key.NodeIndex = nodeIndex
+			s.Put(key.NextNodeIndexKey, strconv.Itoa(nodeIndex+1))
 		}
-		key.NodeIndex = nodeIndex
-		setResp := utils.RedisClient.Set(context.Background(), key.NextNodeIndexKey, nodeIndex+1, 0)
-		if setResp.Err() != nil {
-			return setResp.Err()
-		}
-	}
-
-	return nil
-}
-
-func UpdateNodeIndexList() error {
-
-	var remoteIndexList []int = []int{}
-
-	status := utils.LockKeyWithTimeout(key.NodeIndexListKey, 6*time.Second)
-	if !status {
-		return fmt.Errorf("unable to access lock of key %s", key.NodeIndexListKey)
-	}
-	getResp, err := utils.EtcdClient.Get(context.Background(), key.NodeIndexListKey)
-	if err != nil {
-		return err
-	}
-
-	if len(getResp.Kvs) >= 1 {
-		err = json.Unmarshal(getResp.Kvs[0].Value, &remoteIndexList)
-
-		if err != nil {
-			return err
-		}
-	}
-
-	if slices.Contains[[]int, int](remoteIndexList, key.NodeIndex) {
 		return nil
-	}
-	remoteIndexList = append(remoteIndexList, key.NodeIndex)
-
-	updateBytes, err := json.Marshal(remoteIndexList)
-
-	if err != nil {
-		return err
-	}
-
-	_, err = utils.EtcdClient.Put(context.Background(), key.NodeIndexListKey, string(updateBytes))
-
+	})
 	return err
 }
 
@@ -148,12 +107,6 @@ func NodeInit() error {
 	if err != nil {
 		return err
 	}
-	utils.InitRedisClient(
-		config.GlobalConfig.Dependency.RedisAddr,
-		config.GlobalConfig.Dependency.RedisPassword,
-		config.GlobalConfig.Dependency.RedisPort,
-		config.GlobalConfig.Dependency.RedisDBIndex,
-	)
 	err = utils.InitDockerClient(config.GlobalConfig.Dependency.DockerHostPath)
 	if err != nil {
 		return err
@@ -171,22 +124,14 @@ func NodeInit() error {
 			return err
 		}
 	}
-
-	if !config.GlobalConfig.App.IsServant {
-		setResp := utils.RedisClient.Set(context.Background(), key.NextNodeIndexKey, "1", -1)
-		if setResp.Err() != nil {
-			return err
-		}
-	} else {
-		err = allocNodeIndex()
-		if err != nil {
-			return fmt.Errorf("alloc node index error: %s", err.Error())
-		}
+	err = allocNodeIndex()
+	if err != nil {
+		return fmt.Errorf("alloc node index error: %s", err.Error())
 	}
 
 	key.InitKeys()
 	selfInfo := &model.Node{
-		NodeID:             uint32(key.NodeIndex),
+		NodeIndex:          key.NodeIndex,
 		FreeInstance:       config.GlobalConfig.App.InstanceCapacity,
 		IsMasterNode:       key.NodeIndex == 0,
 		NsInstanceMap:      map[string]string{},
@@ -197,34 +142,17 @@ func NodeInit() error {
 	for k, v := range config.GlobalConfig.Device {
 		selfInfo.NodeLinkDeviceInfo[k] = len(v)
 	}
-	selfInfo.NodeLinkDeviceInfo[link.VirtualLinkType] = 1
 
 	err = getInterfaceInfo(config.GlobalConfig.App.InterfaceName, selfInfo)
 
 	if err != nil {
 		return fmt.Errorf("get interface info error: %s", err.Error())
 	}
-
-	selfInfoBytes, err := json.Marshal(selfInfo)
+	key.SelfNode = selfInfo
+	err = synchronizer.AddNode(selfInfo)
 
 	if err != nil {
-		return fmt.Errorf("marshal node info error: %s", err.Error())
+		return fmt.Errorf("Add node %d error: %s", selfInfo.NodeIndex, err.Error())
 	}
-
-	setResp := utils.RedisClient.HSet(
-		context.Background(),
-		key.NodesKey,
-		strconv.Itoa(key.NodeIndex),
-		string(selfInfoBytes),
-	)
-
-	if setResp.Err() != nil {
-		return fmt.Errorf("update node info error: %s", setResp.Err().Error())
-	}
-
-	err = UpdateNodeIndexList()
-	if err != nil {
-		return fmt.Errorf("update node list error: %s", err.Error())
-	}
-	return InitData()
+	return nil
 }

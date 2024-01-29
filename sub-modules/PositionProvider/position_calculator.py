@@ -63,9 +63,10 @@ def calculate_ISL_parameters() -> dict[int,dict[str,dict[str,int]]]:
 
                 
                 if polar_region_link_close:
-                    logger.info("disconnect link %s"%link_id,abs(connected_instances[1].latitude) > POLAR_REGION_LATITUDE,is_inter_orbit)
+                    # logger.info("disconnect link %s"%link_id,abs(connected_instances[1].latitude) > POLAR_REGION_LATITUDE,is_inter_orbit)
                     inst_link.parameter[PARAMETER_KEY_CONNECT] = 0
                 else:
+                    # logger.info("connect link %s"%link_id,abs(connected_instances[1].latitude) > POLAR_REGION_LATITUDE,is_inter_orbit)
                     inst_link.parameter[PARAMETER_KEY_CONNECT] = 1
                 inst_link.parameter[PARAMETER_KEY_DELAY] = int(get_propagation_delay(
                     distance(
@@ -133,7 +134,7 @@ def judge_ground_station_connection() -> (list[GSL],list[GSL]):
             instance_info.connect_link_id = link.config.link_id
             instance_info.connected_satellite_id = next_satellite.instance_id
             gsl_add_list.append(link)
-            instance_info.links[link.config.link_id] = link
+            # instance_info.links[link.config.link_id] = link
             Links[link.config.link_id] = link
         elif next_satellite.instance_id != instance_info.connected_satellite_id:
             link = GSL({})
@@ -165,12 +166,12 @@ def judge_ground_station_connection() -> (list[GSL],list[GSL]):
                 }
             ]
             gsl_del_list.append(instance_info.links[instance_info.connect_link_id])
-            instance_info.connect_link_id = link.config.link_id
+            # instance_info.connect_link_id = link.config.link_id
             instance_info.connected_satellite_id = next_satellite.instance_id
             gsl_add_list.append(link)
             instance_info.connect_link_id = link.config.link_id
             instance_info.connected_satellite_id = next_satellite.instance_id
-            instance_info.links[link.config.link_id] = link
+            # instance_info.links[link.config.link_id] = link
             Links[link.config.link_id] = link
     return gsl_add_list,gsl_del_list
     

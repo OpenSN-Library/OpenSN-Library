@@ -3,213 +3,206 @@ package module
 import (
 	"NodeDaemon/model"
 	"NodeDaemon/pkg/synchronizer"
-	"NodeDaemon/share/data"
+	"encoding/json"
 
 	"NodeDaemon/share/dir"
 	"NodeDaemon/share/key"
 	"NodeDaemon/share/signal"
 	"NodeDaemon/utils"
 	"context"
-	"encoding/json"
 	"fmt"
 	"sync"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/sirupsen/logrus"
+	clientv3 "go.etcd.io/etcd/client/v3"
 )
-
-func InitInstanceData() {
-	getResp, err := utils.EtcdClient.Get(
-		context.Background(),
-		key.NodeInstanceListKeySelf,
-	)
-	if err != nil {
-		errMsg := fmt.Sprintf("Check Node Instance List Initialized %s Error: %s", key.NodeInstancesKeySelf, err.Error())
-		logrus.Error(errMsg)
-		panic(errMsg)
-	}
-	if len(getResp.Kvs) <= 0 {
-		_, err := utils.EtcdClient.Put(
-			context.Background(),
-			key.NodeInstanceListKeySelf,
-			"[]",
-		)
-		if err != nil {
-			errMsg := fmt.Sprintf("Init Node Instance List %s Error: %s", key.NodeInstancesKeySelf, err.Error())
-			logrus.Error(errMsg)
-			panic(errMsg)
-		}
-	}
-}
 
 var StopTimeoutSecond = 3
 
-func AddContainers(addList []string) error {
-	// imageSet := make(map[string]bool)
-	// for _, instanceID := range addList {
-	// 	if !imageSet[data.InstanceMap[instanceID].Config.Image] {
-	// 		imageSet[data.InstanceMap[instanceID].Config.Image] = true
-	// 	}
-	// }
-
-	// for image, _ := range imageSet {
-	// 	err := utils.DoWithRetry(func() error {
-	// 		_, err := utils.DockerClient.ImagePull(
-	// 			context.Background(),
-	// 			image,
-	// 			types.ImagePullOptions{},
-	// 		)
-	// 		return err
-	// 	}, 4)
-	// 	if err != nil {
-	// 		logrus.Errorf("Pull Image %s Error: %s", image, err.Error())
-	// 		// return err
-	// 	}
-	// }
-
-	wg := utils.ForEachWithThreadPool[string](
-		func(v string) {
-			instance, ok := data.InstanceMap[v]
-			if ok {
-				err := utils.DoWithRetry(func() error {
-					containerConfig := &container.Config{
-						Hostname:    instance.Config.InstanceID,
-						Image:       instance.Config.Image,
-						Env:         []string{},
-						StopTimeout: &StopTimeoutSecond,
-					}
-					hostConfig := &container.HostConfig{
-						Privileged:  true,
-						NetworkMode: "none",
-						Binds: []string{
-							fmt.Sprintf("%s:%s", dir.MountShareData, "/share"),
-						},
-						Resources: container.Resources{
-							NanoCPUs: instance.Config.Resource.NanoCPU,
-							Memory:   instance.Config.Resource.MemoryByte,
-						},
-					}
-
-					createResp, err := utils.DockerClient.ContainerCreate(
-						context.Background(),
-						containerConfig,
-						hostConfig,
-						nil,
-						nil,
-						instance.Config.Name,
-					)
-					if err != nil {
-						return err
-					}
-					data.InstanceMap[v].State = "Created"
-					data.InstanceMap[v].ContainerID = createResp.ID
-					err = synchronizer.UpdateInstanceInfo(key.NodeIndex, data.InstanceMap[v])
-					return err
-				}, 2)
-				if err != nil {
-					logrus.Errorf("Creates Container %s Error: %s", v, err.Error())
-				} else {
-					logrus.Infof("Create and Start Container %s of %s Success.", data.InstanceMap[v].ContainerID, v)
-				}
-
-			}
-		}, addList, 128,
-	)
-	wg.Wait()
-	wg = utils.ForEachWithThreadPool[string](
-		func(v string) {
-			_, ok := data.InstanceMap[v]
-			if ok {
-				err := utils.DoWithRetry(func() error {
-					err := utils.DockerClient.ContainerStart(
-						context.Background(),
-						data.InstanceMap[v].ContainerID,
-						types.ContainerStartOptions{},
-					)
-					if err != nil {
-						return err
-					}
-					inspect, err := utils.DockerClient.ContainerInspect(context.Background(), data.InstanceMap[v].ContainerID)
-					if err != nil {
-						return err
-					}
-
-					data.InstanceMap[v].Pid = inspect.State.Pid
-					data.InstanceMap[v].State = "Running"
-					err = synchronizer.UpdateInstanceInfo(key.NodeIndex, data.InstanceMap[v])
-					return err
-				}, 2)
-				if err != nil {
-					logrus.Errorf("Start Container %s Error: %s", v, err.Error())
+func SetLinkEndPid(linkID string, instanceID string, pid int) error {
+	err := synchronizer.UpdateLinkInfo(
+		key.NodeIndex,
+		linkID,
+		func(lb *model.LinkBase) error {
+			for endIndex, endInfo := range lb.EndInfos {
+				if endInfo.EndNodeIndex == key.NodeIndex && endInfo.InstanceID == instanceID {
+					lb.EndInfos[endIndex].InstancePid = pid
 				}
 			}
-		}, addList, 32,
+			return nil
+		},
 	)
-	wg.Wait()
+	if err != nil {
+		return fmt.Errorf("update link end pid of %s in %d error: %s", linkID, key.NodeIndex, err.Error())
+	}
+	logrus.Debugf("Update Instance %s Pid of Link %s to %d", instanceID, linkID, pid)
 	return nil
 }
 
-func DelContainers(delList []string) error {
-	wg := utils.ForEachUtilAllCompleteWithThreadPool[string](
-		func(instanceID string) bool {
-			if instanceID == "" {
-				errMsg := fmt.Sprintf("Container id of Instance %s is Empty, Skipping...", instanceID)
-				logrus.Warnf(errMsg)
-				return true
-			}
-			v := data.InstanceMap[instanceID]
-			for _, v := range v.LinkIDs {
-				data.LinkMapLock.RLock()
-				info := data.LinkMap[v]
-				data.LinkMapLock.RUnlock()
-				if info != nil && info.IsEnabled() {
-					logrus.Infof("Instance Check Link %s is %v", info.GetLinkID(), info)
-					return false
-				}
-			}
-			err := utils.DoWithRetry(func() error {
-				return utils.DockerClient.ContainerStop(context.Background(), v.ContainerID, container.StopOptions{})
-			}, 2)
+func StartContainer(instance *model.Instance) (*model.InstanceRuntime, error) {
+
+	instanceRuntime := new(model.InstanceRuntime)
+	instanceRuntime.InstanceID = instance.InstanceID
+	err := utils.DoWithRetry(func() error {
+
+		containerConfig := &container.Config{
+			Hostname:    instance.InstanceID,
+			Image:       instance.Image,
+			Env:         []string{},
+			StopTimeout: &StopTimeoutSecond,
+		}
+
+		hostConfig := &container.HostConfig{
+			Privileged:  true,
+			NetworkMode: "none",
+			Binds: []string{
+				fmt.Sprintf("%s:%s", dir.MountShareData, "/share"),
+			},
+			Resources: container.Resources{
+				NanoCPUs: instance.Resource.NanoCPU,
+				Memory:   instance.Resource.MemoryByte,
+			},
+		}
+
+		createResp, err := utils.DockerClient.ContainerCreate(
+			context.Background(),
+			containerConfig,
+			hostConfig,
+			nil,
+			nil,
+			instance.Name,
+		)
+
+		if err != nil {
+			return err
+		}
+
+		instanceRuntime.ContainerID = createResp.ID
+		return err
+	}, 2)
+
+	if err != nil {
+		return nil, fmt.Errorf("create container of instance %s Error: %s", instance.InstanceID, err.Error())
+	}
+
+	err = utils.DoWithRetry(func() error {
+		err := utils.DockerClient.ContainerStart(
+			context.Background(),
+			instanceRuntime.ContainerID,
+			types.ContainerStartOptions{},
+		)
+		if err != nil {
+			return err
+		}
+		inspect, err := utils.DockerClient.ContainerInspect(context.Background(), instanceRuntime.ContainerID)
+		if err != nil {
+			return err
+		}
+		instanceRuntime.Pid = inspect.State.Pid
+		instanceRuntime.State = "Running"
+		return nil
+	}, 2)
+	if err != nil {
+		return nil, fmt.Errorf("start container %s error: %s", instanceRuntime.ContainerID, err.Error())
+	}
+
+	return instanceRuntime, err
+}
+
+func StopContainer(instance *model.Instance) (*model.InstanceRuntime, error) {
+
+	instanceRuntime, err := synchronizer.GetInstanceRuntime(instance.NodeIndex, instance.InstanceID)
+
+	if err != nil {
+		return &model.InstanceRuntime{
+			Pid:         0,
+			State:       "Stop",
+			ContainerID: "",
+		}, fmt.Errorf("stop instance %s error: get instance runtime error: %s", instance.InstanceID, err.Error())
+	}
+
+	err = utils.DoWithRetry(func() error {
+		return utils.DockerClient.ContainerStop(context.Background(), instanceRuntime.ContainerID, container.StopOptions{})
+	}, 2)
+
+	if err != nil {
+		err := fmt.Errorf(
+			"stop container %s, err: %s",
+			instanceRuntime.ContainerID,
+			err.Error(),
+		)
+		return nil, err
+	}
+
+	err = utils.DoWithRetry(func() error {
+		return utils.DockerClient.ContainerRemove(
+			context.Background(),
+			instanceRuntime.ContainerID,
+			types.ContainerRemoveOptions{Force: true},
+		)
+	}, 2)
+
+	if err != nil {
+		err := fmt.Errorf(
+			"remove container %s of instance %s error: %s",
+			instanceRuntime.ContainerID,
+			instance.InstanceID,
+			err.Error(),
+		)
+		return nil, err
+	}
+
+	return &model.InstanceRuntime{
+		InstanceID:  instance.InstanceID,
+		Pid:         0,
+		State:       "Stop",
+		ContainerID: "",
+	}, err
+}
+
+func ParseLinkChange(oldInstance, newInstance *model.Instance, runtimeInfo *model.InstanceRuntime) error {
+	var oldLinkArray []string
+	var newLinkArray []string
+	newLinkIDSet := map[string]bool{}
+
+	if oldInstance.Start {
+		oldLinkArray = oldInstance.LinkIDs
+	} else {
+		oldLinkArray = []string{}
+	}
+
+	if newInstance.Start {
+		newLinkArray = newInstance.LinkIDs
+	} else {
+		newLinkArray = []string{}
+	}
+
+	logrus.Debugf("old link list is %v, new link list is %v", oldLinkArray, newLinkArray)
+
+	for _, linkID := range newLinkArray {
+		newLinkIDSet[linkID] = true
+	}
+
+	for _, linkID := range oldLinkArray {
+		if !newLinkIDSet[linkID] {
+			err := SetLinkEndPid(linkID, runtimeInfo.InstanceID, 0)
 			if err != nil {
-				errMsg := fmt.Sprintf(
-					"Stop Container of Instance %s Error, Container id is %s, err: %s",
-					v.Config.InstanceID,
-					v.ContainerID,
-					err.Error(),
-				)
-				logrus.Error(errMsg)
-			} else {
-				sucMsg := fmt.Sprintf(
-					"Stop Container of Instance %s Success, Container id is %s",
-					v.Config.InstanceID,
-					v.ContainerID,
-				)
-				logrus.Info(sucMsg)
+				return fmt.Errorf("set link %s end pid to 0 error: %s", linkID, err.Error())
 			}
-			utils.DoWithRetry(func() error {
-				return utils.DockerClient.ContainerRemove(context.Background(), v.ContainerID, types.ContainerRemoveOptions{Force: true})
-			}, 2)
+		} else {
+			newLinkIDSet[linkID] = false
+		}
+	}
+	for linkID, notExist := range newLinkIDSet {
+		if notExist {
+			err := SetLinkEndPid(linkID, runtimeInfo.InstanceID, runtimeInfo.Pid)
 			if err != nil {
-				errMsg := fmt.Sprintf(
-					"Remove Container of Instance %s Error, Container id is %s, err: %s",
-					v.Config.InstanceID,
-					v.ContainerID,
-					err.Error(),
-				)
-				logrus.Error(errMsg)
-			} else {
-				sucMsg := fmt.Sprintf(
-					"Remove Container of Instance %s Success, Container id is %s",
-					v.Config.InstanceID,
-					v.ContainerID,
-				)
-				logrus.Info(sucMsg)
+				return fmt.Errorf("set link %s end pid to 0 error: %s", linkID, err.Error())
 			}
-			delete(data.InstanceMap, instanceID)
-			return true
-		}, delList, 64)
-	wg.Wait()
+		}
+	}
 	return nil
 }
 
@@ -219,57 +212,11 @@ type InstanceModule struct {
 	Base
 }
 
-func parseInstanceChange(updateIdList []string) (addList []string, delList []string, err error) {
-	updateIDMap := make(map[string]bool)
-	for _, v := range updateIdList {
-		updateIDMap[v] = true
-	}
-	for k := range updateIDMap {
-		if _, ok := data.InstanceMap[k]; !ok {
-			addList = append(addList, k)
-		}
-	}
-
-	for k := range data.InstanceMap {
-		if ok := updateIDMap[k]; !ok {
-			delList = append(delList, k)
-		}
-	}
-
-	if len(addList) > 0 {
-
-		redisResponse := utils.RedisClient.HMGet(context.Background(), key.NodeInstancesKeySelf, addList...)
-
-		if redisResponse.Err() != nil {
-			err = redisResponse.Err()
-			logrus.Error("Get Instance Infos Error: ", err.Error())
-			return
-		}
-
-		for i, v := range redisResponse.Val() {
-			if v == nil {
-				logrus.Error("Redis Result Empty, Redis Data May Crash, InstanceID:", addList[i])
-				continue
-			} else {
-				addInstance := new(model.Instance)
-				err := json.Unmarshal([]byte(v.(string)), addInstance)
-				if err != nil {
-					logrus.Error("Unmarshal Json Data Error, Redis Data May Crash: ", err.Error())
-					continue
-				}
-				data.InstanceMap[addList[i]] = addInstance
-			}
-		}
-	}
-	return
-}
-
 func watchInstanceDaemon(sigChan chan int, errChan chan error) {
-	InitInstanceData()
 	for {
 		ctx, cancel := context.WithCancel(context.Background())
-
-		watchChan := utils.EtcdClient.Watch(ctx, key.NodeInstanceListKeySelf)
+		var keyLockMap sync.Map
+		watchChan := utils.EtcdClient.Watch(ctx, key.NodeInstanceListKeySelf, clientv3.WithPrefix(), clientv3.WithPrevKV())
 
 		for {
 			select {
@@ -279,37 +226,82 @@ func watchInstanceDaemon(sigChan chan int, errChan chan error) {
 					return
 				}
 			case res := <-watchChan:
-				if len(res.Events) < 1 {
-					logrus.Error("Unexpected Node Instance Info List Length:", len(res.Events))
-					continue
-				}
-				infoBytes := res.Events[0].Kv.Value
-				updateIDList := []string{}
-				err := json.Unmarshal(infoBytes, &updateIDList)
-				if err != nil {
-					logrus.Error("Parse Update Instance  String Info Error: ", err.Error())
-				}
-				addList, delList, err := parseInstanceChange(updateIDList)
-				if err != nil {
-					logrus.Error("Parse Update Instance Info Error: ", err.Error())
-				} else {
-					logrus.Infof("Parse Update Instance Info Success: Addlist:%v,Dellist: %v", addList, delList)
-				}
-				go func() {
-					err = DelContainers(delList)
-					if err != nil {
-						errMsg := fmt.Sprintf("Delete Containers %v Error: %s", delList, err.Error())
-						logrus.Error(errMsg)
-						errChan <- err
-
+				wg := utils.ForEachWithThreadPool[*clientv3.Event](func(v *clientv3.Event) {
+					etcdKey := ""
+					oldInstance := new(model.Instance)
+					newInstance := new(model.Instance)
+					if v.PrevKv != nil && len(v.PrevKv.Value) > 0 {
+						etcdKey = string(v.PrevKv.Key)
+						err := json.Unmarshal(v.PrevKv.Value, oldInstance)
+						if err != nil {
+							errMsg := fmt.Sprintf("Parse Instance Info From %s Error: %s", etcdKey, err.Error())
+							logrus.Error(errMsg)
+							return
+						}
 					}
-					err = AddContainers(addList)
-					if err != nil {
-						errMsg := fmt.Sprintf("Add Containers %v Error: %s", delList, err.Error())
-						logrus.Error(errMsg)
-						errChan <- err
+					if v.Kv != nil && len(v.Kv.Value) > 0 {
+						etcdKey = string(v.Kv.Key)
+						err := json.Unmarshal(v.Kv.Value, newInstance)
+						if err != nil {
+							errMsg := fmt.Sprintf("Parse Instance Info From %s Error: %s", etcdKey, err.Error())
+							logrus.Error(errMsg)
+							return
+						}
 					}
-				}()
+					lockAny, _ := keyLockMap.LoadOrStore(etcdKey, new(sync.Mutex))
+					lock := lockAny.(*sync.Mutex)
+					lock.Lock()
+					defer lock.Unlock()
+					var update *model.InstanceRuntime
+					var err error
+					if newInstance.Start != oldInstance.Start {
+						if newInstance.Start {
+							update, err = StartContainer(newInstance)
+							if err != nil {
+								errMsg := fmt.Sprintf("Start Container of %s Error: %s", etcdKey, err.Error())
+								logrus.Error(errMsg)
+								return
+							}
+							logrus.Infof("Start Container of %s Success.", etcdKey)
+						} else {
+							update, err = StopContainer(oldInstance)
+							if err != nil {
+								errMsg := fmt.Sprintf("Stop Container of %s Error: %s", etcdKey, err.Error())
+								logrus.Error(errMsg)
+								return
+							}
+							logrus.Infof("Stop Container of %s Success.", etcdKey)
+						}
+						err = synchronizer.UpdateInstanceRuntimeInfo(
+							key.NodeIndex,
+							update.InstanceID,
+							func(ir *model.InstanceRuntime) error {
+								*ir = *update
+								return nil
+							},
+						)
+						if err != nil {
+							errMsg := fmt.Sprintf("Update Runtime info of %s Error: %s", etcdKey, err.Error())
+							logrus.Error(errMsg)
+							return
+						}
+					} else if newInstance.Start {
+						update, err = synchronizer.GetInstanceRuntime(
+							key.NodeIndex, newInstance.InstanceID,
+						)
+						if err != nil {
+							errMsg := fmt.Sprintf("Get Instance Runtime Info of %s Error: %s", etcdKey, err.Error())
+							logrus.Error(errMsg)
+							return
+						}
+					}
+					err = ParseLinkChange(oldInstance, newInstance, update)
+					if err != nil {
+						errMsg := fmt.Sprintf("Parse Link Change of %s Error: %s", update.InstanceID, err.Error())
+						logrus.Error(errMsg)
+					}
+				}, res.Events, 32)
+				wg.Wait()
 			}
 		}
 	}

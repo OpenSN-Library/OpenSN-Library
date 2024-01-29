@@ -3,7 +3,7 @@ package handler
 import (
 	"NodeDaemon/model"
 	"NodeDaemon/model/ginmodel"
-	"NodeDaemon/share/data"
+	"NodeDaemon/pkg/synchronizer"
 	"NodeDaemon/share/key"
 	"NodeDaemon/utils"
 	"context"
@@ -16,22 +16,23 @@ import (
 	clientv3 "go.etcd.io/etcd/client/v3"
 )
 
-func GetNamespaceInstancePostion(ctx *gin.Context) {
-	spaceName := ctx.Param("name")
-	var retData = map[string]model.Position{}
-	info, ok := data.NamespaceMap[spaceName]
-	if !ok {
-		errMsg := fmt.Sprintf("Namespace %s Not Found.", spaceName)
+func GetInstancePostion(ctx *gin.Context) {
+	emulation_config, err := synchronizer.GetEmulationInfo()
+
+	if err != nil {
+		errMsg := fmt.Sprintf("Get Emulation Info Error: %s", err.Error())
 		logrus.Error(errMsg)
 		resp := ginmodel.JsonResp{
 			Code:    -1,
 			Message: errMsg,
 		}
-		ctx.JSON(http.StatusNotFound, resp)
+		ctx.JSON(http.StatusInternalServerError, resp)
 		return
 	}
-	if !info.Running {
-		errMsg := fmt.Sprintf("Namespace %s is not Running.", spaceName)
+
+	var retData = map[string]model.Position{}
+	if !emulation_config.Running {
+		errMsg := "Emulation is not Running."
 		logrus.Error(errMsg)
 		resp := ginmodel.JsonResp{
 			Code:    -1,
@@ -42,11 +43,11 @@ func GetNamespaceInstancePostion(ctx *gin.Context) {
 	}
 	positions, err := utils.EtcdClient.Get(
 		context.Background(),
-		fmt.Sprintf(key.NamespaceInstancePositionTemplate, spaceName),
+		fmt.Sprintf(key.NamespaceInstancePositionTemplate),
 		clientv3.WithPrefix(),
 	)
 	if err != nil {
-		errMsg := fmt.Sprintf("Get Postion Data of Namespace %s Error: %s", spaceName, err.Error())
+		errMsg := fmt.Sprintf("Get Postion Data Error: %s", err.Error())
 		logrus.Error(errMsg)
 		resp := ginmodel.JsonResp{
 			Code:    -1,
@@ -65,11 +66,6 @@ func GetNamespaceInstancePostion(ctx *gin.Context) {
 		}
 		for k, v := range positionMap {
 			retData[k] = v
-		}
-	}
-	for _, v := range info.InstanceConfig {
-		if _, ok := retData[v.InstanceID]; !ok {
-			retData[v.InstanceID] = model.Position{}
 		}
 	}
 	resp := ginmodel.JsonResp{

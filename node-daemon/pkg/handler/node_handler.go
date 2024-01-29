@@ -2,26 +2,41 @@ package handler
 
 import (
 	"NodeDaemon/model/ginmodel"
-	"NodeDaemon/share/data"
+	"NodeDaemon/pkg/synchronizer"
 	"NodeDaemon/utils"
 	"fmt"
 	"net/http"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"github.com/sirupsen/logrus"
 )
 
 func GetNodeListHandler(ctx *gin.Context) {
-	var nodeList []ginmodel.NodeAbstract
 
-	for _, v := range data.NodeMap {
-		nodeList = append(nodeList, ginmodel.NodeAbstract{
-			NodeID:       v.NodeID,
-			FreeInstance: v.FreeInstance,
-			IsMasterNode: v.IsMasterNode,
-			L3AddrV4:     utils.FormatIPv4(v.L3AddrV4),
-			L3AddrV6:     utils.FormatIPv6(v.L3AddrV6),
-			L2Addr:       utils.FormatMacAddr(v.L2Addr),
+	nodeList, err := synchronizer.GetNodeList()
+
+	if err != nil {
+		errMsg := fmt.Sprintf("Get Node List From Etcd Error:%s", err.Error())
+		logrus.Error(errMsg)
+		jsonResp := ginmodel.JsonResp{
+			Code:    -1,
+			Message: errMsg,
+		}
+		ctx.JSON(http.StatusInternalServerError, jsonResp)
+		return
+	}
+
+	var nodeAbstractList []ginmodel.NodeAbstract
+
+	for _, nodeInfo := range nodeList {
+		nodeAbstractList = append(nodeAbstractList, ginmodel.NodeAbstract{
+			NodeID:       nodeInfo.NodeIndex,
+			FreeInstance: nodeInfo.FreeInstance,
+			IsMasterNode: nodeInfo.IsMasterNode,
+			L3AddrV4:     utils.FormatIPv4(nodeInfo.L3AddrV4),
+			L3AddrV6:     utils.FormatIPv6(nodeInfo.L3AddrV6),
+			L2Addr:       utils.FormatMacAddr(nodeInfo.L2Addr),
 		})
 	}
 
@@ -49,21 +64,22 @@ func GetNodeInfoHandler(ctx *gin.Context) {
 		return
 	}
 
-	v, ok := data.NodeMap[nodeIndex]
+	v, err := synchronizer.GetNode(nodeIndex)
 
-	if !ok {
-		errMsg := fmt.Sprintf("Node %d Not Found.", nodeIndex)
+	if err != nil {
+		errMsg := fmt.Sprintf("Get Node Info of %d Error:%s", nodeIndex, err.Error())
+		logrus.Error(errMsg)
 		jsonResp := ginmodel.JsonResp{
 			Code:    -1,
 			Message: errMsg,
 		}
-		ctx.JSON(http.StatusNotFound, jsonResp)
+		ctx.JSON(http.StatusBadRequest, jsonResp)
 		return
 	}
 
 	var obj = ginmodel.NodeDetail{
 		NodeAbstract: ginmodel.NodeAbstract{
-			NodeID:       v.NodeID,
+			NodeID:       v.NodeIndex,
 			FreeInstance: v.FreeInstance,
 			IsMasterNode: v.IsMasterNode,
 			L3AddrV4:     utils.FormatIPv4(v.L3AddrV4),

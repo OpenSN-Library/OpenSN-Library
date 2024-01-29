@@ -20,20 +20,6 @@ func GetEtcdAddressHandler(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, resp)
 }
 
-func GetRedisAddressHandler(ctx *gin.Context) {
-	resp := ginmodel.JsonResp{
-		Code:    0,
-		Message: "success",
-		Data: ginmodel.RedisConfiguration{
-			Address:  config.GlobalConfig.Dependency.RedisAddr,
-			Port:     config.GlobalConfig.Dependency.RedisPort,
-			Index:    config.GlobalConfig.Dependency.RedisDBIndex,
-			Password: config.GlobalConfig.Dependency.RedisPassword,
-		},
-	}
-	ctx.JSON(http.StatusOK, resp)
-}
-
 func GetInfluxDBAddressHandler(ctx *gin.Context) {
 	resp := ginmodel.JsonResp{
 		Code:    0,

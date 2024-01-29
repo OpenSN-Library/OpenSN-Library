@@ -1,0 +1,1 @@
+{"GroundStation":{"image":"docker.io/realssd/satellite-router:latest","container_envs":null,"resource_limit":{"nano_cpu":"10M","memory_byte":"24M"}},"Satellite":{"image":"docker.io/realssd/satellite-router:latest","container_envs":null,"resource_limit":{"nano_cpu":"10M","memory_byte":"24M"}}}

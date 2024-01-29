@@ -1,6 +1,7 @@
 package module
 
 import (
+	"NodeDaemon/model"
 	netreq "NodeDaemon/model/netlink_request"
 	"NodeDaemon/share/signal"
 	"NodeDaemon/utils"
@@ -10,11 +11,51 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 	"github.com/vishvananda/netns"
 )
+
+const OperatorNum = 4
+
+var NetlinKOperatorInfo = model.NetlinkOperatorInfo{
+	RequestChann: make(chan []netreq.NetLinkRequest, OperatorNum),
+}
+
+type NetlinkOperatorModule struct {
+	Base
+}
+
+func CreateNetlinkOperatorModule() *ConfigWriteModule {
+	return &ConfigWriteModule{
+		Base{
+			sigChan:    make(chan int),
+			errChan:    make(chan error),
+			wg:         new(sync.WaitGroup),
+			daemonFunc: netlinkOperatorDaemon,
+			running:    false,
+			ModuleName: "Netlink Operator Module",
+		},
+	}
+}
+
+func netlinkOperatorDaemon(sigChan chan int, errChan chan error) {
+	netLinkSigChan := make(chan int)
+
+	for i := 0; i < OperatorNum; i++ {
+		go netLinkOperator(NetlinKOperatorInfo.RequestChann, netLinkSigChan, i)
+	}
+
+	select {
+	case res := <-sigChan:
+		if res == signal.STOP_SIGNAL {
+			netLinkSigChan <- res
+			return
+		}
+	}
+}
 
 func setLinkState(link netlink.Link, req netreq.NetLinkRequest) error {
 	realReq := req.(*netreq.SetStateReq)
@@ -133,7 +174,7 @@ var NetReqFuncMap = map[int]func(link netlink.Link, req netreq.NetLinkRequest) e
 	netreq.DeleteLink:   deleteLink,
 }
 
-func NetLinkOperator(requestsChan chan []netreq.NetLinkRequest, sigChan chan int, index int) {
+func netLinkOperator(requestsChan chan []netreq.NetLinkRequest, sigChan chan int, index int) {
 	runtime.LockOSThread()
 	originNs, err := netns.Get()
 	if err != nil {

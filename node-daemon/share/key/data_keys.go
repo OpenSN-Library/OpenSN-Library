@@ -1,58 +1,53 @@
 package key
 
 import (
+	"NodeDaemon/model"
 	"fmt"
 )
 
 var (
 	NodeIndex = -1
+	SelfNode  *model.Node
 )
 
 const ( // Etcd Keys
-	NodeIndexListKey = "/node_index_list"
+	NodeIndexListKey   = "/nodes"
+	EmulationConfigKey = "/emulation_config"
 )
 
 const (
-	NodeInstanceListKeyTemplate       = "/node_%d/instance_list"
-	NodeLinkListKeyTemplate           = "/node_%d/link_list"
-	NodeInstancesKeyTemplate          = "node_%d_instances"
-	NodeLinksKeyTemplate              = "node_%d_links"
-	NodeNsKeyTemplate                 = "/node_%d/ns_list"
+	NodeInstanceListKeyTemplate       = "/node_%d/instances"
+	NodeInstanceRuntimeKeyTemplate    = "/node_%d/runtime"
+	NodeLinkListKeyTemplate           = "/node_%d/links"
 	NodeLinkParameterKeyTemplate      = "/node_%d/link_paramter"
-	NamespaceInstancePositionTemplate = "/positions/%s/"
-	NodeInstanceConfigKeyTemplate = "/instance_config/node_%d/"
+	NamespaceInstancePositionTemplate = "/positions/"
+	NodeInstanceConfigKeyTemplate     = "/instance_config/node_%d"
 )
 
 const ( // Redis Keys
-	NodeHeartBeatKey = "node_heart_beat"
-	NodesKey         = "nodes"
-	NextNodeIndexKey = "next_node_index"
-	NamespacesKey    = "namespaces"
-	NextLinkIndexKey = "next_link_index"
+	NodeHeartBeatKey = "/node_heart_beat"
+	NextNodeIndexKey = "/next_node_index"
+	NextLinkIndexKey = "/next_link_index"
 )
 
 var (
-	NodeInstancesKeySelf     = ""
-	NodeLinksKeySelf         = ""
-	NodeInstanceListKeySelf  = ""
-	NodeLinkListKeySelf      = ""
-	NodeNsKeySelf            = ""
-	NodeLinkParameterKeySelf = ""
-	NodeInstanceConfigKeySelf = ""
+	NodeInstanceListKeySelf    = ""
+	NodeInstanceRuntimeKeySelf = ""
+	NodeLinkListKeySelf        = ""
+	NodeLinkParameterKeySelf   = ""
+	NodeInstanceConfigKeySelf  = ""
 )
 
 var (
-	NodePerformanceKey = "node_performance"
-	LinkPerformanceKey = "link_performance"
+	NodePerformanceKey     = "node_performance"
+	LinkPerformanceKey     = "link_performance"
 	InstancePerformanceKey = "instance_performance"
 )
 
 func InitKeys() {
-	NodeInstancesKeySelf = fmt.Sprintf(NodeInstancesKeyTemplate, NodeIndex)
 	NodeInstanceListKeySelf = fmt.Sprintf(NodeInstanceListKeyTemplate, NodeIndex)
-	NodeNsKeySelf = fmt.Sprintf(NodeNsKeyTemplate, NodeIndex)
-	NodeLinksKeySelf = fmt.Sprintf(NodeLinksKeyTemplate, NodeIndex)
 	NodeLinkListKeySelf = fmt.Sprintf(NodeLinkListKeyTemplate, NodeIndex)
 	NodeLinkParameterKeySelf = fmt.Sprintf(NodeLinkParameterKeyTemplate, NodeIndex)
-	NodeInstanceConfigKeySelf = fmt.Sprintf(NodeInstanceConfigKeyTemplate,NodeIndex)
+	NodeInstanceConfigKeySelf = fmt.Sprintf(NodeInstanceConfigKeyTemplate, NodeIndex)
+	NodeInstanceRuntimeKeySelf = fmt.Sprintf(NodeInstanceRuntimeKeyTemplate, NodeIndex)
 }

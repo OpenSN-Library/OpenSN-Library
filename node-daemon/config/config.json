@@ -11,10 +11,6 @@
   "dependency": {
     "etcd_addr": "172.16.208.128",
     "etcd_port": 2379,
-    "redis_addr": "172.16.208.128",
-    "redis_port": 6379,
-    "redis_db_index": 0,
-    "redis_password": "1145141919810",
     "influxdb_addr": "172.16.208.128",
     "influxdb_port": 8086,
     "influxdb_token": "1145141919810",

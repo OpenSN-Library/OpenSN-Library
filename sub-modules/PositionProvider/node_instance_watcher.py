@@ -98,6 +98,7 @@ def parse_node_instance_change(key_list : list[str],node_index:int):
 
     if len(add_key) > 0:
         for instance_info in config_instance_array:
+            logger.info("Update Instance Config of %s"%instance_info.instance_id)
             config = InstancConfig(instance_info.instance_id)
             for link_id,link_info in instance_info.links.items():
                 if link_info.config.init_end_infos[0].instance_id == instance_info.instance_id:

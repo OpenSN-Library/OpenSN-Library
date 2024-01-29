@@ -2,7 +2,7 @@ package module
 
 import (
 	"NodeDaemon/model"
-	"NodeDaemon/share/data"
+	"NodeDaemon/pkg/synchronizer"
 	"NodeDaemon/share/key"
 	"NodeDaemon/share/signal"
 	"NodeDaemon/utils"
@@ -24,8 +24,8 @@ type MonitorModule struct {
 	Base
 }
 
-func CreateMonitorModule() *HealthyCheckModule {
-	return &HealthyCheckModule{
+func CreateMonitorModule() *MonitorModule {
+	return &MonitorModule{
 		Base{
 			sigChan:    make(chan int),
 			errChan:    make(chan error),
@@ -151,31 +151,32 @@ func captureNodeStatus(sigChan chan int, errChan chan error) {
 			errChan <- err
 		}
 
-		wg := utils.ForEachWithThreadPool[string](func(instanceID string) {
-			instanceInfo, ok := data.InstanceMap[instanceID]
-			if !ok {
-				logrus.Warnf("Get Link Performance of Instance %s Cancel: instance is not in node", instanceID)
-				return
-			}
+		instanceList, err := synchronizer.GetInstanceRuntimeList(key.NodeIndex)
+
+		if err != nil {
+			logrus.Errorf("Get Instance Runtime Info List of Node %d Error:%s", key.NodeIndex, err.Error())
+			errChan <- err
+		}
+
+		wg := utils.ForEachWithThreadPool[*model.InstanceRuntime](func(instanceInfo *model.InstanceRuntime) {
 			if instanceInfo.Pid == 0 {
 				return
 			}
 			instanceResouce, err := utils.GetInstanceResourceInfo(instanceInfo.ContainerID)
 			if err != nil {
-				logrus.Errorf("Get Instance Performance of Instance %s Error: %s", instanceID, err.Error())
+				logrus.Errorf("Get Instance Performance of Instance %s Error: %s", instanceInfo.InstanceID, err.Error())
 				return
 			}
 			linkStatus, err := utils.GetInstanceLinkResourceInfo(instanceInfo.Pid)
 			if err != nil {
-				logrus.Errorf("Get Link Performance of Instance %s Error: %s", instanceID, err.Error())
+				logrus.Errorf("Get Link Performance of Instance %s Error: %s", instanceInfo.InstanceID, err.Error())
 				return
 			}
 			localLock.Lock()
-			thisInstanceLinkResource[instanceID] = linkStatus
-			thisInstanceResource[instanceID] = instanceResouce
-			instanceNamespaceMap[instanceID] = instanceInfo.Namespace
+			thisInstanceLinkResource[instanceInfo.InstanceID] = linkStatus
+			thisInstanceResource[instanceInfo.InstanceID] = instanceResouce
 			localLock.Unlock()
-		}, utils.MapKeys[string, *model.Instance](data.InstanceMap), 128)
+		}, instanceList, 128)
 		wg.Wait()
 		if withPrev {
 			points := uploadHostPerformanceData(
@@ -207,6 +208,8 @@ func captureNodeStatus(sigChan chan int, errChan chan error) {
 			if err != nil {
 				errMsg := fmt.Sprintf("Upload Monitor Data of Node %d Error: %s", key.NodeIndex, err.Error())
 				logrus.Error(errMsg)
+			} else {
+				logrus.Infof("Upload Monitor Data of Node %d Success.",key.NodeIndex)
 			}
 		} else {
 			withPrev = true

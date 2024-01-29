@@ -27,7 +27,7 @@ func signalHandler(sigChan chan os.Signal, modules []module.Module) {
 }
 
 func main() {
-
+	logrus.SetLevel(logrus.DebugLevel)
 	logrus.SetFormatter(&nested.Formatter{
 		TimestampFormat: time.RFC3339,
 	})
@@ -47,15 +47,13 @@ func main() {
 	modules := []module.Module{
 		module.CreateInstanceModuleTask(),
 		module.CreateLinkModuleTask(),
-		module.CreateStatusUpdateModule(),
-		module.CreateNodeWatchTask(),
 		module.CreateMonitorModule(),
 		module.CreateConfigWriteModule(),
+		module.CreateNetlinkOperatorModule(),
 	}
 
 	if !config.GlobalConfig.App.IsServant {
 		modules = append(modules, module.CreateMasterNodeModuleTask())
-		modules = append(modules, module.CreateHealthyCheckTask())
 	}
 
 	for _, v := range modules {

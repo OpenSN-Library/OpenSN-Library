@@ -75,31 +75,31 @@ def parse_node_link_change(key_list : list[str],node_index:int):
                 dirty_instance_key.add(link_obj.config.init_end_infos[1].instance_id)
             redis_client.hset(NODE_LINK_INFO_KEY_TEMPLATE%node_index,add_key[link_info_index],json.dumps(object2Map(link_obj)))
 
-    if len(add_key) > 0:
-        for instance_id in dirty_instance_key:
-            instance_info = Instances[instance_id]
-            config = InstancConfig(instance_info.instance_id)
-            for link_id,link_info in instance_info.links.items():
-                if link_info.config.init_end_infos[0].instance_id == instance_info.instance_id:
-                    config.link_infos[link_id] = LinkInfo(link_info.config.address_infos[0][LINK_V4_ADDR_KEY],"")
-                    config.end_infos[link_id] = EndInfo(
-                        link_info.config.init_end_infos[1].instance_id,
-                        link_info.config.init_end_infos[1].instance_type,
-                    )
-                else:
-                    config.link_infos[link_id] = LinkInfo(link_info.config.address_infos[1][LINK_V4_ADDR_KEY],"")
-                    config.end_infos[link_id] = EndInfo(
-                        link_info.config.init_end_infos[0].instance_id,
-                        link_info.config.init_end_infos[0].instance_type,
-                    )
+    for instance_id in dirty_instance_key:
+        logger.info("Update Instance Config of %s"%instance_id)
+        instance_info = Instances[instance_id]
+        config = InstancConfig(instance_info.instance_id)
+        for link_id,link_info in instance_info.links.items():
+            if link_info.config.init_end_infos[0].instance_id == instance_info.instance_id:
+                config.link_infos[link_id] = LinkInfo(link_info.config.address_infos[0][LINK_V4_ADDR_KEY],"")
+                config.end_infos[link_id] = EndInfo(
+                    link_info.config.init_end_infos[1].instance_id,
+                    link_info.config.init_end_infos[1].instance_type,
+                )
+            else:
+                config.link_infos[link_id] = LinkInfo(link_info.config.address_infos[1][LINK_V4_ADDR_KEY],"")
+                config.end_infos[link_id] = EndInfo(
+                    link_info.config.init_end_infos[0].instance_id,
+                    link_info.config.init_end_infos[0].instance_type,
+                )
 
-            etcd_client.put(
-                NODE_INSTANCE_CONFIG_KEY_TEMPLATE%(
-                    Instances[instance_info.instance_id].node_index
-                )+Instances[instance_info.instance_id].instance_id,
-                
-                json.dumps(object2Map(config))
-            )
+        etcd_client.put(
+            NODE_INSTANCE_CONFIG_KEY_TEMPLATE%(
+                Instances[instance_info.instance_id].node_index
+            )+Instances[instance_info.instance_id].instance_id,
+            
+            json.dumps(object2Map(config))
+        )
                 
 
 

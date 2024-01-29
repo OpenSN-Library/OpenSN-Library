@@ -6,23 +6,22 @@ import (
 	"fmt"
 	"generator/ginmodel"
 	"io"
-	"strconv"
-
 	"os"
+	"strconv"
 )
 
 func main() {
-	var req ginmodel.CreateNamespaceReq
-
-	req.Name = "ns1"
-	req.NsConfig = ginmodel.NsReqConfig{
-		ImageMap: map[string]string{
-			"Satellite": "docker.io/realssd/satellite-router:latest",
-			"GroundStation":"docker.io/realssd/satellite-router:latest",
+	var emuConfig ginmodel.ConfigEmulationReq = ginmodel.ConfigEmulationReq{
+		"Satellite": ginmodel.InstanceTypeConfig{
+			Image: "docker.io/realssd/satellite-router:latest",
+			ResourceLimit: ginmodel.ResourceLimit{
+				NanoCPU:    "10M",
+				MemoryByte: "24M",
+			},
 		},
-		ContainerEnvs: map[string]string{},
-		ResourceMap: map[string]ginmodel.ResourceLimit{
-			"Satellite": {
+		"GroundStation": ginmodel.InstanceTypeConfig{
+			Image: "docker.io/realssd/satellite-router:latest",
+			ResourceLimit: ginmodel.ResourceLimit{
 				NanoCPU:    "10M",
 				MemoryByte: "24M",
 			},
@@ -32,17 +31,35 @@ func main() {
 			},
 		},
 	}
+
+	emuBytes, err := json.Marshal(emuConfig)
+	if err != nil {
+		panic(err)
+	}
+	output, err := os.Create("EmulationConfigRequest.json")
+	if err != nil {
+		panic(err)
+	}
+	_, err = output.Write(emuBytes)
+	if err != nil {
+		panic(err)
+	}
+	output.Close()
+
 	tle_fd, err := os.Open("tle/tle.tle")
 	if err != nil {
 		panic(err)
 	}
+
+	var topoReq ginmodel.AddTopologyReq
+
 	buf, err := io.ReadAll(tle_fd)
 	bufs := bytes.Split(buf, []byte{'\n'})
 	if err != nil {
 		panic(err)
 	}
 	for i := 0; i < len(bufs)/3; i++ {
-		newInstConfig := ginmodel.InstanceReqConfig{
+		newInstConfig := ginmodel.TopologyInstance{
 			Type: "Satellite",
 			Extra: map[string]string{
 				"TLE_0":          string(bufs[3*i]),
@@ -53,11 +70,11 @@ func main() {
 			},
 		}
 		fmt.Printf("Add Instance %d", i)
-		req.InstConfigs = append(req.InstConfigs, newInstConfig)
+		topoReq.Instances = append(topoReq.Instances, newInstConfig)
 	}
 
 	for i := 0; i < 10; i++ {
-		newInstConfig := ginmodel.InstanceReqConfig{
+		newInstConfig := ginmodel.TopologyInstance{
 			Type: "GroundStation",
 			Extra: map[string]string{
 				"latitude":     strconv.FormatFloat(0.1*float64(i), 'f', 6, 64),
@@ -66,7 +83,7 @@ func main() {
 				"ground_index": strconv.Itoa(i),
 			},
 		}
-		req.InstConfigs = append(req.InstConfigs, newInstConfig)
+		topoReq.Instances = append(topoReq.Instances, newInstConfig)
 	}
 
 	topo_fd, err := os.Open("tle/topo.json")
@@ -86,21 +103,20 @@ func main() {
 	for k, v := range topo {
 		for _, anthoer := range v {
 			thisIndex, _ := strconv.Atoi(k)
-			newLinkReq := ginmodel.LinkReqConfig{
-				Type:          "vlink",
-				InstanceIndex: [2]int{thisIndex, anthoer},
-				Parameter:     map[string]int64{},
+			newLinkReq := ginmodel.TopologyLink{
+				Type:       "vlink",
+				EndIndexes: [2]int{thisIndex, anthoer},
 			}
 			fmt.Printf("Add Link Between %d and %d\n", thisIndex, anthoer)
-			req.LinkConfigs = append(req.LinkConfigs, newLinkReq)
+			topoReq.Links = append(topoReq.Links, newLinkReq)
 		}
 	}
 	tle_fd.Close()
-	bytes, err := json.Marshal(req)
+	bytes, err := json.Marshal(topoReq)
 	if err != nil {
 		panic(err)
 	}
-	output, err := os.Create("output.json")
+	output, err = os.Create("InitTopology.json")
 	if err != nil {
 		panic(err)
 	}
