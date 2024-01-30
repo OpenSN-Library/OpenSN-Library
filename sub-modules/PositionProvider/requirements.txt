@@ -1,5 +1,5 @@
 ephem
 etcd3
 loguru
-redis
+requests
 protobuf<=3.20.0

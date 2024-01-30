@@ -47,15 +47,15 @@ type EndInfoType struct {
 }
 
 type LinkBase struct {
-	LinkID        string               `json:"link_id"`
-	EndInfos      [2]EndInfoType       `json:"init_end_infos"`
-	Type          string               `json:"type"`
-	AddressInfos  [2]map[string]string `json:"address_infos"`
-	LinkIndex     int                  `json:"link_index"`
-	Enabled       bool                 `json:"enabled"`
-	CrossMachine  bool                 `json:"cross_machine"`
-	Parameter     map[string]int64     `json:"parameter"`
-	NodeIndex     int                  `json:"node_index"`
+	LinkID       string               `json:"link_id"`
+	EndInfos     [2]EndInfoType       `json:"end_infos"`
+	Type         string               `json:"type"`
+	AddressInfos [2]map[string]string `json:"address_infos"`
+	LinkIndex    int                  `json:"link_index"`
+	Enabled      bool                 `json:"enabled"`
+	CrossMachine bool                 `json:"cross_machine"`
+	Parameter    map[string]int64     `json:"parameter"`
+	NodeIndex    int                  `json:"node_index"`
 }
 
 func (l *LinkBase) GetLinkID() string {

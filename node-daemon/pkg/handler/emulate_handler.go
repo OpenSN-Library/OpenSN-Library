@@ -258,14 +258,15 @@ func AddTopologyHandler(ctx *gin.Context) {
 			ctx.JSON(http.StatusBadRequest, resp)
 		}
 		instanceList = append(instanceList, &model.Instance{
-			InstanceID: uuid.NewString()[:8],
-			Name:       fmt.Sprintf("%s_%d", instance.Type, index),
-			Type:       instance.Type,
-			Image:      typeConfig.Image,
-			Extra:      instance.Extra,
-			DeviceInfo: instance.DeviceInfo,
-			Resource:   typeConfig.ResourceLimit,
-			Start:      emulationConfig.Running,
+			InstanceID:  uuid.NewString()[:8],
+			Name:        fmt.Sprintf("%s_%d", instance.Type, index),
+			Type:        instance.Type,
+			Image:       typeConfig.Image,
+			Extra:       instance.Extra,
+			DeviceInfo:  instance.DeviceInfo,
+			Resource:    typeConfig.ResourceLimit,
+			Start:       emulationConfig.Running,
+			Connections: make(map[string]model.ConnectionInfo),
 		})
 	}
 
@@ -307,9 +308,13 @@ func AddTopologyHandler(ctx *gin.Context) {
 			},
 			Type:         linkConfig.Type,
 			CrossMachine: instanceList[linkConfig.EndIndexes[0]].NodeIndex != instanceList[linkConfig.EndIndexes[1]].NodeIndex,
-			Parameter:    linkConfig.InitParameter,
 			NodeIndex:    instanceList[linkConfig.EndIndexes[0]].NodeIndex,
 		})
+		if linkConfig.InitParameter == nil {
+			linkList[len(linkList)-1].Parameter = make(map[string]int64)
+		} else {
+			linkList[len(linkList)-1].Parameter = linkConfig.InitParameter
+		}
 		if instanceList[linkConfig.EndIndexes[0]].NodeIndex != instanceList[linkConfig.EndIndexes[1]].NodeIndex {
 			linkList = append(linkList, &model.LinkBase{
 				LinkID: linkID,
@@ -331,8 +336,18 @@ func AddTopologyHandler(ctx *gin.Context) {
 				NodeIndex:    instanceList[linkConfig.EndIndexes[1]].NodeIndex,
 			})
 		}
-		instanceList[linkConfig.EndIndexes[0]].LinkIDs = append(instanceList[linkConfig.EndIndexes[0]].LinkIDs, linkID)
-		instanceList[linkConfig.EndIndexes[1]].LinkIDs = append(instanceList[linkConfig.EndIndexes[1]].LinkIDs, linkID)
+		instanceList[linkConfig.EndIndexes[0]].Connections[linkID] = model.ConnectionInfo{
+			LinkID:       linkID,
+			InstanceID:   instanceList[linkConfig.EndIndexes[1]].InstanceID,
+			EndNodeIndex: instanceList[linkConfig.EndIndexes[1]].NodeIndex,
+			InstanceType: instanceList[linkConfig.EndIndexes[1]].Type,
+		}
+		instanceList[linkConfig.EndIndexes[1]].Connections[linkID] = model.ConnectionInfo{
+			LinkID:       linkID,
+			InstanceID:   instanceList[linkConfig.EndIndexes[0]].InstanceID,
+			EndNodeIndex: instanceList[linkConfig.EndIndexes[0]].NodeIndex,
+			InstanceType: instanceList[linkConfig.EndIndexes[0]].Type,
+		}
 	}
 
 	wg := utils.ForEachWithThreadPool[*model.LinkBase](func(linkBase *model.LinkBase) {

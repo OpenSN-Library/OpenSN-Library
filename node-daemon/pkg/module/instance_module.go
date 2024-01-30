@@ -163,29 +163,29 @@ func StopContainer(instance *model.Instance) (*model.InstanceRuntime, error) {
 }
 
 func ParseLinkChange(oldInstance, newInstance *model.Instance, runtimeInfo *model.InstanceRuntime) error {
-	var oldLinkArray []string
-	var newLinkArray []string
+	var oldLinkMap map[string]model.ConnectionInfo
+	var newLinkMap map[string]model.ConnectionInfo
 	newLinkIDSet := map[string]bool{}
 
 	if oldInstance.Start {
-		oldLinkArray = oldInstance.LinkIDs
+		oldLinkMap = oldInstance.Connections
 	} else {
-		oldLinkArray = []string{}
+		oldLinkMap = make(map[string]model.ConnectionInfo)
 	}
 
 	if newInstance.Start {
-		newLinkArray = newInstance.LinkIDs
+		newLinkMap = newInstance.Connections
 	} else {
-		newLinkArray = []string{}
+		newLinkMap = make(map[string]model.ConnectionInfo)
 	}
 
-	logrus.Debugf("old link list is %v, new link list is %v", oldLinkArray, newLinkArray)
+	logrus.Debugf("old link list is %v, new link list is %v", oldLinkMap, newLinkMap)
 
-	for _, linkID := range newLinkArray {
+	for linkID,_ := range newLinkMap {
 		newLinkIDSet[linkID] = true
 	}
 
-	for _, linkID := range oldLinkArray {
+	for linkID,_ := range oldLinkMap {
 		if !newLinkIDSet[linkID] {
 			err := SetLinkEndPid(linkID, runtimeInfo.InstanceID, 0)
 			if err != nil {
@@ -307,7 +307,7 @@ func watchInstanceDaemon(sigChan chan int, errChan chan error) {
 	}
 }
 
-func CreateInstanceModuleTask() *InstanceModule {
+func CreateInstanceManagerModule() *InstanceModule {
 	return &InstanceModule{
 		Base{
 			sigChan:    make(chan int),

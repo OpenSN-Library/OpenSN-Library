@@ -16,8 +16,13 @@ import (
 	clientv3 "go.etcd.io/etcd/client/v3"
 )
 
-func UpdateLinkState(newLink model.Link) error {
+func UpdateLinkState(newLink model.Link, oldLink model.Link) error {
 	newState := true
+
+	if newLink.GetLinkID() == "" {
+		newState = false
+	}
+
 	for _, endInfo := range newLink.GetEndInfos() {
 		if endInfo.EndNodeIndex == key.NodeIndex && endInfo.InstancePid == 0 {
 			newState = false
@@ -32,7 +37,7 @@ func UpdateLinkState(newLink model.Link) error {
 				return fmt.Errorf("generate enable requests for link %s error: %s", newLink.GetLinkID(), err.Error())
 			}
 			NetlinKOperatorInfo.RequestChann <- requests
-		} else {
+		} else if oldLink.GetEndInfos()[0].InstancePid+oldLink.GetEndInfos()[1].InstancePid > 0 {
 			requests, err := newLink.Disable()
 			if err != nil {
 				return fmt.Errorf("generate disable requests for link %s error: %s", newLink.GetLinkID(), err.Error())
@@ -107,6 +112,10 @@ func linkDaemonFunc(sigChan chan int, errChan chan error) {
 
 				stateChange := false
 				logrus.Debugf("old link is %v, new link is %v", oldLink, newLink)
+				if newLink.GetLinkID() == "" && oldLink.GetLinkID() != "" {
+					stateChange = true
+				}
+
 				for endIndex, endInfo := range oldLink.GetEndInfos() {
 					if newLink.GetEndInfos()[endIndex].EndNodeIndex == key.NodeIndex &&
 						newLink.GetEndInfos()[endIndex].InstancePid != endInfo.InstancePid {
@@ -116,22 +125,12 @@ func linkDaemonFunc(sigChan chan int, errChan chan error) {
 
 				if stateChange {
 					logrus.Debugf("State Change of %s Detectd.", etcdKey)
-					err := UpdateLinkState(newLink)
+					err := UpdateLinkState(newLink, oldLink)
 					if err != nil {
 						errMsg := fmt.Sprintf("Do Link State Change of %s Error: %s", etcdKey, err.Error())
 						logrus.Error(errMsg)
 					}
 					return
-				}
-
-				if newLink.IsEnabled() {
-					requests, err := newLink.SetParameters(newLink.GetLinkBasePtr().Parameter)
-					if err != nil {
-						errMsg := fmt.Sprintf("Generate Parameter Update Requests for Link %s Error: %s", etcdKey, err.Error())
-						logrus.Error(errMsg)
-						return
-					}
-					NetlinKOperatorInfo.RequestChann <- requests
 				}
 			}, res.Events, 32)
 			wg.Wait()
@@ -139,7 +138,7 @@ func linkDaemonFunc(sigChan chan int, errChan chan error) {
 	}
 }
 
-func CreateLinkModuleTask() *LinkModule {
+func CreateLinkManagerModule() *LinkModule {
 	return &LinkModule{
 		Base{
 			sigChan:    make(chan int),

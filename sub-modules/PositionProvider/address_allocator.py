@@ -1,5 +1,3 @@
-
-
 IPV4_BASE = [10,0,0,0]
 
 def array_add(base: list,delta: int) -> list:

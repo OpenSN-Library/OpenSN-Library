@@ -31,7 +31,7 @@ func GetNodeListHandler(ctx *gin.Context) {
 
 	for _, nodeInfo := range nodeList {
 		nodeAbstractList = append(nodeAbstractList, ginmodel.NodeAbstract{
-			NodeID:       nodeInfo.NodeIndex,
+			NodeIndex:    nodeInfo.NodeIndex,
 			FreeInstance: nodeInfo.FreeInstance,
 			IsMasterNode: nodeInfo.IsMasterNode,
 			L3AddrV4:     utils.FormatIPv4(nodeInfo.L3AddrV4),
@@ -43,7 +43,7 @@ func GetNodeListHandler(ctx *gin.Context) {
 	jsonResp := ginmodel.JsonResp{
 		Code:    0,
 		Message: "Success",
-		Data:    nodeList,
+		Data:    nodeAbstractList,
 	}
 
 	ctx.JSON(http.StatusOK, jsonResp)
@@ -79,7 +79,7 @@ func GetNodeInfoHandler(ctx *gin.Context) {
 
 	var obj = ginmodel.NodeDetail{
 		NodeAbstract: ginmodel.NodeAbstract{
-			NodeID:       v.NodeIndex,
+			NodeIndex:    v.NodeIndex,
 			FreeInstance: v.FreeInstance,
 			IsMasterNode: v.IsMasterNode,
 			L3AddrV4:     utils.FormatIPv4(v.L3AddrV4),

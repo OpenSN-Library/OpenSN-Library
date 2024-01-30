@@ -25,10 +25,6 @@ func main() {
 				NanoCPU:    "10M",
 				MemoryByte: "24M",
 			},
-			"GroundStation": {
-				NanoCPU:    "30M",
-				MemoryByte: "32M",
-			},
 		},
 	}
 

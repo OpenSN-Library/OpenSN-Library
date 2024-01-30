@@ -45,11 +45,12 @@ func main() {
 		panic(err)
 	}
 	modules := []module.Module{
-		module.CreateInstanceModuleTask(),
-		module.CreateLinkModuleTask(),
+		module.CreateInstanceManagerModule(),
+		module.CreateLinkManagerModule(),
 		module.CreateMonitorModule(),
 		module.CreateConfigWriteModule(),
 		module.CreateNetlinkOperatorModule(),
+		module.CreateLinkParameterModule(),
 	}
 
 	if !config.GlobalConfig.App.IsServant {
