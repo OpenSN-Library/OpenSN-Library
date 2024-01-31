@@ -20,7 +20,7 @@ import (
 
 const OperatorNum = 4
 
-var NetlinKOperatorInfo = model.NetlinkOperatorInfo{
+var NetlinkOperatorInfo = model.NetlinkOperatorInfo{
 	RequestChann: make(chan []netreq.NetLinkRequest, OperatorNum),
 }
 
@@ -45,7 +45,7 @@ func netlinkOperatorDaemon(sigChan chan int, errChan chan error) {
 	netLinkSigChan := make(chan int)
 
 	for i := 0; i < OperatorNum; i++ {
-		go netLinkOperator(NetlinKOperatorInfo.RequestChann, netLinkSigChan, i)
+		go netLinkOperator(NetlinkOperatorInfo.RequestChann, netLinkSigChan, i)
 	}
 
 	select {

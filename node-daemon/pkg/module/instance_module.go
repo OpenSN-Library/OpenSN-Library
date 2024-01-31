@@ -22,7 +22,8 @@ import (
 var StopTimeoutSecond = 3
 
 func SetLinkEndPid(linkID string, instanceID string, pid int) error {
-	err := synchronizer.UpdateLinkInfo(
+
+	err := synchronizer.UpdateLinkInfoIfExist(
 		key.NodeIndex,
 		linkID,
 		func(lb *model.LinkBase) error {
@@ -179,13 +180,11 @@ func ParseLinkChange(oldInstance, newInstance *model.Instance, runtimeInfo *mode
 		newLinkMap = make(map[string]model.ConnectionInfo)
 	}
 
-	logrus.Debugf("old link list is %v, new link list is %v", oldLinkMap, newLinkMap)
-
-	for linkID,_ := range newLinkMap {
+	for linkID := range newLinkMap {
 		newLinkIDSet[linkID] = true
 	}
 
-	for linkID,_ := range oldLinkMap {
+	for linkID := range oldLinkMap {
 		if !newLinkIDSet[linkID] {
 			err := SetLinkEndPid(linkID, runtimeInfo.InstanceID, 0)
 			if err != nil {

@@ -9,6 +9,7 @@ from satellite_emulator.model.emulation_config import EmulationInfo
 from satellite_emulator.model.position import Position
 from satellite_emulator.synchronizer.sync_instance import get_instance,get_instance_map,put_instance
 from satellite_emulator.synchronizer.sync_instance import get_instance_runtime,get_instance_runtime_map
+from satellite_emulator.synchronizer.sync_instance import put_instance_config,put_instance_config_if_not_exist
 from satellite_emulator.synchronizer.sync_position import get_position,get_position_map
 from satellite_emulator.synchronizer.sync_node import get_node_map,get_node
 from satellite_emulator.synchronizer.sync_link import get_link,get_link_map,put_link,put_link_parameter,remove_link
@@ -26,6 +27,7 @@ class EmulatorOperator:
         etcd_info = json.loads(response.content)
         self.etcd_client = etcd3.client(host=etcd_info["data"]["address"],port=etcd_info["data"]["port"])
         self.__pool = ThreadPoolExecutor(max_workers=async_pool_size)
+
 
     def close(self):
         self.etcd_client.close()
@@ -53,6 +55,9 @@ class EmulatorOperator:
     
     def get_link_map(self,node_index:int) -> dict[str,LinkBase]:
         return get_link_map(self.etcd_client,node_index)
+    
+    def get_link(self,node_index:int,link_id:str) -> LinkBase:
+        return get_link(self.etcd_client,node_index,link_id)
     
     def put_link(self,link_base: LinkBase):
         return put_link(self.etcd_client,link_base)
@@ -84,6 +89,14 @@ class EmulatorOperator:
     def get_position(self, instance_id: str) -> Position:
         return get_position(self.etcd_client,instance_id)
     
+    def put_instance_config(self,node_index:int,instance_id:str,config_seq:str):
+        return put_instance_config(self.etcd_client,node_index,instance_id,config_seq)
+
+    def put_instance_config_if_not_exist(self,node_index:int,instance_id:str,config_seq:str):
+        return put_instance_config_if_not_exist(self.etcd_client,node_index,instance_id,config_seq)
+
+    def put_instance_config_async(self,node_index:int,instance_id:str,config_seq:str):
+        return self.__pool.submit(put_emulation_config,node_index,instance_id,config_seq)
     def enable_link_between(
             self,
             node_index1:int,
@@ -94,7 +107,6 @@ class EmulatorOperator:
             address_info2 = {},
             link_type = VLINK_TYPE,
             init_parameter:dict[str,int] = {}):
-        print(instance_id2)
         instance1 = get_instance(self.etcd_client,node_index1,instance_id1)
         instance2 = get_instance(self.etcd_client,node_index2,instance_id2)
         new_link_array = create_new_link(
@@ -123,7 +135,7 @@ class EmulatorOperator:
         connect_info_2.instance_id = instance1.instance_id
         connect_info_2.instance_type = instance1.type
         connect_info_2.link_id = new_link_array[0].link_id
-        instance1.connections[new_link_array[0].link_id] = connect_info_1
+        instance2.connections[new_link_array[0].link_id] = connect_info_1
         put_instance(self.etcd_client,instance2)
             
 

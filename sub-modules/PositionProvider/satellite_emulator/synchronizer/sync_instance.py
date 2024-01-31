@@ -42,3 +42,11 @@ def get_instance_runtime_map(etcd_client:Etcd3Client,node_index: int) -> dict[st
     for val,meta in resps:
         ret[meta.key.decode().split('/')[-1]] = instance_runtime_from_json(val)
     return ret
+
+def put_instance_config(etcd_client:Etcd3Client,node_index,instance_id:str,config_seq:str):
+    instance_config_key = "%s/%s"%(NODE_INSTANCE_CONFIG_KEY_TEMPLATE%node_index,instance_id)
+    etcd_client.put(instance_config_key,config_seq)
+
+def put_instance_config_if_not_exist(etcd_client:Etcd3Client,node_index,instance_id:str,config_seq:str):
+    instance_config_key = "%s/%s"%(NODE_INSTANCE_CONFIG_KEY_TEMPLATE%node_index,instance_id)
+    etcd_client.put_if_not_exists(instance_config_key,config_seq)

@@ -17,43 +17,44 @@ import (
 )
 
 func UpdateLinkState(newLink model.Link, oldLink model.Link) error {
-	newState := true
 
-	if newLink.GetLinkID() == "" {
-		newState = false
-	}
+	newEnableState := newLink.GetLinkID() != ""
 
 	for _, endInfo := range newLink.GetEndInfos() {
 		if endInfo.EndNodeIndex == key.NodeIndex && endInfo.InstancePid == 0 {
-			newState = false
+			newEnableState = false
 		}
 	}
-
-	if newState != newLink.IsEnabled() {
-
-		if newState {
-			requests, err := newLink.Enable()
-			if err != nil {
-				return fmt.Errorf("generate enable requests for link %s error: %s", newLink.GetLinkID(), err.Error())
-			}
-			NetlinKOperatorInfo.RequestChann <- requests
-		} else if oldLink.GetEndInfos()[0].InstancePid+oldLink.GetEndInfos()[1].InstancePid > 0 {
-			requests, err := newLink.Disable()
-			if err != nil {
-				return fmt.Errorf("generate disable requests for link %s error: %s", newLink.GetLinkID(), err.Error())
-			}
-			NetlinKOperatorInfo.RequestChann <- requests
-		}
-
-		synchronizer.UpdateLinkInfo(
+	if newEnableState != oldLink.IsEnabled() {
+		logrus.Debugf("Link %s State Change From %v to %v", oldLink.GetLinkID(), oldLink.IsEnabled(), newEnableState)
+		err := synchronizer.UpdateLinkInfo(
 			key.NodeIndex,
 			newLink.GetLinkID(),
 			func(lb *model.LinkBase) error {
-				lb.Enabled = newState
+				if oldLink.IsEnabled() != newEnableState {
+					if newEnableState {
+						requests, err := newLink.Enable()
+						if err != nil {
+							return fmt.Errorf("generate enable requests for link %s error: %s", newLink.GetLinkID(), err.Error())
+						}
+						NetlinkOperatorInfo.RequestChann <- requests
+						logrus.Infof("Enable Link %s", newLink.GetLinkID())
+					} else {
+						requests, err := oldLink.Disable()
+						if err != nil {
+							return fmt.Errorf("generate disable requests for link %s error: %s", newLink.GetLinkID(), err.Error())
+						}
+						NetlinkOperatorInfo.RequestChann <- requests
+						logrus.Infof("Disable Link %s", oldLink.GetLinkID())
+					}
+				}
+				lb.Enabled = newEnableState
 				return nil
 			},
 		)
+		return err
 	}
+
 	return nil
 }
 
@@ -110,28 +111,13 @@ func linkDaemonFunc(sigChan chan int, errChan chan error) {
 				lock.Lock()
 				defer lock.Unlock()
 
-				stateChange := false
-				logrus.Debugf("old link is %v, new link is %v", oldLink, newLink)
-				if newLink.GetLinkID() == "" && oldLink.GetLinkID() != "" {
-					stateChange = true
+				err = UpdateLinkState(newLink, oldLink)
+				if err != nil {
+					errMsg := fmt.Sprintf("Do Link State Change of %s Error: %s", etcdKey, err.Error())
+					logrus.Error(errMsg)
+
 				}
 
-				for endIndex, endInfo := range oldLink.GetEndInfos() {
-					if newLink.GetEndInfos()[endIndex].EndNodeIndex == key.NodeIndex &&
-						newLink.GetEndInfos()[endIndex].InstancePid != endInfo.InstancePid {
-						stateChange = true
-					}
-				}
-
-				if stateChange {
-					logrus.Debugf("State Change of %s Detectd.", etcdKey)
-					err := UpdateLinkState(newLink, oldLink)
-					if err != nil {
-						errMsg := fmt.Sprintf("Do Link State Change of %s Error: %s", etcdKey, err.Error())
-						logrus.Error(errMsg)
-					}
-					return
-				}
 			}, res.Events, 32)
 			wg.Wait()
 		}

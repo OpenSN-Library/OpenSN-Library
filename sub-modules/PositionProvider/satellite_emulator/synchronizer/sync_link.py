@@ -17,7 +17,7 @@ def remove_link(etcd_client:Etcd3Client,node_index:int, link_id: str):
 def get_link(etcd_client:Etcd3Client,node_index,link_id:str) -> LinkBase:
     link_key = "%s/%s"%(NODE_LINK_KEY_TEMPLATE%node_index,link_id)
     val,meta = etcd_client.get(link_key)
-    return link_to_json(val)
+    return link_from_json(val)
 
 def get_link_map(etcd_client:Etcd3Client,node_index: int) -> dict[str,LinkBase]:
     ret: dict[str,LinkBase] = {}

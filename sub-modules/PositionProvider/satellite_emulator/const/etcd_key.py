@@ -5,5 +5,5 @@ NODE_LINK_KEY_TEMPLATE = "/node_%d/links"
 NODE_LINK_PARAMETER_TEMPLATE = "/node_%d/link_parameter"
 NODE_LIST_KEY = "/nodes"
 
-NODE_INSTANCE_CONFIG_KEY_TEMPLATE = "/instance_config/node_%d/"
+NODE_INSTANCE_CONFIG_KEY_TEMPLATE = "/instance_config/node_%d"
 EMU_CONFIG_KEY = "/emulation_config"

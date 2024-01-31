@@ -45,7 +45,7 @@ func linkParameterDaemonFunc(sigChan chan int, errChan chan error) {
 				newParameter := make(map[string]int64)
 				if v.PrevKv != nil && len(v.PrevKv.Value) > 0 {
 					etcdKey = string(v.PrevKv.Key)
-					err := json.Unmarshal(v.PrevKv.Value,&oldParameter)
+					err := json.Unmarshal(v.PrevKv.Value, &oldParameter)
 					if err != nil {
 						errMsg := fmt.Sprintf("Parse Link Parameter Info From %s Error: %s", string(v.Kv.Key), err.Error())
 						logrus.Error(errMsg)
@@ -55,7 +55,7 @@ func linkParameterDaemonFunc(sigChan chan int, errChan chan error) {
 
 				if v.Kv != nil && len(v.Kv.Value) > 0 {
 					etcdKey = string(v.Kv.Key)
-					err := json.Unmarshal(v.Kv.Value,&newParameter)
+					err := json.Unmarshal(v.Kv.Value, &newParameter)
 					if err != nil {
 						errMsg := fmt.Sprintf("Parse Link Parameter Info From %s Error: %s", string(v.Kv.Key), err.Error())
 						logrus.Error(errMsg)
@@ -67,20 +67,20 @@ func linkParameterDaemonFunc(sigChan chan int, errChan chan error) {
 				lock := lockAny.(*sync.Mutex)
 				lock.Lock()
 				defer lock.Unlock()
-				linkID,_ := utils.GetEtcdLastKey(etcdKey)
-				linkBase,err := synchronizer.GetLinkInfo(key.NodeIndex,linkID)
+				linkID, _ := utils.GetEtcdLastKey(etcdKey)
+				linkBase, err := synchronizer.GetLinkInfo(key.NodeIndex, linkID)
 				if err != nil {
-					errMsg := fmt.Sprintf("Get Link %s of Node %d Error: %s",linkID,key.NodeIndex,err.Error())
+					errMsg := fmt.Sprintf("Get Link %s of Node %d Error: %s", linkID, key.NodeIndex, err.Error())
 					logrus.Error(errMsg)
 				}
 				linkBase.Parameter = oldParameter
-				linkInfo,_ := link.ParseLinkFromBase(*linkBase)
-				requests,err := linkInfo.SetParameters(newParameter)
+				linkInfo, _ := link.ParseLinkFromBase(*linkBase)
+				requests, err := linkInfo.SetParameters(newParameter)
 				if err != nil {
-					errMsg := fmt.Sprintf("Generate Link Parameter Request for %s Error: %s",linkID,err.Error())
+					errMsg := fmt.Sprintf("Generate Link Parameter Request for %s Error: %s", linkID, err.Error())
 					logrus.Error(errMsg)
 				}
-				NetlinKOperatorInfo.RequestChann <- requests
+				NetlinkOperatorInfo.RequestChann <- requests
 			}, res.Events, 32)
 			wg.Wait()
 		}

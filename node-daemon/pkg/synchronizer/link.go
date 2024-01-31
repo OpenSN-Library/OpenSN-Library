@@ -61,7 +61,6 @@ func AddLinkInfo(nodeIndex int, linkInfo *model.LinkBase) error {
 	return nil
 }
 
-
 func UpdateLinkInfo(nodeIndex int, linkID string, update func(*model.LinkBase) error) error {
 	linkInfoKeyBase := fmt.Sprintf(key.NodeLinkListKeyTemplate, nodeIndex)
 	linkInfoKey := fmt.Sprintf("%s/%s", linkInfoKeyBase, linkID)
@@ -69,6 +68,31 @@ func UpdateLinkInfo(nodeIndex int, linkID string, update func(*model.LinkBase) e
 		etcdOldLink := s.Get(linkInfoKey)
 		updateLink := new(model.LinkBase)
 		json.Unmarshal([]byte(etcdOldLink), updateLink)
+		err := update(updateLink)
+		if err != nil {
+			return fmt.Errorf("update local new link of %s error: %s", linkInfoKey, err.Error())
+		}
+		etcdNewLink, err := json.Marshal(updateLink)
+		if err != nil {
+			return fmt.Errorf("format local new link of %s error: %s", linkInfoKey, err.Error())
+		}
+		s.Put(linkInfoKey, string(etcdNewLink))
+		return nil
+	})
+	return err
+}
+
+func UpdateLinkInfoIfExist(nodeIndex int, linkID string, update func(*model.LinkBase) error) error {
+	linkInfoKeyBase := fmt.Sprintf(key.NodeLinkListKeyTemplate, nodeIndex)
+	linkInfoKey := fmt.Sprintf("%s/%s", linkInfoKeyBase, linkID)
+	_, err := concurrency.NewSTM(utils.EtcdClient, func(s concurrency.STM) error {
+		etcdOldLink := s.Get(linkInfoKey)
+		updateLink := new(model.LinkBase)
+		json.Unmarshal([]byte(etcdOldLink), updateLink)
+		if updateLink.GetLinkID() == "" {
+			return nil
+		}
+
 		err := update(updateLink)
 		if err != nil {
 			return fmt.Errorf("update local new link of %s error: %s", linkInfoKey, err.Error())
