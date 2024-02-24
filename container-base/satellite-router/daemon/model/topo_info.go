@@ -1,8 +1,7 @@
 package model
 
 type LinkInfo struct {
-	V4Addr string `json:"v4_addr"`
-	V6Addr string `json:"v6_addr"`
+	V4Addr string `json:"IPV4"`
 }
 
 type EndInfo struct {

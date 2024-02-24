@@ -13,6 +13,23 @@ import (
 	"github.com/vishvananda/netlink"
 )
 
+func DelInterfaceIPs(ifName string) error {
+	link, err := netlink.LinkByName(ifName)
+	if err != nil {
+		logrus.Errorf("Find Link By Name %s Error: %s", ifName, err.Error())
+		return err
+	}
+	addrList, err := netlink.AddrList(link, netlink.FAMILY_V4)
+	if err != nil {
+		logrus.Errorf("Find Addr List By Link Name %s Error: %s", ifName, err.Error())
+		return err
+	}
+	for _, addr := range addrList {
+		netlink.AddrDel(link, &addr)
+	}
+	return nil
+}
+
 func SetInterfaceIP(ifName string, v4Addr string) error {
 	addr := strings.Split(v4Addr, "/")
 	if len(addr) < 2 {
