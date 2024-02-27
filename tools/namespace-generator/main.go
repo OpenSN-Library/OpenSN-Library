@@ -12,16 +12,16 @@ import (
 
 func main() {
 	var emuConfig ginmodel.ConfigEmulationReq = ginmodel.ConfigEmulationReq{
-		"Satellite": ginmodel.InstanceTypeConfig{
+		"Satellite": ginmodel.TypeConfigReq{
 			Image: "docker.io/realssd/satellite-router:latest",
-			ResourceLimit: ginmodel.ResourceLimit{
+			ResourceLimit: ginmodel.ResourceLimitStr{
 				NanoCPU:    "10M",
 				MemoryByte: "24M",
 			},
 		},
-		"GroundStation": ginmodel.InstanceTypeConfig{
+		"GroundStation": ginmodel.TypeConfigReq{
 			Image: "docker.io/realssd/satellite-router:latest",
-			ResourceLimit: ginmodel.ResourceLimit{
+			ResourceLimit: ginmodel.ResourceLimitStr{
 				NanoCPU:    "10M",
 				MemoryByte: "24M",
 			},

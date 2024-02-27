@@ -2,8 +2,8 @@ package frr
 
 import (
 	"fmt"
+	"ground/model"
 	"os"
-	"satellite/model"
 
 	"github.com/sirupsen/logrus"
 )

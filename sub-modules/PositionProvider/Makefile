@@ -1,2 +1,2 @@
 run:
-	export ADDR=172.16.208.128 PORT=8080 && python3 main.py
+	export ADDR=10.134.148.56 PORT=8080 && python3 main.py

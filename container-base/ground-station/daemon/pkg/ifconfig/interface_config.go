@@ -2,8 +2,8 @@ package ifconfig
 
 import (
 	"fmt"
+	"ground/utils"
 	"net"
-	"satellite/utils"
 	"strconv"
 	"strings"
 	"time"
@@ -12,14 +12,21 @@ import (
 	"github.com/vishvananda/netlink"
 )
 
-func ReplaceDefaultRoute(v4Addr string) error {
+func ReplaceDefaultRoute(linkIndex int, v4Addr string) error {
+	gatewayIP := net.ParseIP(strings.Split(v4Addr, "/")[0])
+	if gatewayIP[15]%4 == 1 {
+		gatewayIP[15] += 1
+	} else if gatewayIP[15]%4 == 2 {
+		gatewayIP[15] -= 1
+	}
 	return netlink.RouteReplace(
 		&netlink.Route{
+			LinkIndex: linkIndex,
 			Dst: &net.IPNet{
-				IP:[]byte{0,0,0,0},
-				Mask: []byte{0,0,0,0},
+				IP:   []byte{0, 0, 0, 0},
+				Mask: []byte{0, 0, 0, 0},
 			},
-			Gw: net.ParseIP(v4Addr),
+			Gw: gatewayIP,
 		},
 	)
 }

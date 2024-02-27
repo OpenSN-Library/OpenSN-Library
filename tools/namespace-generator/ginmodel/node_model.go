@@ -1,7 +1,7 @@
 package ginmodel
 
 type NodeAbstract struct {
-	NodeID       int    `json:"node_id"`
+	NodeIndex      int    `json:"node_index"`
 	FreeInstance int    `json:"free_instance"`
 	IsMasterNode bool   `json:"is_master_node"`
 	L3AddrV4     string `json:"l_3_addr_v_4"`

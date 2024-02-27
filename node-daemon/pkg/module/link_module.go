@@ -38,14 +38,12 @@ func UpdateLinkState(newLink model.Link, oldLink model.Link) error {
 							return fmt.Errorf("generate enable requests for link %s error: %s", newLink.GetLinkID(), err.Error())
 						}
 						NetlinkOperatorInfo.RequestChann <- requests
-						logrus.Infof("Enable Link %s", newLink.GetLinkID())
 					} else {
 						requests, err := oldLink.Disable()
 						if err != nil {
 							return fmt.Errorf("generate disable requests for link %s error: %s", newLink.GetLinkID(), err.Error())
 						}
 						NetlinkOperatorInfo.RequestChann <- requests
-						logrus.Infof("Disable Link %s", oldLink.GetLinkID())
 					}
 				}
 				lb.Enabled = newEnableState
@@ -81,45 +79,46 @@ func linkDaemonFunc(sigChan chan int, errChan chan error) {
 				return
 			}
 		case res := <-watchChan:
-			wg := utils.ForEachWithThreadPool[*clientv3.Event](func(v *clientv3.Event) {
-				etcdKey := ""
-				oldLink, _ := link.ParseLinkFromBase(model.LinkBase{})
-				newLink, _ := link.ParseLinkFromBase(model.LinkBase{})
-				var err error
-				if v.PrevKv != nil && len(v.PrevKv.Value) > 0 {
-					etcdKey = string(v.PrevKv.Key)
-					oldLink, err = link.ParseLinkFromBytes(v.PrevKv.Value)
-					if err != nil {
-						errMsg := fmt.Sprintf("Parse Link Info From %s Error: %s", string(v.Kv.Key), err.Error())
-						logrus.Error(errMsg)
-						return
+			for _, v := range res.Events {
+				go func(v *clientv3.Event) {
+					etcdKey := ""
+					oldLink, _ := link.ParseLinkFromBase(model.LinkBase{})
+					newLink, _ := link.ParseLinkFromBase(model.LinkBase{})
+					var err error
+					if v.PrevKv != nil && len(v.PrevKv.Value) > 0 {
+						etcdKey = string(v.PrevKv.Key)
+						oldLink, err = link.ParseLinkFromBytes(v.PrevKv.Value)
+						if err != nil {
+							errMsg := fmt.Sprintf("Parse Link Info From %s Error: %s", string(v.Kv.Key), err.Error())
+							logrus.Error(errMsg)
+							return
+						}
 					}
-				}
 
-				if v.Kv != nil && len(v.Kv.Value) > 0 {
-					etcdKey = string(v.Kv.Key)
-					newLink, err = link.ParseLinkFromBytes(v.Kv.Value)
-					if err != nil {
-						errMsg := fmt.Sprintf("Parse Link Info From %s Error: %s", string(v.Kv.Key), err.Error())
-						logrus.Error(errMsg)
-						return
+					if v.Kv != nil && len(v.Kv.Value) > 0 {
+						etcdKey = string(v.Kv.Key)
+						newLink, err = link.ParseLinkFromBytes(v.Kv.Value)
+						if err != nil {
+							errMsg := fmt.Sprintf("Parse Link Info From %s Error: %s", string(v.Kv.Key), err.Error())
+							logrus.Error(errMsg)
+							return
+						}
 					}
-				}
 
-				lockAny, _ := keyLockMap.LoadOrStore(etcdKey, new(sync.Mutex))
-				lock := lockAny.(*sync.Mutex)
-				lock.Lock()
-				defer lock.Unlock()
+					lockAny, _ := keyLockMap.LoadOrStore(etcdKey, new(sync.Mutex))
+					lock := lockAny.(*sync.Mutex)
+					lock.Lock()
+					defer lock.Unlock()
 
-				err = UpdateLinkState(newLink, oldLink)
-				if err != nil {
-					errMsg := fmt.Sprintf("Do Link State Change of %s Error: %s", etcdKey, err.Error())
-					logrus.Error(errMsg)
+					err = UpdateLinkState(newLink, oldLink)
+					if err != nil {
+						errMsg := fmt.Sprintf("Do Link State Change of %s Error: %s", etcdKey, err.Error())
+						logrus.Error(errMsg)
 
-				}
+					}
+				}(v)
 
-			}, res.Events, 32)
-			wg.Wait()
+			}
 		}
 	}
 }

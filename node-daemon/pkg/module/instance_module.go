@@ -15,6 +15,7 @@ import (
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/network"
 	"github.com/sirupsen/logrus"
 	clientv3 "go.etcd.io/etcd/client/v3"
 )
@@ -127,7 +128,11 @@ func StopContainer(instance *model.Instance) (*model.InstanceRuntime, error) {
 	err = utils.DoWithRetry(func() error {
 		return utils.DockerClient.ContainerStop(context.Background(), instanceRuntime.ContainerID, container.StopOptions{})
 	}, 2)
-
+	utils.DockerClient.NetworkConnect(context.Background(),"","",&network.EndpointSettings{
+		IPAMConfig: &network.EndpointIPAMConfig{
+			
+		},
+	})
 	if err != nil {
 		err := fmt.Errorf(
 			"stop container %s, err: %s",
@@ -225,82 +230,84 @@ func watchInstanceDaemon(sigChan chan int, errChan chan error) {
 					return
 				}
 			case res := <-watchChan:
-				wg := utils.ForEachWithThreadPool[*clientv3.Event](func(v *clientv3.Event) {
-					etcdKey := ""
-					oldInstance := new(model.Instance)
-					newInstance := new(model.Instance)
-					if v.PrevKv != nil && len(v.PrevKv.Value) > 0 {
-						etcdKey = string(v.PrevKv.Key)
-						err := json.Unmarshal(v.PrevKv.Value, oldInstance)
-						if err != nil {
-							errMsg := fmt.Sprintf("Parse Instance Info From %s Error: %s", etcdKey, err.Error())
-							logrus.Error(errMsg)
-							return
-						}
-					}
-					if v.Kv != nil && len(v.Kv.Value) > 0 {
-						etcdKey = string(v.Kv.Key)
-						err := json.Unmarshal(v.Kv.Value, newInstance)
-						if err != nil {
-							errMsg := fmt.Sprintf("Parse Instance Info From %s Error: %s", etcdKey, err.Error())
-							logrus.Error(errMsg)
-							return
-						}
-					}
-					lockAny, _ := keyLockMap.LoadOrStore(etcdKey, new(sync.Mutex))
-					lock := lockAny.(*sync.Mutex)
-					lock.Lock()
-					defer lock.Unlock()
-					var update *model.InstanceRuntime
-					var err error
-					if newInstance.Start != oldInstance.Start {
-						if newInstance.Start {
-							update, err = StartContainer(newInstance)
+				for _, v := range res.Events {
+					go func(v *clientv3.Event) {
+						etcdKey := ""
+						oldInstance := new(model.Instance)
+						newInstance := new(model.Instance)
+						if v.PrevKv != nil && len(v.PrevKv.Value) > 0 {
+							etcdKey = string(v.PrevKv.Key)
+							err := json.Unmarshal(v.PrevKv.Value, oldInstance)
 							if err != nil {
-								errMsg := fmt.Sprintf("Start Container of %s Error: %s", etcdKey, err.Error())
+								errMsg := fmt.Sprintf("Parse Instance Info From %s Error: %s", etcdKey, err.Error())
 								logrus.Error(errMsg)
 								return
 							}
-							logrus.Infof("Start Container of %s Success.", etcdKey)
-						} else {
-							update, err = StopContainer(oldInstance)
+						}
+						if v.Kv != nil && len(v.Kv.Value) > 0 {
+							etcdKey = string(v.Kv.Key)
+							err := json.Unmarshal(v.Kv.Value, newInstance)
 							if err != nil {
-								errMsg := fmt.Sprintf("Stop Container of %s Error: %s", etcdKey, err.Error())
+								errMsg := fmt.Sprintf("Parse Instance Info From %s Error: %s", etcdKey, err.Error())
 								logrus.Error(errMsg)
 								return
 							}
-							logrus.Infof("Stop Container of %s Success.", etcdKey)
 						}
-						err = synchronizer.UpdateInstanceRuntimeInfo(
-							key.NodeIndex,
-							update.InstanceID,
-							func(ir *model.InstanceRuntime) error {
-								*ir = *update
-								return nil
-							},
-						)
+						lockAny, _ := keyLockMap.LoadOrStore(etcdKey, new(sync.Mutex))
+						lock := lockAny.(*sync.Mutex)
+						lock.Lock()
+						defer lock.Unlock()
+						var update *model.InstanceRuntime
+						var err error
+						if newInstance.Start != oldInstance.Start {
+							if newInstance.Start {
+								update, err = StartContainer(newInstance)
+								if err != nil {
+									errMsg := fmt.Sprintf("Start Container of %s Error: %s", etcdKey, err.Error())
+									logrus.Error(errMsg)
+									return
+								}
+								logrus.Infof("Start Container of %s Success.", etcdKey)
+							} else {
+								update, err = StopContainer(oldInstance)
+								if err != nil {
+									errMsg := fmt.Sprintf("Stop Container of %s Error: %s", etcdKey, err.Error())
+									logrus.Error(errMsg)
+									return
+								}
+								logrus.Infof("Stop Container of %s Success.", etcdKey)
+							}
+							err = synchronizer.UpdateInstanceRuntimeInfo(
+								key.NodeIndex,
+								update.InstanceID,
+								func(ir *model.InstanceRuntime) error {
+									*ir = *update
+									return nil
+								},
+							)
+							if err != nil {
+								errMsg := fmt.Sprintf("Update Runtime info of %s Error: %s", etcdKey, err.Error())
+								logrus.Error(errMsg)
+								return
+							}
+						} else if newInstance.Start {
+							update, err = synchronizer.GetInstanceRuntime(
+								key.NodeIndex, newInstance.InstanceID,
+							)
+							if err != nil {
+								errMsg := fmt.Sprintf("Get Instance Runtime Info of %s Error: %s", etcdKey, err.Error())
+								logrus.Error(errMsg)
+								return
+							}
+						}
+						err = ParseLinkChange(oldInstance, newInstance, update)
 						if err != nil {
-							errMsg := fmt.Sprintf("Update Runtime info of %s Error: %s", etcdKey, err.Error())
+							errMsg := fmt.Sprintf("Parse Link Change of %s Error: %s", update.InstanceID, err.Error())
 							logrus.Error(errMsg)
-							return
 						}
-					} else if newInstance.Start {
-						update, err = synchronizer.GetInstanceRuntime(
-							key.NodeIndex, newInstance.InstanceID,
-						)
-						if err != nil {
-							errMsg := fmt.Sprintf("Get Instance Runtime Info of %s Error: %s", etcdKey, err.Error())
-							logrus.Error(errMsg)
-							return
-						}
-					}
-					err = ParseLinkChange(oldInstance, newInstance, update)
-					if err != nil {
-						errMsg := fmt.Sprintf("Parse Link Change of %s Error: %s", update.InstanceID, err.Error())
-						logrus.Error(errMsg)
-					}
-				}, res.Events, 32)
-				wg.Wait()
+					}(v)
+				}
+
 			}
 		}
 	}

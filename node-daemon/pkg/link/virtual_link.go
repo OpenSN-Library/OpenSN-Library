@@ -116,7 +116,7 @@ func (l *VethLink) Disconnect() ([]netreq.NetLinkRequest, error) {
 }
 
 func (l *VethLink) enableSameMachine() error {
-	logrus.Infof("Enabling Link %s ,Type: Single Machine %s", l.LinkID, l.Type)
+	logrus.Infof("Enabling Link %s, Type: Single Machine %s", l.LinkID, l.Type)
 	if l.Enabled {
 		logrus.Errorf("Enable %s and %s Error: %s has already been enabled", l.EndInfos[0].InstanceID, l.EndInfos[1].InstanceID, l.LinkID)
 		return fmt.Errorf("%s is enabled", l.LinkID)
