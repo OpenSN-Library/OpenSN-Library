@@ -6,14 +6,14 @@ require (
 	github.com/antonfisher/nested-logrus-formatter v1.3.1
 	github.com/containerd/containerd/v2 v2.0.0-beta.0
 	github.com/docker/docker v24.0.7+incompatible
+	github.com/fatih/structs v1.1.0
 	github.com/gin-contrib/cors v1.5.0
 	github.com/gin-gonic/gin v1.9.1
+	github.com/google/uuid v1.3.1
 	github.com/influxdata/influxdb-client-go/v2 v2.13.0
-	github.com/redis/go-redis/v9 v9.3.0
 	github.com/shirou/gopsutil/v3 v3.23.12
 	github.com/sirupsen/logrus v1.9.3
 	github.com/vishvananda/netlink v1.2.1-beta.2
-	github.com/vishvananda/netns v0.0.4
 	go.etcd.io/etcd/client/v3 v3.5.10
 )
 
@@ -24,7 +24,6 @@ require (
 	github.com/Microsoft/hcsshim v0.12.0-rc.0 // indirect
 	github.com/apapsch/go-jsonmerge/v2 v2.0.0 // indirect
 	github.com/bytedance/sonic v1.10.1 // indirect
-	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/chenzhuoyu/base64x v0.0.0-20230717121745-296ad89f973d // indirect
 	github.com/chenzhuoyu/iasm v0.9.0 // indirect
 	github.com/container-orchestrated-devices/container-device-interface v0.6.1 // indirect
@@ -38,12 +37,10 @@ require (
 	github.com/containerd/typeurl/v2 v2.1.1 // indirect
 	github.com/coreos/go-semver v0.3.0 // indirect
 	github.com/coreos/go-systemd/v22 v22.5.0 // indirect
-	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
 	github.com/distribution/reference v0.5.0 // indirect
 	github.com/docker/distribution v2.8.3+incompatible // indirect
 	github.com/docker/go-connections v0.4.0 // indirect
 	github.com/docker/go-units v0.5.0 // indirect
-	github.com/fatih/structs v1.1.0 // indirect
 	github.com/fsnotify/fsnotify v1.6.0 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.2 // indirect
 	github.com/gin-contrib/sse v0.1.0 // indirect
@@ -58,7 +55,6 @@ require (
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/google/go-cmp v0.6.0 // indirect
-	github.com/google/uuid v1.3.1 // indirect
 	github.com/influxdata/line-protocol v0.0.0-20200327222509-2487e7298839 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/klauspost/compress v1.17.2 // indirect
@@ -91,6 +87,7 @@ require (
 	github.com/tklauser/numcpus v0.6.1 // indirect
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
 	github.com/ugorji/go/codec v1.2.11 // indirect
+	github.com/vishvananda/netns v0.0.4 // indirect
 	github.com/yusufpapurcu/wmi v1.2.3 // indirect
 	go.etcd.io/etcd/api/v3 v3.5.10 // indirect
 	go.etcd.io/etcd/client/pkg/v3 v3.5.10 // indirect

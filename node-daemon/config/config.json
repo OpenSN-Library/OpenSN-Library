@@ -6,7 +6,7 @@
     "enable_monitor": true,
     "interface_name": "ens160",
     "debug": false,
-    "instance_capacity": 400
+    "instance_capacity": 500
   },
   "dependency": {
     "etcd_addr": "172.16.208.128",
