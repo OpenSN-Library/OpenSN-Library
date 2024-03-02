@@ -19,7 +19,7 @@ const (
 	NodeInstanceListKeyTemplate       = "/node_%d/instances"
 	NodeInstanceRuntimeKeyTemplate    = "/node_%d/runtime"
 	NodeLinkListKeyTemplate           = "/node_%d/links"
-	NodeLinkParameterKeyTemplate      = "/node_%d/link_paramter"
+	NodeLinkParameterKeyTemplate      = "/node_%d/link_parameter"
 	NamespaceInstancePositionTemplate = "/positions/"
 	NodeInstanceConfigKeyTemplate     = "/instance_config/node_%d"
 )

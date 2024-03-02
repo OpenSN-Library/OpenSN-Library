@@ -2,8 +2,6 @@ package link
 
 import (
 	"NodeDaemon/model"
-	netreq "NodeDaemon/model/netlink_request"
-	"NodeDaemon/pkg/synchronizer"
 	"NodeDaemon/share/key"
 	"fmt"
 
@@ -68,20 +66,23 @@ func CreateVethLinkObject(base model.LinkBase) *VethLink {
 	}
 }
 
-func (l *VethLink) Connect() ([]netreq.NetLinkRequest, error) {
+func (l *VethLink) Connect() error {
 	if !l.Enabled {
 		logrus.Errorf("Connect %s and %s Error: %s is not enabled", l.EndInfos[0].InstanceID, l.EndInfos[1].InstanceID, l.LinkID)
-		return nil, fmt.Errorf("%s is not enabled", l.LinkID)
+		return fmt.Errorf("%s is not enabled", l.LinkID)
 	}
 
-	var requests []netreq.NetLinkRequest
-
-	for i, v := range l.EndInfos {
-		if v.EndNodeIndex != key.NodeIndex {
-			continue
+	for i := range l.EndInfos {
+		setLink, err := netlink.LinkByName(fmt.Sprintf("%s-%d", l.GetLinkID(), i))
+		if err != nil {
+			err := fmt.Errorf("get sub device from name %s error: %s", fmt.Sprintf("%s-%d", l.GetLinkID(), i), err.Error())
+			return err
 		}
-		setStateReq := netreq.CreateSetStateReq(l.EndInfos[i].InstancePid, l.LinkID, true)
-		requests = append(requests, setStateReq)
+		err = netlink.LinkSetUp(setLink)
+		if err != nil {
+			err := fmt.Errorf("set sub device %s up error: %s", fmt.Sprintf("%s-%d", l.GetLinkID(), i), err.Error())
+			return err
+		}
 	}
 	logrus.Infof(
 		"Connect Link %s Between %s and %s Suucess",
@@ -89,22 +90,25 @@ func (l *VethLink) Connect() ([]netreq.NetLinkRequest, error) {
 		l.EndInfos[0].InstanceID, l.EndInfos[1].InstanceID,
 	)
 	l.Parameter[model.ConnectParameter] = 1
-	return requests, nil
+	return nil
 }
-func (l *VethLink) Disconnect() ([]netreq.NetLinkRequest, error) {
+func (l *VethLink) Disconnect() error {
 	if !l.Enabled {
 		logrus.Errorf("Connect %s and %s Error: %s is not enabled", l.EndInfos[0].InstanceID, l.EndInfos[1].InstanceID, l.LinkID)
-		return nil, fmt.Errorf("%s is not enabled", l.LinkID)
+		return fmt.Errorf("%s is not enabled", l.LinkID)
 	}
 
-	var requests []netreq.NetLinkRequest
-
-	for _, v := range l.EndInfos {
-		if v.EndNodeIndex != key.NodeIndex {
-			continue
+	for i := range l.EndInfos {
+		setLink, err := netlink.LinkByName(fmt.Sprintf("%s-%d", l.GetLinkID(), i))
+		if err != nil {
+			err := fmt.Errorf("get sub device from name %s error: %s", fmt.Sprintf("%s-%d", l.GetLinkID(), i), err.Error())
+			return err
 		}
-		setStateReq := netreq.CreateSetStateReq(v.InstancePid, l.LinkID, false)
-		requests = append(requests, setStateReq)
+		err = netlink.LinkSetDown(setLink)
+		if err != nil {
+			err := fmt.Errorf("set sub device %s down error: %s", setLink.Attrs().Name, err.Error())
+			return err
+		}
 	}
 	logrus.Infof(
 		"Disconnect Link %s Between %s and %s Success",
@@ -112,117 +116,161 @@ func (l *VethLink) Disconnect() ([]netreq.NetLinkRequest, error) {
 		l.EndInfos[0].InstanceID, l.EndInfos[1].InstanceID,
 	)
 	l.Parameter[model.ConnectParameter] = 0
-	return requests, nil
+	return nil
 }
 
-func (l *VethLink) enableSameMachine() error {
-	logrus.Infof("Enabling Link %s, Type: Single Machine %s", l.LinkID, l.Type)
-	if l.Enabled {
-		logrus.Errorf("Enable %s and %s Error: %s has already been enabled", l.EndInfos[0].InstanceID, l.EndInfos[1].InstanceID, l.LinkID)
-		return fmt.Errorf("%s is enabled", l.LinkID)
-	}
-	veth := &netlink.Veth{
-		LinkAttrs: netlink.LinkAttrs{
-			Name:      l.GetLinkID(),
-			Namespace: netlink.NsPid(l.EndInfos[0].InstancePid),
-		},
-		PeerName:      l.GetLinkID(),
-		PeerNamespace: netlink.NsPid(l.EndInfos[1].InstancePid),
-	}
+func (l *VethLink) enableSameMachine(brIndex int) error {
 
-	err := netlink.LinkAdd(veth)
+	for i, v := range l.EndInfos {
+		veth := &netlink.Veth{
+			LinkAttrs: netlink.LinkAttrs{
+				Name:        fmt.Sprintf("%s-%d", l.GetLinkID(), i),
+				MasterIndex: brIndex,
+			},
+			PeerName:      l.GetLinkID(),
+			PeerNamespace: netlink.NsPid(v.InstancePid),
+		}
 
-	if err != nil {
-		logrus.Errorf("Add Veth Peer Link %v Error: %s", *l, err.Error())
-		return err
+		err := netlink.LinkAdd(veth)
+		if err != nil {
+			logrus.Errorf("Add Veth Peer Link %v Error: %s", *l, err.Error())
+			return err
+		}
 	}
 
 	return nil
 }
 
-func (l *VethLink) enableCrossMachine() error {
+func (l *VethLink) enableCrossMachine(brIndex int) error {
 	for i, v := range l.EndInfos {
 		if v.EndNodeIndex != key.NodeIndex {
 			continue
 		}
-		targetNodeInfo, err := synchronizer.GetNode(l.EndInfos[1-i].EndNodeIndex)
+		targetNodeInfo, err := getNodeInfo(l.EndInfos[1-i].EndNodeIndex)
 		if err != nil {
 			return err
 		}
-		vxlanDev := netlink.Vxlan{
-			LinkAttrs: netlink.LinkAttrs{
-				Name:      l.LinkID,
-				Namespace: netlink.NsPid(v.InstancePid),
-				TxQLen:    -1,
-			},
-			VxlanId:  l.LinkIndex,
-			SrcAddr:  key.SelfNode.L3AddrV4,
-			Group:    targetNodeInfo.L3AddrV4,
-			Port:     4789,
-			Learning: true,
-			L2miss:   true,
-			L3miss:   true,
+		for i, v := range l.EndInfos {
+			if v.EndNodeIndex == key.NodeIndex {
+				vxlanDev := netlink.Vxlan{
+					LinkAttrs: netlink.LinkAttrs{
+						Name:        fmt.Sprintf("%s-%d", l.GetLinkID(), i),
+						TxQLen:      -1,
+						MasterIndex: brIndex,
+					},
+					VxlanId:  l.LinkIndex,
+					SrcAddr:  key.SelfNode.L3AddrV4,
+					Group:    targetNodeInfo.L3AddrV4,
+					Port:     4789,
+					Learning: true,
+					L2miss:   true,
+					L3miss:   true,
+				}
+
+				logrus.Warnf("Create Vxlan %v", vxlanDev)
+				err = netlink.LinkAdd(&vxlanDev)
+				if err != nil {
+					return err
+				}
+			} else {
+				veth := &netlink.Veth{
+					LinkAttrs: netlink.LinkAttrs{
+						Name:        fmt.Sprintf("%s-%d", l.GetLinkID(), i),
+						MasterIndex: brIndex,
+					},
+					PeerName:      l.GetLinkID(),
+					PeerNamespace: netlink.NsPid(v.InstancePid),
+				}
+
+				err = netlink.LinkAdd(veth)
+				if err != nil {
+					logrus.Errorf("Add Veth Peer Link %v Error: %s", *l, err.Error())
+					return err
+				}
+			}
 		}
-		logrus.Warnf("Create Vxlan %v", vxlanDev)
-		err = netlink.LinkAdd(&vxlanDev)
-		if err != nil {
-			return err
-		}
-		return nil
 	}
 	return nil
 }
 
-func (l *VethLink) Enable() ([]netreq.NetLinkRequest, error) {
+func (l *VethLink) Enable() error {
+
 	if l.Enabled {
-		return []netreq.NetLinkRequest{}, nil
+
+		return nil
 	}
+	logrus.Infof("Enabling Link %s, Type: Single Machine %s", l.LinkID, l.Type)
 	var err error
+	bridge := &netlink.Bridge{
+		LinkAttrs: netlink.LinkAttrs{
+			Name:   l.GetLinkID(),
+			TxQLen: -1,
+		},
+	}
+
+	err = netlink.LinkAdd(bridge)
+	if err != nil {
+		logrus.Errorf("Add Bridge Link %s Error: %s", bridge.Name, err.Error())
+		return err
+	}
+	
+	err = netlink.LinkSetUp(bridge)
+	if err != nil {
+		logrus.Errorf("Set Bridge Link %s Up Error: %s", bridge.Name, err.Error())
+		return err
+	}
 	if l.CrossMachine {
-		err = l.enableCrossMachine()
+		err = l.enableCrossMachine(bridge.Index)
 	} else {
-		err = l.enableSameMachine()
+		err = l.enableSameMachine(bridge.Index)
 	}
 
 	if err != nil {
-		return nil, err
+		return err
 	}
 	l.Enabled = true
-	return []netreq.NetLinkRequest{}, nil
+	return nil
 }
-func (l *VethLink) Disable() ([]netreq.NetLinkRequest, error) {
+func (l *VethLink) Disable() error {
 
 	if !l.Enabled {
-		return []netreq.NetLinkRequest{}, nil
+		return nil
 	}
-
-	var requests []netreq.NetLinkRequest
-
-	if l.CrossMachine {
-		for _, v := range l.EndInfos {
-			deleteLinkReq := netreq.CreateDeleteLinkReq(v.InstancePid, l.LinkID)
-			requests = append(requests, &deleteLinkReq)
-
-			return requests, nil
+	logrus.Infof("Disabling Link %s, Type: Single Machine %s", l.LinkID, l.Type)
+	bridge, err := netlink.LinkByName(l.GetLinkID())
+	if err != nil {
+		err := fmt.Errorf("get bridge device from name %s error: %s", bridge.Attrs().Name, err.Error())
+		return err
+	}
+	err = netlink.LinkDel(bridge)
+	if err != nil {
+		err := fmt.Errorf("delete bridge device %s error: %s", bridge.Attrs().Name, err.Error())
+		return err
+	}
+	for i := range l.EndInfos {
+		delLink, err := netlink.LinkByName(fmt.Sprintf("%s-%d", l.GetLinkID(), i))
+		if err != nil {
+			err := fmt.Errorf("get sub device from name %s error: %s", fmt.Sprintf("%s-%d", l.GetLinkID(), i), err.Error())
+			return err
 		}
-	} else {
-		deleteLinkReq := netreq.CreateDeleteLinkReq(l.EndInfos[0].InstancePid, l.LinkID)
-		requests = append(requests, &deleteLinkReq)
-
-		return requests, nil
+		err = netlink.LinkDel(delLink)
+		if err != nil {
+			err := fmt.Errorf("delete sub device %s error: %s", delLink.Attrs().Name, err.Error())
+			return err
+		}
 	}
+
 	l.Enabled = false
-	return requests, nil
+	return nil
 }
 
-func (l *VethLink) SetParameters(para map[string]int64) ([]netreq.NetLinkRequest, error) {
+func (l *VethLink) SetParameters(oldPara, newPara map[string]int64) error {
 	dirtyConnect := false
 	dirtyTbf := false
 	dirtyNetem := false
-	var requests []netreq.NetLinkRequest
 
-	for paraName, paraValue := range para {
-		if paraValue == l.Parameter[paraName] {
+	for paraName, paraValue := range newPara {
+		if paraValue == oldPara[paraName] {
 			logrus.Debugf("Value of %s for %s is not changed, ignore.", paraName, l.LinkID)
 			continue
 		}
@@ -230,8 +278,7 @@ func (l *VethLink) SetParameters(para map[string]int64) ([]netreq.NetLinkRequest
 			logrus.Warnf("Unsupport Parameter %s for Link %s.", paraName, l.Type)
 			continue
 		}
-		if paraValue != l.Parameter[paraName] {
-			l.Parameter[paraName] = paraValue
+		if paraValue != oldPara[paraName] {
 			if paraName == model.ConnectParameter {
 				dirtyConnect = true
 			} else if paraName == VethBandwidthParameter {
@@ -243,20 +290,19 @@ func (l *VethLink) SetParameters(para map[string]int64) ([]netreq.NetLinkRequest
 	}
 
 	if dirtyConnect {
-		if l.Parameter[model.ConnectParameter] == 0 {
-			disconnReqs, err := l.Disconnect()
+		if newPara[model.ConnectParameter] == 0 {
+			err := l.Disconnect()
 			if err != nil {
 				logrus.Errorf("Disconnect Link Between %s and %s Error: %s", l.EndInfos[0].InstanceID, l.EndInfos[1].InstanceID, err.Error())
-				return nil, err
+				return err
 			}
-			return disconnReqs, err
+			return err
 		} else {
-			connReqs, err := l.Connect()
+			err := l.Connect()
 			if err != nil {
 				logrus.Errorf("Connect Link Between %s and %s Error: %s", l.EndInfos[0].InstanceID, l.EndInfos[1].InstanceID, err.Error())
-				return nil, err
+				return err
 			}
-			requests = append(requests, connReqs...)
 		}
 	}
 
@@ -266,36 +312,51 @@ func (l *VethLink) SetParameters(para map[string]int64) ([]netreq.NetLinkRequest
 		}
 
 		if dirtyTbf {
-			tbfInfo := TbfQdiscTemplate
-			tbfInfo.Limit = uint32(l.Parameter[VethBandwidthParameter])
-			tbfInfo.Rate = uint64(l.Parameter[VethBandwidthParameter])
-			tbfInfo.Buffer = uint32(l.Parameter[VethBandwidthParameter])
-			setTbfReq := netreq.CreateSetQdiscReq(
-				v.InstancePid,
-				l.LinkID,
-				&tbfInfo,
-			)
-			requests = append(requests, setTbfReq)
+			for i, v := range l.EndInfos {
+				if v.EndNodeIndex != key.NodeIndex {
+					continue
+				}
+				dev, err := netlink.LinkByName(fmt.Sprintf("%s-%d", l.GetLinkID(), i))
+				if err != nil {
+					logrus.Errorf("Update tbf qdisc error: get link by name %s error: %s", fmt.Sprintf("%s-%d", l.GetLinkID(), i), err.Error())
+				}
+				tbfInfo := TbfQdiscTemplate
+				tbfInfo.LinkIndex = dev.Attrs().Index
+				tbfInfo.Limit = uint32(newPara[VethBandwidthParameter])
+				tbfInfo.Rate = uint64(newPara[VethBandwidthParameter])
+				tbfInfo.Buffer = uint32(newPara[VethBandwidthParameter])
+				err = netlink.QdiscReplace(&tbfInfo)
+				if err != nil {
+					logrus.Errorf("Update tbf qdisc error: %s", err.Error())
+				}
+			}
 		}
 
 		if dirtyNetem {
-			netemInfo := netlink.NewNetem(
-				NetemQdiscTemplate.QdiscAttrs,
-				netlink.NetemQdiscAttrs{
-					Latency: uint32(l.Parameter[VethDelayParameter]) + 1,
-					Loss:    float32(l.Parameter[VethLossParameter]) / 10000,
-				},
-			)
-
-			setNetemReq := netreq.CreateSetQdiscReq(
-				v.InstancePid,
-				l.LinkID,
-				netemInfo,
-			)
-			requests = append(requests, setNetemReq)
+			for i, v := range l.EndInfos {
+				if v.EndNodeIndex != key.NodeIndex {
+					continue
+				}
+				dev, err := netlink.LinkByName(fmt.Sprintf("%s-%d", l.GetLinkID(), i))
+				if err != nil {
+					logrus.Errorf("Update tbf qdisc error: get link by name %s error: %s", fmt.Sprintf("%s-%d", l.GetLinkID(), i), err.Error())
+				}
+				netemInfo := netlink.NewNetem(
+					NetemQdiscTemplate.QdiscAttrs,
+					netlink.NetemQdiscAttrs{
+						Latency: uint32(newPara[VethDelayParameter]) + 1,
+						Loss:    float32(newPara[VethLossParameter]) / 10000,
+					},
+				)
+				netemInfo.LinkIndex = dev.Attrs().Index
+				err = netlink.QdiscReplace(netemInfo)
+				if err != nil {
+					logrus.Errorf("Update netem qdisc error: %s", err.Error())
+				}
+			}
 		}
 
 	}
 
-	return requests, nil
+	return nil
 }

@@ -81,3 +81,13 @@ func UpdateInstanceInfo(nodeIndex int, instanceID string, update func(*model.Ins
 	})
 	return err
 }
+
+func RemoveInstance(nodeIndex int, instanceID string) error {
+	instanceInfoKeyBase := fmt.Sprintf(key.NodeInstanceListKeyTemplate, nodeIndex)
+	instanceInfoKey := fmt.Sprintf("%s/%s", instanceInfoKeyBase, instanceID)
+	_,err := utils.EtcdClient.Delete(context.Background(),instanceInfoKey)
+	if err != nil {
+		return fmt.Errorf("remove instance of %s error: %s", instanceInfoKey, err.Error())
+	}
+	return nil
+}

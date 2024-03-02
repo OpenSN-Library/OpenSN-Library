@@ -89,3 +89,13 @@ func UpdateInstanceRuntimeInfo(nodeIndex int, instanceID string, update func(*mo
 	})
 	return err
 }
+
+func RemoveInstanceRuntime(nodeIndex int, instanceID string) error {
+	instanceRuntimeKeyBase := fmt.Sprintf(key.NodeInstanceRuntimeKeyTemplate, nodeIndex)
+	instanceRuntimeKey := fmt.Sprintf("%s/%s", instanceRuntimeKeyBase, instanceID)
+	_, err := utils.EtcdClient.Delete(context.Background(), instanceRuntimeKey)
+	if err != nil {
+		return fmt.Errorf("remove instance of %s error: %s", instanceRuntimeKey, err.Error())
+	}
+	return nil
+}

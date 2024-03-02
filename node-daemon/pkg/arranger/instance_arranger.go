@@ -2,6 +2,10 @@ package arranger
 
 import (
 	"NodeDaemon/model"
+	"NodeDaemon/pkg/synchronizer"
+	"container/list"
+
+	"github.com/sirupsen/logrus"
 )
 
 func checkNodeValid(node *model.Node, instance *model.Instance) bool {
@@ -26,10 +30,32 @@ func checkNodeValid(node *model.Node, instance *model.Instance) bool {
 	return true
 }
 
-func ArrangeInstances(instance []*model.Instance) error {
-
-	for _, instance := range instance {
-		instance.NodeIndex = 0
+func ArrangeInstances(instances []*model.Instance) error {
+	nodes, err := synchronizer.GetNodeList()
+	if err != nil {
+		return err
+	}
+	nodeList := list.New()
+	for _, v := range nodes {
+		nodeList.PushBack(v)
+	}
+	for _, instance := range instances {
+		for node := nodeList.Front(); node != nil; node = node.Next() {
+			nodeVal := node.Value.(*model.Node)
+			if checkNodeValid(nodeVal, instance) {
+				instance.NodeIndex = nodeVal.NodeIndex
+				nodeVal.FreeInstance -= 1
+				nodeList.Remove(node)
+				nodeList.PushBack(nodeVal)
+				break
+			}
+		}
+	}
+	for _, v := range nodes {
+		err := synchronizer.AddNode(v)
+		if err != nil {
+			logrus.Errorf("Update Node Info Error: %s", err.Error())
+		}
 	}
 	return nil
 }

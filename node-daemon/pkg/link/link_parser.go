@@ -2,6 +2,9 @@ package link
 
 import (
 	"NodeDaemon/model"
+	"NodeDaemon/share/key"
+	"NodeDaemon/utils"
+	"context"
 	"encoding/json"
 	"fmt"
 
@@ -50,6 +53,36 @@ var LinkDeviceInfoMap = map[string][2]model.DeviceRequireInfo{
 			IsMutex: false,
 		},
 	},
+}
+
+func getNodeInfo(index int) (*model.Node, error) {
+	nodeInfoKey := fmt.Sprintf("%s/%d", key.NodeIndexListKey, index)
+	etcdNodeInfo, err := utils.EtcdClient.Get(
+		context.Background(),
+		nodeInfoKey,
+	)
+	
+	if err != nil {
+		err := fmt.Errorf("get node %d info from etcd error: %s", index, err.Error())
+		return nil, err
+	}
+
+	if len(etcdNodeInfo.Kvs) <= 0 {
+		return nil, fmt.Errorf("node %d not found", index)
+
+	}
+
+	v := new(model.Node)
+	err = json.Unmarshal(etcdNodeInfo.Kvs[0].Value, v)
+	if err != nil {
+		err := fmt.Errorf(
+			"unable to parse node info from etcd value %s, Error:%s",
+			string(etcdNodeInfo.Kvs[0].Value),
+			err.Error(),
+		)
+		return nil, err
+	}
+	return v, nil
 }
 
 func ParseLinkFromBytes(seq []byte) (model.Link, error) {

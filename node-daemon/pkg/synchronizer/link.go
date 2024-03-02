@@ -2,12 +2,15 @@ package synchronizer
 
 import (
 	"NodeDaemon/model"
+	"NodeDaemon/pkg/link"
 	"NodeDaemon/share/key"
 	"NodeDaemon/utils"
 	"context"
 	"encoding/json"
 	"fmt"
 
+	"github.com/sirupsen/logrus"
+	clientv3 "go.etcd.io/etcd/client/v3"
 	"go.etcd.io/etcd/client/v3/concurrency"
 )
 
@@ -38,6 +41,31 @@ func GetLinkInfo(index int, linkID string) (*model.LinkBase, error) {
 		return nil, err
 	}
 	return v, nil
+}
+
+func GetLinkList(nodeIndex int) ([]model.Link, error) {
+	var linkList []model.Link
+	instanceInfoKeyBase := fmt.Sprintf(key.NodeLinkListKeyTemplate, nodeIndex)
+	nodeListEtcd, err := utils.EtcdClient.Get(
+		context.Background(),
+		instanceInfoKeyBase,
+		clientv3.WithPrefix(),
+	)
+	if err != nil {
+		err := fmt.Errorf("get link list from etcd error:%s", err.Error())
+		return nil, err
+	}
+
+	for _, v := range nodeListEtcd.Kvs {
+		linkInfo, err := link.ParseLinkFromBytes(v.Value)
+		if err != nil {
+			errMsg := fmt.Sprintf("Unable to parse link info from etcd value %s, Error:%s", string(v.Value), err.Error())
+			logrus.Errorf(errMsg)
+			continue
+		}
+		linkList = append(linkList, linkInfo)
+	}
+	return linkList, nil
 }
 
 func AddLinkInfo(nodeIndex int, linkInfo *model.LinkBase) error {
@@ -105,4 +133,14 @@ func UpdateLinkInfoIfExist(nodeIndex int, linkID string, update func(*model.Link
 		return nil
 	})
 	return err
+}
+
+func RemoveLink(nodeIndex int, linkID string) error {
+	linkInfoKeyBase := fmt.Sprintf(key.NodeLinkListKeyTemplate, nodeIndex)
+	linkInfoKey := fmt.Sprintf("%s/%s", linkInfoKeyBase, linkID)
+	_, err := utils.EtcdClient.Delete(context.Background(), linkInfoKey)
+	if err != nil {
+		return fmt.Errorf("remove link of %s error: %s", linkInfoKey, err.Error())
+	}
+	return nil
 }

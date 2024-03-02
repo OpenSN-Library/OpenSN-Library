@@ -208,8 +208,6 @@ func captureNodeStatus(sigChan chan int, errChan chan error) {
 			if err != nil {
 				errMsg := fmt.Sprintf("Upload Monitor Data of Node %d Error: %s", key.NodeIndex, err.Error())
 				logrus.Error(errMsg)
-			} else {
-				logrus.Infof("Upload Monitor Data of Node %d Success.",key.NodeIndex)
 			}
 		} else {
 			withPrev = true

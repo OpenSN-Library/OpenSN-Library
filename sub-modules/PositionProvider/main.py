@@ -40,14 +40,15 @@ def genenrate_config(cli:EmulatorOperator,node_index:int,instance_id:str):
 
 if __name__ == "__main__":
 
-    instance_config_updated:{str:str} = {}
-
+    instance_config_updated:dict[str,str] = {}
+    
     cli = EmulatorOperator(ADDR,PORT)
 
     # Create Emulator Operator
     while True:
         node_list = cli.get_node_map()
         all_instance_map: dict[str,Instance] = {}
+        node_link_map: dict[int,dict[str,LinkBase]] = {}
         ground_station_list:list[Instance] = []
         for node_index,node in node_list.items():
             instance_map = cli.get_instance_map(node_index)
@@ -55,6 +56,29 @@ if __name__ == "__main__":
                 all_instance_map[instance_id] = instance
                 if instance.type == TYPE_GROUND_STATION:
                     ground_station_list.append(instance)
+
+        for node_index,node in node_list.items():
+            node_link_map[node_index] = {}
+            link_map = cli.get_link_map(node_index)
+            for link_id,link_info in link_map.items():
+                if link_info.address_infos[0] is None or \
+                    link_info.address_infos[1] is None:
+                    subnet = alloc_ipv4(30)
+                    link_info.address_infos[0] = {
+                        LINK_V4_ADDR_KEY: format_ipv4(subnet[1],30)
+                    }
+                    link_info.address_infos[1] = {
+                        LINK_V4_ADDR_KEY: format_ipv4(subnet[2],30)
+                    }
+                    cli.put_link(link_info)
+                elif LINK_V4_ADDR_KEY not in link_info.address_infos[0] or \
+                    LINK_V4_ADDR_KEY not in link_info.address_infos[1]:
+                    subnet = alloc_ipv4(30)
+                    link_info.address_infos[0][LINK_V4_ADDR_KEY] = format_ipv4(subnet[1],30)
+                    link_info.address_infos[1][LINK_V4_ADDR_KEY] = format_ipv4(subnet[2],30)
+                    cli.put_link(link_info)
+                    print(link_info.address_infos)
+                node_link_map[node_index][link_id] = link_info
 
         position_map: dict[str,Position] = {}
         time_now = datetime.now()
@@ -128,31 +152,7 @@ if __name__ == "__main__":
                 print(sat_config)
                 cli.put_instance_config(all_instance_map[satellite_id].node_index,all_instance_map[satellite_id].instance_id,json.dumps(sat_config))
 
-        node_link_map: dict[int,dict[str,LinkBase]] = {}
         
-        for node_index,node in node_list.items():
-            node_link_map[node_index] = {}
-            link_map = cli.get_link_map(node_index)
-            for link_id,link_info in link_map.items():
-                if link_info.address_infos[0] is None or \
-                    link_info.address_infos[1] is None:
-                    subnet = alloc_ipv4(30)
-                    link_info.address_infos[0] = {
-                        LINK_V4_ADDR_KEY: format_ipv4(subnet[1],30)
-                    }
-                    link_info.address_infos[1] = {
-                        LINK_V4_ADDR_KEY: format_ipv4(subnet[2],30)
-                    }
-                    cli.put_link(link_info)
-                elif LINK_V4_ADDR_KEY not in link_info.address_infos[0] or \
-                    LINK_V4_ADDR_KEY not in link_info.address_infos[1]:
-                    subnet = alloc_ipv4(30)
-                    link_info.address_infos[0][LINK_V4_ADDR_KEY] = format_ipv4(subnet[1],30)
-                    link_info.address_infos[1][LINK_V4_ADDR_KEY] = format_ipv4(subnet[2],30)
-                    cli.put_link(link_info)
-                    print(link_info.address_infos)
-                node_link_map[node_index][link_id] = link_info
-
 
         for node_index,link_map in node_link_map.items():
             for link_id,link_info in link_map.items():
@@ -161,18 +161,19 @@ if __name__ == "__main__":
                 if link_info.end_infos[0].instance_type == TYPE_SATELLITE and \
                     link_info.end_infos[1].instance_type == TYPE_SATELLITE and \
                     all_instance_map[link_info.end_infos[1].instance_id].extra[EX_ORBIT_INDEX] == \
-                    all_instance_map[link_info.end_infos[0].instance_id].extra[EX_ORBIT_INDEX]:
-                    if abs(position_map[link_info.end_infos[0].instance_id].latitude) > polar_threshold or \
-                        abs(position_map[link_info.end_infos[1].instance_id].latitude) > polar_threshold:
+                    all_instance_map[link_info.end_infos[0].instance_id].extra[EX_ORBIT_INDEX] and \
+                    abs(position_map[link_info.end_infos[0].instance_id].latitude) > polar_threshold or \
+                    abs(position_map[link_info.end_infos[1].instance_id].latitude) > polar_threshold:
                         link_info.parameter[PARAMETER_KEY_CONNECT] = 0
-                        # logger.info("Disconnect %s and %s"%(link_info.end_infos[0].instance_id,link_info.end_infos[1].instance_id))
-                    else:
-                        link_info.parameter[PARAMETER_KEY_CONNECT] = 1
+                else:
+                    link_info.parameter[PARAMETER_KEY_CONNECT] = 1
                 distance = distance_meter(
                     position_map[link_info.end_infos[0].instance_id],
                     position_map[link_info.end_infos[1].instance_id]
                 )
-                link_info.parameter[PARAMETER_KEY_DELAY] = int(get_propagation_delay_s(distance))*1000000
+                delay = int(get_propagation_delay_s(distance)*1000000)
+                link_info.parameter[PARAMETER_KEY_DELAY] = delay
+                # logger.info("distance between %s and %s is %f, delay is %f"%(link_info.end_infos[0].instance_id,link_info.end_infos[1].instance_id,distance,delay))
                 cli.put_link_parameter(link_info.node_index,link_info.link_id,link_info.parameter)
                 
         for instance_id,instance_info in all_instance_map.items():

@@ -33,17 +33,15 @@ func UpdateLinkState(newLink model.Link, oldLink model.Link) error {
 			func(lb *model.LinkBase) error {
 				if oldLink.IsEnabled() != newEnableState {
 					if newEnableState {
-						requests, err := newLink.Enable()
+						err := newLink.Enable()
 						if err != nil {
 							return fmt.Errorf("generate enable requests for link %s error: %s", newLink.GetLinkID(), err.Error())
 						}
-						NetlinkOperatorInfo.RequestChann <- requests
 					} else {
-						requests, err := oldLink.Disable()
+						err := oldLink.Disable()
 						if err != nil {
 							return fmt.Errorf("generate disable requests for link %s error: %s", newLink.GetLinkID(), err.Error())
 						}
-						NetlinkOperatorInfo.RequestChann <- requests
 					}
 				}
 				lb.Enabled = newEnableState

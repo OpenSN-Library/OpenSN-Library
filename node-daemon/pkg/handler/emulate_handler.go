@@ -117,7 +117,6 @@ func StartEmulationHandler(ctx *gin.Context) {
 			ctx.JSON(http.StatusInternalServerError, resp)
 			return
 		}
-		logrus.Infof("Instance List of %d is %v", nodeInfo.NodeIndex, instanceList)
 		for _, instanceInfo := range instanceList {
 			err := synchronizer.UpdateInstanceInfo(
 				nodeInfo.NodeIndex,
@@ -372,6 +371,52 @@ func AddTopologyHandler(ctx *gin.Context) {
 		}
 	}, instanceList, 64)
 	wg.Wait()
+	resp := ginmodel.JsonResp{
+		Code:    0,
+		Message: "Success",
+	}
+	ctx.JSON(http.StatusOK, resp)
+}
+
+func ResetStatusHandler(ctx *gin.Context) {
+	nodes, err := synchronizer.GetNodeList()
+	if err != nil {
+		errMsg := fmt.Sprintf("Get Node List Error: %s", err.Error())
+		logrus.Errorf(errMsg)
+		resp := ginmodel.JsonResp{
+			Code:    -1,
+			Message: errMsg,
+		}
+		ctx.JSON(http.StatusInternalServerError, resp)
+		return
+	}
+	for _, node := range nodes {
+		links, err := synchronizer.GetLinkList(node.NodeIndex)
+		if err != nil {
+			errMsg := fmt.Sprintf("Get Link List of Node %d Error: %s", node.NodeIndex, err.Error())
+			logrus.Errorf(errMsg)
+		}
+		for _, linkInfo := range links {
+			err := synchronizer.RemoveLink(node.NodeIndex, linkInfo.GetLinkID())
+			if err != nil {
+				errMsg := fmt.Sprintf("Remove Link %s of Node %d Error: %s", linkInfo.GetLinkID(), node.NodeIndex, err.Error())
+				logrus.Errorf(errMsg)
+			}
+		}
+		instances, err := synchronizer.GetInstanceList(node.NodeIndex)
+		if err != nil {
+			errMsg := fmt.Sprintf("Get Instance List of Node %d Error: %s", node.NodeIndex, err.Error())
+			logrus.Errorf(errMsg)
+		}
+		for _, instanceInfo := range instances {
+			err := synchronizer.RemoveInstance(node.NodeIndex, instanceInfo.InstanceID)
+			if err != nil {
+				errMsg := fmt.Sprintf("Remove Instance %s of Node %d Error: %s", instanceInfo.InstanceID, node.NodeIndex, err.Error())
+				logrus.Errorf(errMsg)
+			}
+			
+		}
+	}
 	resp := ginmodel.JsonResp{
 		Code:    0,
 		Message: "Success",

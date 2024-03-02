@@ -49,7 +49,6 @@ func main() {
 		module.CreateLinkManagerModule(),
 		module.CreateMonitorModule(),
 		module.CreateConfigWriteModule(),
-		module.CreateNetlinkOperatorModule(),
 		module.CreateLinkParameterModule(),
 	}
 

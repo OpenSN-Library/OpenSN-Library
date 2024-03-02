@@ -1,7 +1,5 @@
 package model
 
-import netreq "NodeDaemon/model/netlink_request"
-
 const ConnectParameter = "connect"
 
 type ParameterInfo struct {
@@ -19,19 +17,15 @@ var ConnectParameterInfo = ParameterInfo{
 	DefinitionFrac: 1,
 }
 
-type NetlinkOperatorInfo struct {
-	RequestChann chan []netreq.NetLinkRequest
-}
-
 type Link interface {
 	GetLinkID() string
 	GetLinkType() string
-	Connect() ([]netreq.NetLinkRequest, error)
-	Disconnect() ([]netreq.NetLinkRequest, error)
-	Enable() ([]netreq.NetLinkRequest, error)
-	Disable() ([]netreq.NetLinkRequest, error)
+	Connect() error
+	Disconnect() error
+	Enable() error
+	Disable() error
 	IsCrossMachine() bool
-	SetParameters(para map[string]int64) ([]netreq.NetLinkRequest, error)
+	SetParameters(oldPara, newPara map[string]int64) error
 	IsEnabled() bool
 	IsConnected() bool
 	GetParameter(name string) (int64, error)

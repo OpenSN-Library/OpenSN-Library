@@ -35,6 +35,7 @@ func RegisterHandlers(r *gin.Engine) {
 	emulate.POST("/stop", handler.StopEmulationHandler)
 	emulate.GET("/", handler.GetEmulationConfigHandler)
 	emulate.POST("/topology", handler.AddTopologyHandler)
+	emulate.POST("/reset", handler.ResetStatusHandler)
 	position := api.Group("/position")
 	position.GET("/", handler.GetInstancePostion)
 	node := api.Group("/node")

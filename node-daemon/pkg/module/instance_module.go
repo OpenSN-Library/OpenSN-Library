@@ -15,7 +15,6 @@ import (
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/api/types/network"
 	"github.com/sirupsen/logrus"
 	clientv3 "go.etcd.io/etcd/client/v3"
 )
@@ -125,22 +124,9 @@ func StopContainer(instance *model.Instance) (*model.InstanceRuntime, error) {
 		}, fmt.Errorf("stop instance %s error: get instance runtime error: %s", instance.InstanceID, err.Error())
 	}
 
-	err = utils.DoWithRetry(func() error {
+	utils.DoWithRetry(func() error {
 		return utils.DockerClient.ContainerStop(context.Background(), instanceRuntime.ContainerID, container.StopOptions{})
 	}, 2)
-	utils.DockerClient.NetworkConnect(context.Background(),"","",&network.EndpointSettings{
-		IPAMConfig: &network.EndpointIPAMConfig{
-			
-		},
-	})
-	if err != nil {
-		err := fmt.Errorf(
-			"stop container %s, err: %s",
-			instanceRuntime.ContainerID,
-			err.Error(),
-		)
-		return nil, err
-	}
 
 	err = utils.DoWithRetry(func() error {
 		return utils.DockerClient.ContainerRemove(
