@@ -15,7 +15,7 @@ import (
 
 const (
 	InfluxDBConfigurationUrl = "/api/platform/address/influxdb"
-	EtcdConfigurationUrl  = "/api/platform/address/etcd"
+	EtcdConfigurationUrl     = "/api/platform/address/etcd"
 )
 
 type AppConfigType struct {
@@ -137,7 +137,7 @@ func InitConfigMasterMode() error {
 
 func InitConfigServantMode(masterAddr string) error {
 	etcdReqUrl := fmt.Sprintf("http://%s:%d%s", masterAddr, GlobalConfig.App.ListenPort, EtcdConfigurationUrl)
-	influxDBUrl := fmt.Sprintf("http://%s:%d%s", masterAddr, GlobalConfig.App.ListenPort, EtcdConfigurationUrl)
+	influxDBUrl := fmt.Sprintf("http://%s:%d%s", masterAddr, GlobalConfig.App.ListenPort, InfluxDBConfigurationUrl)
 
 	err := utils.DoWithRetry(func() error {
 		var obj ginmodel.JsonResp
