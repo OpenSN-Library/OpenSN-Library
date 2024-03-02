@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	RedisConfigurationUrl = "/api/platform/address/redis"
+	InfluxDBConfigurationUrl = "/api/platform/address/influxdb"
 	EtcdConfigurationUrl  = "/api/platform/address/etcd"
 )
 

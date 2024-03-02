@@ -26,7 +26,9 @@ func GetInfluxDBAddressHandler(ctx *gin.Context) {
 		Message: "success",
 		Data: ginmodel.InfluxDBConfiguration{
 			Address: config.GlobalConfig.Dependency.InfluxdbAddr,
+			Bucket:  config.GlobalConfig.Dependency.InfluxdbBucket,
 			Port:    config.GlobalConfig.Dependency.InfluxdbPort,
+			Org:     config.GlobalConfig.Dependency.InfluxdbOrg,
 			Token:   config.GlobalConfig.Dependency.InfluxdbToken,
 			Enable:  config.GlobalConfig.App.EnableMonitor,
 		},
