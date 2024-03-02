@@ -69,7 +69,7 @@ func main() {
 		topoReq.Instances = append(topoReq.Instances, newInstConfig)
 	}
 
-	for i := 0; i < 20; i++ {
+	for i := 0; i < 30; i++ {
 		newInstConfig := ginmodel.TopologyInstance{
 			Type: "GroundStation",
 			Extra: map[string]string{

@@ -33,8 +33,9 @@ func allocNodeIndex() error {
 				return err
 			}
 			key.NodeIndex = nodeIndex
-			s.Put(key.NextNodeIndexKey, strconv.Itoa(nodeIndex+1))
+
 		}
+		s.Put(key.NextNodeIndexKey, strconv.Itoa(key.NodeIndex+1))
 		return nil
 	})
 	return err
