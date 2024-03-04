@@ -4,6 +4,7 @@ import (
 	"NodeDaemon/model"
 	"NodeDaemon/model/ginmodel"
 	"NodeDaemon/pkg/arranger"
+	"NodeDaemon/pkg/link"
 	"NodeDaemon/pkg/synchronizer"
 	"NodeDaemon/utils"
 	"fmt"
@@ -305,6 +306,7 @@ func AddTopologyHandler(ctx *gin.Context) {
 					EndNodeIndex: instanceList[linkConfig.EndIndexes[1]].NodeIndex,
 				},
 			},
+			LinkIndex:    link.AllocLinkIndex(),
 			Type:         linkConfig.Type,
 			CrossMachine: instanceList[linkConfig.EndIndexes[0]].NodeIndex != instanceList[linkConfig.EndIndexes[1]].NodeIndex,
 			NodeIndex:    instanceList[linkConfig.EndIndexes[0]].NodeIndex,
@@ -414,7 +416,7 @@ func ResetStatusHandler(ctx *gin.Context) {
 				errMsg := fmt.Sprintf("Remove Instance %s of Node %d Error: %s", instanceInfo.InstanceID, node.NodeIndex, err.Error())
 				logrus.Errorf(errMsg)
 			}
-			
+
 		}
 	}
 	resp := ginmodel.JsonResp{

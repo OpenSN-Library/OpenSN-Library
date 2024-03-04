@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
 
 	"github.com/sirupsen/logrus"
 )
@@ -55,13 +56,29 @@ var LinkDeviceInfoMap = map[string][2]model.DeviceRequireInfo{
 	},
 }
 
+func AllocLinkIndex() int {
+	linkIndexKey := key.NextLinkIndexKey
+	getResp, err := utils.EtcdClient.Get(context.Background(), linkIndexKey)
+	if err != nil || len(getResp.Kvs) < 1 {
+		utils.EtcdClient.Put(context.Background(), linkIndexKey, "2")
+		return 1
+	}
+
+	index, err := strconv.Atoi(string(getResp.Kvs[0].Value))
+
+	if err != nil {
+		return 1
+	}
+	return index
+}
+
 func getNodeInfo(index int) (*model.Node, error) {
 	nodeInfoKey := fmt.Sprintf("%s/%d", key.NodeIndexListKey, index)
 	etcdNodeInfo, err := utils.EtcdClient.Get(
 		context.Background(),
 		nodeInfoKey,
 	)
-	
+
 	if err != nil {
 		err := fmt.Errorf("get node %d info from etcd error: %s", index, err.Error())
 		return nil, err

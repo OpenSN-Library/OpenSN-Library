@@ -331,7 +331,7 @@ func (l *VethLink) SetParameters(oldPara, newPara map[string]int64) error {
 				tbfInfo.LinkIndex = dev.Attrs().Index
 				tbfInfo.Limit = uint32(newPara[VethBandwidthParameter])
 				tbfInfo.Rate = uint64(newPara[VethBandwidthParameter])
-				tbfInfo.Buffer = uint32(newPara[VethBandwidthParameter])
+				tbfInfo.Buffer = uint32(newPara[VethBandwidthParameter]) / 8
 				err = netlink.QdiscReplace(&tbfInfo)
 				if err != nil {
 					logrus.Errorf("Update tbf qdisc error: %s", err.Error())
@@ -353,7 +353,7 @@ func (l *VethLink) SetParameters(oldPara, newPara map[string]int64) error {
 					NetemQdiscTemplate.QdiscAttrs,
 					netlink.NetemQdiscAttrs{
 						Latency: uint32(newPara[VethDelayParameter]) + 1,
-						Loss:    float32(newPara[VethLossParameter]) / 10000,
+						Loss:    float32(newPara[VethLossParameter]) / 100,
 					},
 				)
 				netemInfo.LinkIndex = dev.Attrs().Index
