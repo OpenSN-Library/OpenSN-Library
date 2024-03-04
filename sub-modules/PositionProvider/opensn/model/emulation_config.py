@@ -21,6 +21,8 @@ class EmulationInfo:
         self.type_config: dict[str,InstanceTypeConfig] = {}
 
 def emulation_info_from_json(seq: str) -> EmulationInfo:
+    if seq is None :
+        return EmulationInfo()
     dic = json.loads(seq)
     ret = EmulationInfo()
     ret.running = dic["running"]

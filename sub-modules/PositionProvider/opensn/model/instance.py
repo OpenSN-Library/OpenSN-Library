@@ -53,6 +53,8 @@ class InstanceRuntime:
         container_id: str = ""
 
 def instance_runtime_from_json(seq: str) -> InstanceRuntime:
+    if seq is None :
+        return InstanceRuntime()
     dic = json.loads(seq)
     instance_runtime = InstanceRuntime()
     instance_runtime.__dict__ = dic
@@ -63,6 +65,8 @@ def instance_runtime_to_json(runtime: InstanceRuntime) -> str:
     return json.dumps(runtime.__dict__)
 
 def instance_from_json(seq: str) -> Instance:
+    if seq is None :
+        return Instance()
     dic = json.loads(seq)
     if "device_info" in dic.keys() and dic["device_info"] is not None:
         for k,v in dic["device_info"].items():

@@ -14,5 +14,7 @@ class Node:
 
 def node_from_json(seq: str) -> None:
     node = Node()
+    if seq is None :
+        return node
     node.__dict__ = json.loads(seq)
     return node

@@ -107,19 +107,19 @@ func GetInstanceResourceInfo(containerID string) (*model.InstanceResouceRaw, err
 	mem, err := readUint64(memPath)
 	if err != nil {
 		errMsg := fmt.Sprintf("Read Memory Usage Of Container %s Error: %s", containerID, err.Error())
-		logrus.Error(errMsg)
+		logrus.Warn(errMsg)
 		return nil, err
 	}
 	swap, err := readUint64(swapPath)
 	if err != nil {
 		errMsg := fmt.Sprintf("Read Swap Usage Of Container %s Error: %s", containerID, err.Error())
-		logrus.Error(errMsg)
+		logrus.Warn(errMsg)
 		return nil, err
 	}
 	cpuUsage, err := readCpuUsage(cpuPath)
 	if err != nil {
 		errMsg := fmt.Sprintf("Read Cpu Usage Of Container %s Error: %s", containerID, err.Error())
-		logrus.Error(errMsg)
+		logrus.Warn(errMsg)
 		return nil, err
 	}
 

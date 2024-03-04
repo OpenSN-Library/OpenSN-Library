@@ -132,7 +132,7 @@ class EmulatorOperator:
             address_info2=address_info2,
             init_parameter=init_parameter
         )
-        link_index = alloc_link_index()
+        link_index = alloc_link_index(self.etcd_client)
         for link_info in new_link_array:
             link_info.link_index = link_index
             put_link(self.etcd_client,link_info)

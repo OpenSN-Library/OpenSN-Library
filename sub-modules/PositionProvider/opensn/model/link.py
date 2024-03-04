@@ -23,6 +23,8 @@ class LinkBase:
         self.node_index: int = 0
 
 def link_from_json(seq: str) -> LinkBase:
+    if seq is None :
+        return LinkBase()
     dic = json.loads(seq)
     if "end_infos" in dic and dic["end_infos"] is not None:
         new_list = []
