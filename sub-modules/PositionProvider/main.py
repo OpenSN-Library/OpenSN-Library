@@ -156,6 +156,8 @@ if __name__ == "__main__":
 
         for node_index,link_map in node_link_map.items():
             for link_id,link_info in link_map.items():
+                if link_info.parameter is None:
+                    link_info.parameter = {}
                 if not link_info.enabled:
                     continue
                 if link_info.end_infos[0].instance_type == TYPE_SATELLITE and \

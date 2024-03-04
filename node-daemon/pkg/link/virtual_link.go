@@ -134,7 +134,6 @@ func (l *VethLink) enableSameMachine(brIndex int) error {
 		err := netlink.LinkAdd(veth)
 		if err != nil {
 			logrus.Errorf("Add Veth Peer Link %v Error: %s", *l, err.Error())
-			return err
 		}
 	}
 
@@ -170,7 +169,7 @@ func (l *VethLink) enableCrossMachine(brIndex int) error {
 				logrus.Infof("Create Vxlan %v", vxlanDev)
 				err = netlink.LinkAdd(&vxlanDev)
 				if err != nil {
-					return err
+					logrus.Errorf("Add Vxlan Link %v Error: %s", *l, err.Error())
 				}
 			} else {
 				veth := &netlink.Veth{
@@ -211,7 +210,6 @@ func (l *VethLink) Enable() error {
 	err = netlink.LinkAdd(bridge)
 	if err != nil {
 		logrus.Errorf("Add Bridge Link %s Error: %s", bridge.Name, err.Error())
-		return err
 	}
 
 	err = netlink.LinkSetUp(bridge)
@@ -245,12 +243,12 @@ func (l *VethLink) Disable() error {
 	logrus.Infof("Disabling Link %s, Type: Single Machine %s", l.LinkID, l.Type)
 	bridge, err := netlink.LinkByName(l.GetLinkID())
 	if err != nil {
-		err := fmt.Errorf("get bridge device from name %s error: %s", bridge.Attrs().Name, err.Error())
+		err := fmt.Errorf("get bridge device from name %s error: %s", l.LinkID, err.Error())
 		return err
 	}
 	err = netlink.LinkDel(bridge)
 	if err != nil {
-		err := fmt.Errorf("delete bridge device %s error: %s", bridge.Attrs().Name, err.Error())
+		err := fmt.Errorf("delete bridge device %s error: %s", l.LinkID, err.Error())
 		return err
 	}
 	for i := range l.EndInfos {
