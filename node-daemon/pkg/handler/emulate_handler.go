@@ -283,7 +283,7 @@ func AddTopologyHandler(ctx *gin.Context) {
 	}
 
 	for _, linkConfig := range req.Links {
-
+		linkIndex := link.AllocLinkIndex()
 		if linkConfig.EndIndexes[0] < 0 || linkConfig.EndIndexes[0] > len(instanceList) {
 			continue
 		}
@@ -306,7 +306,7 @@ func AddTopologyHandler(ctx *gin.Context) {
 					EndNodeIndex: instanceList[linkConfig.EndIndexes[1]].NodeIndex,
 				},
 			},
-			LinkIndex:    link.AllocLinkIndex(),
+			LinkIndex:    linkIndex,
 			Type:         linkConfig.Type,
 			CrossMachine: instanceList[linkConfig.EndIndexes[0]].NodeIndex != instanceList[linkConfig.EndIndexes[1]].NodeIndex,
 			NodeIndex:    instanceList[linkConfig.EndIndexes[0]].NodeIndex,
@@ -331,6 +331,7 @@ func AddTopologyHandler(ctx *gin.Context) {
 						EndNodeIndex: instanceList[linkConfig.EndIndexes[1]].NodeIndex,
 					},
 				},
+				LinkIndex:    linkIndex,
 				Type:         linkConfig.Type,
 				CrossMachine: instanceList[linkConfig.EndIndexes[0]].NodeIndex != instanceList[linkConfig.EndIndexes[1]].NodeIndex,
 				Parameter:    linkConfig.InitParameter,
