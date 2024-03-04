@@ -1,3 +1,5 @@
 FROM golang:1.20
-COPY NodeDaemon /runtime/NodeDaemon
-CMD sh -c "/runtime/NodeDaemon"
+COPY build /runtime/
+EXPOSE 8080
+WORKDIR /runtime
+ENTRYPOINT [ "./NodeDaemon" ]

@@ -17,7 +17,6 @@ def alloc_ipv4(prefix_len: int) -> list:
     for i in range(delta):
         subnet.append(array_add(IPV4_BASE,i))
     IPV4_BASE = array_add(IPV4_BASE,delta)
-    print(subnet)
     return subnet
 
 def format_ipv4(ip:list, prefix_len: int) -> str:

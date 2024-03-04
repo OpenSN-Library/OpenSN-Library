@@ -147,14 +147,14 @@ func captureNodeStatus(sigChan chan int, errChan chan error) {
 		thisNodeResouce, err := utils.GetHostResourceInfo()
 
 		if err != nil {
-			logrus.Errorf("Get Host Performance Info of Node %d Error:%s", key.NodeIndex, err.Error())
+			// logrus.Errorf("Get Host Performance Info of Node %d Error:%s", key.NodeIndex, err.Error())
 			errChan <- err
 		}
 
 		instanceList, err := synchronizer.GetInstanceRuntimeList(key.NodeIndex)
 
 		if err != nil {
-			logrus.Errorf("Get Instance Runtime Info List of Node %d Error:%s", key.NodeIndex, err.Error())
+			// logrus.Errorf("Get Instance Runtime Info List of Node %d Error:%s", key.NodeIndex, err.Error())
 			errChan <- err
 		}
 
@@ -164,12 +164,12 @@ func captureNodeStatus(sigChan chan int, errChan chan error) {
 			}
 			instanceResouce, err := utils.GetInstanceResourceInfo(instanceInfo.ContainerID)
 			if err != nil {
-				logrus.Errorf("Get Instance Performance of Instance %s Error: %s", instanceInfo.InstanceID, err.Error())
+				// logrus.Errorf("Get Instance Performance of Instance %s Error: %s", instanceInfo.InstanceID, err.Error())
 				return
 			}
 			linkStatus, err := utils.GetInstanceLinkResourceInfo(instanceInfo.Pid)
 			if err != nil {
-				logrus.Errorf("Get Link Performance of Instance %s Error: %s", instanceInfo.InstanceID, err.Error())
+				// logrus.Errorf("Get Link Performance of Instance %s Error: %s", instanceInfo.InstanceID, err.Error())
 				return
 			}
 			localLock.Lock()

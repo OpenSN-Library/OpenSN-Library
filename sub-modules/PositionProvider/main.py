@@ -146,10 +146,10 @@ if __name__ == "__main__":
                     address_info2=address2,
                 )
                 gs_config = genenrate_config(cli,ground_station.node_index,ground_station.instance_id)
-                print(gs_config)
+                # print(gs_config)
                 cli.put_instance_config(ground_station.node_index,ground_station.instance_id,json.dumps(gs_config))
                 sat_config = genenrate_config(cli,all_instance_map[satellite_id].node_index,all_instance_map[satellite_id].instance_id)
-                print(sat_config)
+                # print(sat_config)
                 cli.put_instance_config(all_instance_map[satellite_id].node_index,all_instance_map[satellite_id].instance_id,json.dumps(sat_config))
 
         
@@ -164,9 +164,14 @@ if __name__ == "__main__":
                     all_instance_map[link_info.end_infos[0].instance_id].extra[EX_ORBIT_INDEX] and \
                     abs(position_map[link_info.end_infos[0].instance_id].latitude) > polar_threshold or \
                     abs(position_map[link_info.end_infos[1].instance_id].latitude) > polar_threshold:
+                        if PARAMETER_KEY_CONNECT in link_info.parameter.keys() and link_info.parameter[PARAMETER_KEY_CONNECT]==1:
+                            logger.info("connect %s"%link_id)
                         link_info.parameter[PARAMETER_KEY_CONNECT] = 0
                 else:
+                    if PARAMETER_KEY_CONNECT not in link_info.parameter.keys() or link_info.parameter[PARAMETER_KEY_CONNECT]==0:
+                            logger.info("disconnect %s"%link_id)
                     link_info.parameter[PARAMETER_KEY_CONNECT] = 1
+
                 distance = distance_meter(
                     position_map[link_info.end_infos[0].instance_id],
                     position_map[link_info.end_infos[1].instance_id]

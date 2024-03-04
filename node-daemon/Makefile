@@ -9,12 +9,23 @@ build:
 clean:
 	-sudo rm -rf ./build
 	-sudo rm satellite-emulator-daemon.tar.gz
-wrap:
-	sudo docker run --rm -v `pwd`:/workspace golang:1.21 sh -c "cd /workspace && go env -w GOPROXY=https://goproxy.cn,direct && go mod tidy && go build"
+wrap: build
 	-sudo docker rmi -f satellite_emulator/node-daemon
 	sudo docker build . -t satellite_emulator/node-daemon
 run:
 	cd build && sudo ./NodeDaemon
+run-docker:
+	-sudo docker rm -f node-daemon
+	sudo docker run \
+		--net=host \
+		-p 8080:8080 \
+		-v /var/run/docker.sock:/var/run/docker.sock \
+		-v /home/satellite/Workspace/satellite-emulator/node-daemon/build/runtime:/runtime/runtime \
+		--privileged=true \
+		--name=node-daemon \
+		satellite_emulator/node-daemon
+run-sidecar:
+	cd ../sub-modules/PositionProvider/ && make run
 dep:
 	-sudo docker rm -f emulator_etcd
 	# -sudo docker rm -f emulator_redis

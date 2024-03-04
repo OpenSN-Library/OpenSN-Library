@@ -26,7 +26,7 @@ func UpdateLinkState(newLink model.Link, oldLink model.Link) error {
 		}
 	}
 	if newEnableState != oldLink.IsEnabled() {
-		logrus.Debugf("Link %s State Change From %v to %v", oldLink.GetLinkID(), oldLink.IsEnabled(), newEnableState)
+		logrus.Infof("Link %s State Change From %v to %v", oldLink.GetLinkID(), oldLink.IsEnabled(), newEnableState)
 		err := synchronizer.UpdateLinkInfo(
 			key.NodeIndex,
 			newLink.GetLinkID(),

@@ -213,7 +213,7 @@ func (l *VethLink) Enable() error {
 		logrus.Errorf("Add Bridge Link %s Error: %s", bridge.Name, err.Error())
 		return err
 	}
-	
+
 	err = netlink.LinkSetUp(bridge)
 	if err != nil {
 		logrus.Errorf("Set Bridge Link %s Up Error: %s", bridge.Name, err.Error())
@@ -228,7 +228,13 @@ func (l *VethLink) Enable() error {
 	if err != nil {
 		return err
 	}
+	
 	l.Enabled = true
+
+	err = l.Connect()
+	if err != nil {
+		return err
+	}
 	return nil
 }
 func (l *VethLink) Disable() error {
@@ -319,6 +325,7 @@ func (l *VethLink) SetParameters(oldPara, newPara map[string]int64) error {
 				dev, err := netlink.LinkByName(fmt.Sprintf("%s-%d", l.GetLinkID(), i))
 				if err != nil {
 					logrus.Errorf("Update tbf qdisc error: get link by name %s error: %s", fmt.Sprintf("%s-%d", l.GetLinkID(), i), err.Error())
+					return err
 				}
 				tbfInfo := TbfQdiscTemplate
 				tbfInfo.LinkIndex = dev.Attrs().Index
@@ -340,6 +347,7 @@ func (l *VethLink) SetParameters(oldPara, newPara map[string]int64) error {
 				dev, err := netlink.LinkByName(fmt.Sprintf("%s-%d", l.GetLinkID(), i))
 				if err != nil {
 					logrus.Errorf("Update tbf qdisc error: get link by name %s error: %s", fmt.Sprintf("%s-%d", l.GetLinkID(), i), err.Error())
+					return err
 				}
 				netemInfo := netlink.NewNetem(
 					NetemQdiscTemplate.QdiscAttrs,

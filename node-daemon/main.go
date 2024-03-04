@@ -47,13 +47,16 @@ func main() {
 	modules := []module.Module{
 		module.CreateInstanceManagerModule(),
 		module.CreateLinkManagerModule(),
-		module.CreateMonitorModule(),
 		module.CreateConfigWriteModule(),
 		module.CreateLinkParameterModule(),
 	}
 
 	if !config.GlobalConfig.App.IsServant {
 		modules = append(modules, module.CreateMasterNodeModuleTask())
+	}
+
+	if config.GlobalConfig.App.EnableMonitor {
+		modules = append(modules, module.CreateMonitorModule())
 	}
 
 	for _, v := range modules {
