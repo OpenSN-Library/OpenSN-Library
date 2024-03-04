@@ -136,7 +136,7 @@ func GetInstanceLinkResourceInfo(pid int) (map[string]*model.LinkResourceRaw, er
 	devStat, err := net.IOCountersByFile(true, filePath)
 	if err != nil {
 		errMsg := fmt.Sprintf("Get Instance Link Resource Error: %s", err.Error())
-		logrus.Error(errMsg)
+		logrus.Warn(errMsg)
 		return ret, err
 	}
 	for _, v := range devStat {

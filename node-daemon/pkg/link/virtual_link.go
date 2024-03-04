@@ -151,7 +151,7 @@ func (l *VethLink) enableCrossMachine(brIndex int) error {
 			return err
 		}
 		for i, v := range l.EndInfos {
-			if v.EndNodeIndex == key.NodeIndex {
+			if v.EndNodeIndex != key.NodeIndex {
 				vxlanDev := netlink.Vxlan{
 					LinkAttrs: netlink.LinkAttrs{
 						Name:        fmt.Sprintf("%s-%d", l.GetLinkID(), i),
@@ -167,7 +167,7 @@ func (l *VethLink) enableCrossMachine(brIndex int) error {
 					L3miss:   true,
 				}
 
-				logrus.Warnf("Create Vxlan %v", vxlanDev)
+				logrus.Infof("Create Vxlan %v", vxlanDev)
 				err = netlink.LinkAdd(&vxlanDev)
 				if err != nil {
 					return err
@@ -228,7 +228,7 @@ func (l *VethLink) Enable() error {
 	if err != nil {
 		return err
 	}
-	
+
 	l.Enabled = true
 
 	err = l.Connect()
@@ -317,6 +317,31 @@ func (l *VethLink) SetParameters(oldPara, newPara map[string]int64) error {
 			continue
 		}
 
+		if dirtyNetem {
+			for i, v := range l.EndInfos {
+				if v.EndNodeIndex != key.NodeIndex {
+					continue
+				}
+				dev, err := netlink.LinkByName(fmt.Sprintf("%s-%d", l.GetLinkID(), i))
+				if err != nil {
+					logrus.Errorf("Update netem qdisc error: get link by name %s error: %s", fmt.Sprintf("%s-%d", l.GetLinkID(), i), err.Error())
+					return err
+				}
+				netemInfo := netlink.NewNetem(
+					NetemQdiscTemplate.QdiscAttrs,
+					netlink.NetemQdiscAttrs{
+						Latency: uint32(newPara[VethDelayParameter]) + 1,
+						Loss:    float32(newPara[VethLossParameter]) / 100,
+					},
+				)
+				netemInfo.LinkIndex = dev.Attrs().Index
+				err = netlink.QdiscReplace(netemInfo)
+				if err != nil {
+					logrus.Errorf("Update netem qdisc error: %s", err.Error())
+				}
+			}
+		}
+
 		if dirtyTbf {
 			for i, v := range l.EndInfos {
 				if v.EndNodeIndex != key.NodeIndex {
@@ -335,31 +360,6 @@ func (l *VethLink) SetParameters(oldPara, newPara map[string]int64) error {
 				err = netlink.QdiscReplace(&tbfInfo)
 				if err != nil {
 					logrus.Errorf("Update tbf qdisc error: %s", err.Error())
-				}
-			}
-		}
-
-		if dirtyNetem {
-			for i, v := range l.EndInfos {
-				if v.EndNodeIndex != key.NodeIndex {
-					continue
-				}
-				dev, err := netlink.LinkByName(fmt.Sprintf("%s-%d", l.GetLinkID(), i))
-				if err != nil {
-					logrus.Errorf("Update tbf qdisc error: get link by name %s error: %s", fmt.Sprintf("%s-%d", l.GetLinkID(), i), err.Error())
-					return err
-				}
-				netemInfo := netlink.NewNetem(
-					NetemQdiscTemplate.QdiscAttrs,
-					netlink.NetemQdiscAttrs{
-						Latency: uint32(newPara[VethDelayParameter]) + 1,
-						Loss:    float32(newPara[VethLossParameter]) / 100,
-					},
-				)
-				netemInfo.LinkIndex = dev.Attrs().Index
-				err = netlink.QdiscReplace(netemInfo)
-				if err != nil {
-					logrus.Errorf("Update netem qdisc error: %s", err.Error())
 				}
 			}
 		}
