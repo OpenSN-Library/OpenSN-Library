@@ -70,8 +70,11 @@ func AllocLinkIndex() int {
 		if numStr != "" {
 			getIndex, err := strconv.Atoi(numStr)
 			if err != nil {
+				logrus.Errorf("Get next link index error: %s",err.Error())
+			} else {
 				index = getIndex
 			}
+			
 		}
 
 		s.Put(key.NextLinkIndexKey, strconv.Itoa(index+1))
