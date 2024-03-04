@@ -1,7 +1,7 @@
 from satellite_emulator.operator.emulator_operator import EmulatorOperator
 from satellite_emulator.model.instance import Instance
 from satellite_emulator.model.position import Position
-from satellite_emulator.const.dict_fields import PARAMETER_KEY_CONNECT,PARAMETER_KEY_DELAY
+from satellite_emulator.const.dict_fields import PARAMETER_KEY_CONNECT,PARAMETER_KEY_DELAY,PARAMETER_KEY_BANDWIDTH,PARAMETER_KEY_LOSS
 from satellite_emulator.model.link import LinkBase
 from config import ADDR,PORT
 from datetime import datetime
@@ -178,6 +178,8 @@ if __name__ == "__main__":
                 )
                 delay = int(get_propagation_delay_s(distance)*1000000)
                 link_info.parameter[PARAMETER_KEY_DELAY] = delay
+                link_info.parameter[PARAMETER_KEY_BANDWIDTH] = 1000
+                link_info.parameter[PARAMETER_KEY_LOSS] = 150
                 # logger.info("distance between %s and %s is %f, delay is %f"%(link_info.end_infos[0].instance_id,link_info.end_infos[1].instance_id,distance,delay))
                 cli.put_link_parameter(link_info.node_index,link_info.link_id,link_info.parameter)
                 
