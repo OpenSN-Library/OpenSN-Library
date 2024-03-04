@@ -89,7 +89,7 @@ func (l *VethLink) Connect() error {
 		l.GetLinkID(),
 		l.EndInfos[0].InstanceID, l.EndInfos[1].InstanceID,
 	)
-	l.Parameter[model.ConnectParameter] = 1
+	// l.Parameter[model.ConnectParameter] = 1
 	return nil
 }
 func (l *VethLink) Disconnect() error {
@@ -115,7 +115,7 @@ func (l *VethLink) Disconnect() error {
 		l.GetLinkID(),
 		l.EndInfos[0].InstanceID, l.EndInfos[1].InstanceID,
 	)
-	l.Parameter[model.ConnectParameter] = 0
+	// l.Parameter[model.ConnectParameter] = 0
 	return nil
 }
 
