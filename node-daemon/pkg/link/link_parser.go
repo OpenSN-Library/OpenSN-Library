@@ -8,14 +8,18 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
+	"sync"
 
 	"github.com/sirupsen/logrus"
+	"go.etcd.io/etcd/client/v3/concurrency"
 )
 
 type DevInfoType struct {
 	IfIndex int    `json:"if_index"`
 	Name    string `json:"name"`
 }
+
+var linkIndexLock = new(sync.Mutex)
 
 var LinkDeviceInfoMap = map[string][2]model.DeviceRequireInfo{
 	VirtualLinkType: {
@@ -57,18 +61,23 @@ var LinkDeviceInfoMap = map[string][2]model.DeviceRequireInfo{
 }
 
 func AllocLinkIndex() int {
-	linkIndexKey := key.NextLinkIndexKey
-	getResp, err := utils.EtcdClient.Get(context.Background(), linkIndexKey)
+	linkIndexLock.Lock()
+	defer linkIndexLock.Unlock()
 	index := 1
+	concurrency.NewSTM(utils.EtcdClient, func(s concurrency.STM) error {
 
-	if err == nil && len(getResp.Kvs) > 0 {
-		index, err = strconv.Atoi(string(getResp.Kvs[0].Value))
-		if err != nil {
-			index = 1
+		numStr := s.Get(key.NextLinkIndexKey)
+		if numStr != "" {
+			getIndex, err := strconv.Atoi(numStr)
+			if err != nil {
+				index = getIndex
+			}
 		}
-	}
 
-	utils.EtcdClient.Put(context.Background(), linkIndexKey, strconv.Itoa(index+1))
+		s.Put(key.NextLinkIndexKey, strconv.Itoa(index+1))
+		return nil
+	})
+
 	return index
 }
 
