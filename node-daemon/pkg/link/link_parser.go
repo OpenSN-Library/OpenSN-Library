@@ -59,16 +59,16 @@ var LinkDeviceInfoMap = map[string][2]model.DeviceRequireInfo{
 func AllocLinkIndex() int {
 	linkIndexKey := key.NextLinkIndexKey
 	getResp, err := utils.EtcdClient.Get(context.Background(), linkIndexKey)
-	if err != nil || len(getResp.Kvs) < 1 {
-		utils.EtcdClient.Put(context.Background(), linkIndexKey, "2")
-		return 1
+	index := 1
+
+	if err == nil && len(getResp.Kvs) > 0 {
+		index, err = strconv.Atoi(string(getResp.Kvs[0].Value))
+		if err != nil {
+			index = 1
+		}
 	}
 
-	index, err := strconv.Atoi(string(getResp.Kvs[0].Value))
-
-	if err != nil {
-		return 1
-	}
+	utils.EtcdClient.Put(context.Background(), linkIndexKey, strconv.Itoa(index+1))
 	return index
 }
 

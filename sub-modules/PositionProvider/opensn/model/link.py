@@ -1,5 +1,5 @@
 import json,uuid
-from satellite_emulator.utils.tools import object2dict
+from opensn.utils.tools import object2dict
 
 class EndInfo:
 

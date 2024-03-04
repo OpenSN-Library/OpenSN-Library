@@ -7,3 +7,5 @@ NODE_LIST_KEY = "/nodes"
 
 NODE_INSTANCE_CONFIG_KEY_TEMPLATE = "/instance_config/node_%d"
 EMU_CONFIG_KEY = "/emulation_config"
+
+NEXT_LINK_INDEX_KEY = "/next_link_index"

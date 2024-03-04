@@ -2,11 +2,11 @@
 import math
 import ephem
 import datetime
-from satellite_emulator.const.const_var import R_EARTH,LIGHT_SPEED_M_S
-from satellite_emulator.model.position import Position
+from opensn.const.const_var import R_EARTH,LIGHT_SPEED_M_S
+from opensn.model.position import Position
 from instance_types import TYPE_SATELLITE,TYPE_GROUND_STATION
 from instance_types import EX_TLE0_KEY,EX_TLE1_KEY,EX_TLE2_KEY,EX_LATITUDE_KEY,EX_LONGITUDE_KEY,EX_ALTITUDE_KEY
-from satellite_emulator.model.instance import Instance
+from opensn.model.instance import Instance
         
 def calculate_postion(instance: Instance,time:datetime.datetime) -> Position:
     ret = Position()

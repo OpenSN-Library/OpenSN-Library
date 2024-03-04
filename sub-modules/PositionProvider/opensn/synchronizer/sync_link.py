@@ -1,5 +1,5 @@
-from satellite_emulator.model.link import LinkBase,link_from_json,link_to_json,link_parameter_from_json,link_parameter_to_json
-from satellite_emulator.const.etcd_key import NODE_LINK_KEY_TEMPLATE,NODE_LINK_PARAMETER_TEMPLATE
+from opensn.model.link import LinkBase,link_from_json,link_to_json,link_parameter_from_json,link_parameter_to_json
+from opensn.const.etcd_key import NODE_LINK_KEY_TEMPLATE,NODE_LINK_PARAMETER_TEMPLATE
 from etcd3 import Etcd3Client
 
 def put_link(etcd_client:Etcd3Client,link: LinkBase):
@@ -36,3 +36,4 @@ def put_link_parameter(etcd_client:Etcd3Client,node_index:int,link_id:str,parame
     link_parameter_key = "%s/%s"%(NODE_LINK_PARAMETER_TEMPLATE%node_index,link_id)
     link_seq = link_parameter_to_json(parameter)
     etcd_client.put(link_parameter_key,link_seq)
+

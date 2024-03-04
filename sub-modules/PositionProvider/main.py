@@ -1,8 +1,8 @@
-from satellite_emulator.operator.emulator_operator import EmulatorOperator
-from satellite_emulator.model.instance import Instance
-from satellite_emulator.model.position import Position
-from satellite_emulator.const.dict_fields import PARAMETER_KEY_CONNECT,PARAMETER_KEY_DELAY,PARAMETER_KEY_BANDWIDTH,PARAMETER_KEY_LOSS
-from satellite_emulator.model.link import LinkBase
+from opensn.operator.emulator_operator import EmulatorOperator
+from opensn.model.instance import Instance
+from opensn.model.position import Position
+from opensn.const.dict_fields import PARAMETER_KEY_CONNECT,PARAMETER_KEY_DELAY,PARAMETER_KEY_BANDWIDTH,PARAMETER_KEY_LOSS
+from opensn.model.link import LinkBase
 from config import ADDR,PORT
 from datetime import datetime
 from trajectory import calculate_postion,distance_meter,select_closest_satellite,get_propagation_delay_s
@@ -10,7 +10,7 @@ from instance_types import TYPE_GROUND_STATION, TYPE_SATELLITE, EX_ORBIT_INDEX
 from address_type import LINK_V4_ADDR_KEY
 from time import sleep
 from address_allocator import alloc_ipv4,format_ipv4
-from satellite_emulator.utils.tools import dec2ra
+from opensn.utils.tools import dec2ra
 from loguru import logger
 import json
 

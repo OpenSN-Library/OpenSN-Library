@@ -1,5 +1,5 @@
-from satellite_emulator.model.node import Node,node_from_json
-from satellite_emulator.const.etcd_key import NODE_LIST_KEY
+from opensn.model.node import Node,node_from_json
+from opensn.const.etcd_key import NODE_LIST_KEY
 from etcd3 import Etcd3Client
 
 def get_node_map(etcd_client:Etcd3Client,) -> dict[int,Node]:

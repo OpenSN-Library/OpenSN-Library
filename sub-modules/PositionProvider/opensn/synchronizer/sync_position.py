@@ -1,6 +1,6 @@
 from etcd3 import Etcd3Client
-from satellite_emulator.const.etcd_key import POSITION_LIST_KEY
-from satellite_emulator.model.position import Position,position_from_json,position_to_json
+from opensn.const.etcd_key import POSITION_LIST_KEY
+from opensn.model.position import Position,position_from_json,position_to_json
 
 def put_position(etcd_client:Etcd3Client,instance_id:str, position:Position):
     position_key = "%s/%s"%(POSITION_LIST_KEY,instance_id)

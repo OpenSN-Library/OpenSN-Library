@@ -1,8 +1,8 @@
 from etcd3 import Etcd3Client
-from satellite_emulator.const.etcd_key import NODE_INST_KEY_TEMPLATE,\
+from opensn.const.etcd_key import NODE_INST_KEY_TEMPLATE,\
     NODE_INST_RUNTIME_KEY_TEMPLATE,\
     NODE_INSTANCE_CONFIG_KEY_TEMPLATE
-from satellite_emulator.model.instance import Instance,\
+from opensn.model.instance import Instance,\
     InstanceRuntime,\
     instance_from_json,\
     instance_runtime_from_json,\

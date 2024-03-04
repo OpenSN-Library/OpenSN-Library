@@ -1,19 +1,30 @@
 import requests,json
 import etcd3
 from concurrent.futures import ThreadPoolExecutor
-from satellite_emulator.const.link_type import VLINK_TYPE
-from satellite_emulator.model.node import Node
-from satellite_emulator.model.instance import Instance,InstanceRuntime,ConnectionInfo
-from satellite_emulator.model.link import LinkBase,create_new_link
-from satellite_emulator.model.emulation_config import EmulationInfo
-from satellite_emulator.model.position import Position
-from satellite_emulator.synchronizer.sync_instance import get_instance,get_instance_map,put_instance
-from satellite_emulator.synchronizer.sync_instance import get_instance_runtime,get_instance_runtime_map
-from satellite_emulator.synchronizer.sync_instance import put_instance_config,put_instance_config_if_not_exist
-from satellite_emulator.synchronizer.sync_position import get_position,get_position_map
-from satellite_emulator.synchronizer.sync_node import get_node_map,get_node
-from satellite_emulator.synchronizer.sync_link import get_link,get_link_map,put_link,put_link_parameter,remove_link
-from satellite_emulator.synchronizer.sync_config import get_emulation_config,put_emulation_config
+from opensn.const.link_type import VLINK_TYPE
+from opensn.const.etcd_key import NEXT_LINK_INDEX_KEY
+from opensn.model.node import Node
+from opensn.model.instance import Instance,InstanceRuntime,ConnectionInfo
+from opensn.model.link import LinkBase,create_new_link
+from opensn.model.emulation_config import EmulationInfo
+from opensn.model.position import Position
+from opensn.synchronizer.sync_instance import get_instance,get_instance_map,put_instance
+from opensn.synchronizer.sync_instance import get_instance_runtime,get_instance_runtime_map
+from opensn.synchronizer.sync_instance import put_instance_config,put_instance_config_if_not_exist
+from opensn.synchronizer.sync_position import get_position,get_position_map
+from opensn.synchronizer.sync_node import get_node_map,get_node
+from opensn.synchronizer.sync_link import get_link,get_link_map,put_link,put_link_parameter,remove_link
+from opensn.synchronizer.sync_config import get_emulation_config,put_emulation_config
+
+def alloc_link_index(etcd_client: etcd3.Etcd3Client) -> int:
+    resp,meta = etcd_client.get(NEXT_LINK_INDEX_KEY)
+    index = 1
+    try:
+        index = int(resp)
+    except Exception as e:
+        index = 1
+    etcd_client.put(NEXT_LINK_INDEX_KEY,str(index+1))
+    return index
 
 class EmulatorOperator:
 
@@ -121,7 +132,9 @@ class EmulatorOperator:
             address_info2=address_info2,
             init_parameter=init_parameter
         )
+        link_index = alloc_link_index()
         for link_info in new_link_array:
+            link_info.link_index = link_index
             put_link(self.etcd_client,link_info)
         connect_info_1 = ConnectionInfo()
         connect_info_1.end_node_index = instance2.node_index
