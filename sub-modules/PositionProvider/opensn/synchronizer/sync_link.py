@@ -3,12 +3,9 @@ from opensn.const.etcd_key import NODE_LINK_KEY_TEMPLATE,NODE_LINK_PARAMETER_TEM
 from etcd3 import Etcd3Client
 
 def put_link(etcd_client:Etcd3Client,link: LinkBase):
-    link_key = "%s/%s"%(NODE_LINK_KEY_TEMPLATE%link.end_infos[0].end_node_index,link.link_id)
+    link_key = "%s/%s"%(NODE_LINK_KEY_TEMPLATE%link.node_index,link.link_id)
     link_seq = link_to_json(link)
     etcd_client.put(link_key,link_seq)
-    if link.end_infos[0].end_node_index != link.end_infos[1].end_node_index:
-        link_key = "%s/%s"%(NODE_LINK_KEY_TEMPLATE%link.end_infos[1].end_node_index,link.link_id)
-        etcd_client.put(link_key,link_seq)
 
 def remove_link(etcd_client:Etcd3Client,node_index:int, link_id: str):
     link_key = "%s/%s"%(NODE_LINK_KEY_TEMPLATE%node_index,link_id)

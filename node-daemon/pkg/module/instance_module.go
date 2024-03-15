@@ -28,7 +28,7 @@ func SetLinkEndPid(linkID string, instanceID string, pid int) error {
 		linkID,
 		func(lb *model.LinkBase) error {
 			for endIndex, endInfo := range lb.EndInfos {
-				if endInfo.EndNodeIndex == key.NodeIndex && endInfo.InstanceID == instanceID {
+				if endInfo.InstanceID == instanceID {
 					lb.EndInfos[endIndex].InstancePid = pid
 				}
 			}

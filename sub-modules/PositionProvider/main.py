@@ -31,6 +31,8 @@ def genenrate_config(cli:EmulatorOperator,node_index:int,instance_id:str):
         for end_index in range(len(link_info.end_infos)):
             if link_info.end_infos[end_index].instance_id == instance_id:
                 instance_index = end_index
+        if instance_index < 0:
+            return {}
         config_map["link_infos"][k] = link_info.address_infos[instance_index]
         config_map["end_infos"][k] = {
             "instance_id": v.instance_id,
@@ -57,30 +59,29 @@ if __name__ == "__main__":
                 if instance.type == TYPE_GROUND_STATION:
                     ground_station_list.append(instance)
 
+
+        address_map = {}
         for node_index,node in node_list.items():
             node_link_map[node_index] = {}
             link_map = cli.get_link_map(node_index)
             for link_id,link_info in link_map.items():
                 if link_info.address_infos[0] is None or \
                     link_info.address_infos[1] is None:
-                    subnet = alloc_ipv4(30)
-                    link_info.address_infos[0] = {
+                    if link_id not in address_map.keys():
+                        address_map[link_id] = alloc_ipv4(30)
+                    
+                    subnet = address_map[link_id]
+                    link_info.address_infos = [{
                         LINK_V4_ADDR_KEY: format_ipv4(subnet[1],30)
-                    }
-                    link_info.address_infos[1] = {
+                    },
+                    {
                         LINK_V4_ADDR_KEY: format_ipv4(subnet[2],30)
-                    }
+                    }]
                     cli.put_link(link_info)
-                elif LINK_V4_ADDR_KEY not in link_info.address_infos[0] or \
-                    LINK_V4_ADDR_KEY not in link_info.address_infos[1]:
-                    subnet = alloc_ipv4(30)
-                    link_info.address_infos[0][LINK_V4_ADDR_KEY] = format_ipv4(subnet[1],30)
-                    link_info.address_infos[1][LINK_V4_ADDR_KEY] = format_ipv4(subnet[2],30)
-                    cli.put_link(link_info)
-                    print(link_info.address_infos)
                 node_link_map[node_index][link_id] = link_info
+                
 
-        position_map: dict[str,Position] = {}
+        position_map: dict[str,Position] = {"":Position()}
         time_now = datetime.now()
         for instance_id,instance_info in all_instance_map.items():
             if instance_info.start:
@@ -158,6 +159,8 @@ if __name__ == "__main__":
             for link_id,link_info in link_map.items():
                 if link_info.parameter is None:
                     link_info.parameter = {}
+                if link_info.end_infos[0].instance_id=="" or link_info.end_infos[1].instance_id:
+                    continue
                 if not link_info.enabled:
                     continue
                 if link_info.end_infos[0].instance_type == TYPE_SATELLITE and \
@@ -166,12 +169,12 @@ if __name__ == "__main__":
                     all_instance_map[link_info.end_infos[0].instance_id].extra[EX_ORBIT_INDEX] and \
                     abs(position_map[link_info.end_infos[0].instance_id].latitude) > polar_threshold or \
                     abs(position_map[link_info.end_infos[1].instance_id].latitude) > polar_threshold:
-                        if PARAMETER_KEY_CONNECT in link_info.parameter.keys() and link_info.parameter[PARAMETER_KEY_CONNECT]==1:
-                            logger.info("connect %s"%link_id)
+                        # if PARAMETER_KEY_CONNECT in link_info.parameter.keys() and link_info.parameter[PARAMETER_KEY_CONNECT]==1:
+                        #     logger.info("connect %s"%link_id)
                         link_info.parameter[PARAMETER_KEY_CONNECT] = 0
                 else:
-                    if PARAMETER_KEY_CONNECT not in link_info.parameter.keys() or link_info.parameter[PARAMETER_KEY_CONNECT]==0:
-                            logger.info("disconnect %s"%link_id)
+                    # if PARAMETER_KEY_CONNECT not in link_info.parameter.keys() or link_info.parameter[PARAMETER_KEY_CONNECT]==0:
+                    #         logger.info("disconnect %s"%link_id)
                     link_info.parameter[PARAMETER_KEY_CONNECT] = 1
 
                 distance = distance_meter(
