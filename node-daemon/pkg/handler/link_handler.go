@@ -10,6 +10,10 @@ func DelLink(ctx *gin.Context) {
 
 }
 
+func GetLinkList(ctx *gin.Context) {
+	
+}
+
 func UpdateLinkParameter(ctx *gin.Context) {
 	
 }

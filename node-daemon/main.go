@@ -27,7 +27,7 @@ func signalHandler(sigChan chan os.Signal, modules []module.Module) {
 }
 
 func main() {
-	logrus.SetLevel(logrus.InfoLevel)
+	logrus.SetLevel(logrus.DebugLevel)
 	logrus.SetFormatter(&nested.Formatter{
 		TimestampFormat: time.RFC3339,
 	})

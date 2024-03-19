@@ -3,7 +3,6 @@ package module
 import (
 	"NodeDaemon/model"
 	"NodeDaemon/pkg/link"
-	"NodeDaemon/pkg/synchronizer"
 	"NodeDaemon/share/key"
 	"NodeDaemon/share/signal"
 	"NodeDaemon/utils"
@@ -18,40 +17,37 @@ import (
 
 func UpdateLinkState(newLink model.Link, oldLink model.Link) error {
 
-	newEnableState := newLink.GetLinkID() != ""
+	var err error
+	isEnable := oldLink.IsEnabled() || newLink.IsEnabled()
+	isCreated := oldLink.IsCreated() || newLink.IsCreated()
 
-	for _, endInfo := range newLink.GetEndInfos() {
-		if endInfo.EndNodeIndex == key.NodeIndex && endInfo.InstancePid == 0 {
-			newEnableState = false
+	shouldEnable := newLink.GetLinkBasePtr().Enable
+	shouldCreate := newLink.GetLinkID() != ""
+
+	if isCreated != shouldCreate {
+		if shouldCreate {
+			err = newLink.Create()
+		} else {
+			err = oldLink.Destroy()
 		}
 	}
-	if newEnableState != oldLink.IsEnabled() {
-		logrus.Infof("Link %s State Change From %v to %v", oldLink.GetLinkID(), oldLink.IsEnabled(), newEnableState)
-		err := synchronizer.UpdateLinkInfo(
-			key.NodeIndex,
-			newLink.GetLinkID(),
-			func(lb *model.LinkBase) error {
-				if oldLink.IsEnabled() != newEnableState {
-					if newEnableState {
-						err := newLink.Enable()
-						if err != nil {
-							return fmt.Errorf("generate enable requests for link %s error: %s", newLink.GetLinkID(), err.Error())
-						}
-					} else {
-						err := oldLink.Disable()
-						if err != nil {
-							return fmt.Errorf("generate disable requests for link %s error: %s", newLink.GetLinkID(), err.Error())
-						}
-					}
-				}
-				lb.Enabled = newEnableState
-				return nil
-			},
-		)
-		return err
+
+	if err != nil {
+		return fmt.Errorf("update create state error: %s", err.Error())
 	}
 
+	if shouldEnable != isEnable {
+		if shouldEnable {
+			err = newLink.Enable()
+		} else {
+			err = newLink.Disable()
+		}
+	}
+	if err != nil {
+		return fmt.Errorf("update running state error: %s", err.Error())
+	}
 	return nil
+
 }
 
 type LinkModule struct {
@@ -60,7 +56,7 @@ type LinkModule struct {
 
 func linkDaemonFunc(sigChan chan int, errChan chan error) {
 
-	var keyLockMap sync.Map
+	// var keyLockMap sync.Map
 	ctx, cancel := context.WithCancel(context.Background())
 	watchChan := utils.EtcdClient.Watch(
 		ctx,
@@ -92,7 +88,6 @@ func linkDaemonFunc(sigChan chan int, errChan chan error) {
 							return
 						}
 					}
-
 					if v.Kv != nil && len(v.Kv.Value) > 0 {
 						etcdKey = string(v.Kv.Key)
 						newLink, err = link.ParseLinkFromBytes(v.Kv.Value)
@@ -102,17 +97,19 @@ func linkDaemonFunc(sigChan chan int, errChan chan error) {
 							return
 						}
 					}
+					logrus.Debugf("Link %s Update Detected From %v to %v", etcdKey, oldLink, newLink)
 
-					lockAny, _ := keyLockMap.LoadOrStore(etcdKey, new(sync.Mutex))
-					lock := lockAny.(*sync.Mutex)
-					lock.Lock()
-					defer lock.Unlock()
+					// lockAny, _ := keyLockMap.LoadOrStore(etcdKey, new(sync.Mutex))
+					// lock := lockAny.(*sync.Mutex)
+					// lock.Lock()
+					// defer lock.Unlock()
 
 					err = UpdateLinkState(newLink, oldLink)
 					if err != nil {
 						errMsg := fmt.Sprintf("Do Link State Change of %s Error: %s", etcdKey, err.Error())
 						logrus.Error(errMsg)
-
+					} else {
+						logrus.Infof("Do Link State Change of %s Success", etcdKey)
 					}
 				}(v)
 

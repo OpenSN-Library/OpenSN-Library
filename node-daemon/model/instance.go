@@ -1,5 +1,11 @@
 package model
 
+import (
+	"NodeDaemon/utils"
+	"context"
+	"fmt"
+)
+
 type DeviceRequireInfo struct {
 	DevName string `json:"dev_name"`
 	NeedNum int    `json:"need_num"`
@@ -26,9 +32,22 @@ type Instance struct {
 	Start       bool                         `json:"start"`
 }
 
-type InstanceRuntime struct {
-	InstanceID  string `json:"instance_id"`
-	State       string `json:"state"`
-	Pid         int    `json:"pid"`
-	ContainerID string `json:"container_id"`
+func (i *Instance) IsCreated() bool {
+	_, err := utils.DockerClient.ContainerInspect(context.Background(), fmt.Sprintf(
+		"%s_%s", i.Type, i.InstanceID,
+	))
+	if err != nil {
+		return false
+	}
+	return true
+}
+
+func (i *Instance) IsRunning() bool {
+	info, err := utils.DockerClient.ContainerInspect(context.Background(), fmt.Sprintf(
+		"%s_%s", i.Type, i.InstanceID,
+	))
+	if err != nil {
+		return false
+	}
+	return info.State.Running
 }

@@ -1,5 +1,38 @@
 package model
 
+/*
+Create Links:
+
+Link After Container (Fine)
+
+	Create Bridge
+	Add Veth1
+	Add Veth2
+
+Container After Link (Unable to Check Container)
+
+	Create Bridge
+
+	Waiting Routine
+
+
+
+Delete Links:
+
+Link After Container (Ok)
+
+	Delete Bridge
+	Delete Veth1
+	Delete Veth2
+
+Container After Link (Ok)
+
+	Delete Brdige
+	Delete Veth1
+	Delete Veth2
+
+*/
+
 const ConnectParameter = "connect"
 
 type ParameterInfo struct {
@@ -22,11 +55,15 @@ type Link interface {
 	GetLinkType() string
 	Connect() error
 	Disconnect() error
+	Create() error
+	Destroy() error
 	Enable() error
 	Disable() error
 	IsCrossMachine() bool
 	SetParameters(oldPara, newPara map[string]int64) error
+	IsCreated() bool
 	IsEnabled() bool
+	SetState(newState bool)
 	IsConnected() bool
 	GetParameter(name string) (int64, error)
 	GetEndInfos() [2]EndInfoType
@@ -36,20 +73,23 @@ type Link interface {
 type EndInfoType struct {
 	InstanceID   string `json:"instance_id"`
 	InstanceType string `json:"instance_type"`
-	InstancePid  int    `json:"instance_pid"`
 	EndNodeIndex int    `json:"end_node_index"`
 }
 
 type LinkBase struct {
+	Enable       bool                 `json:"enable"`
 	LinkID       string               `json:"link_id"`
 	EndInfos     [2]EndInfoType       `json:"end_infos"`
 	Type         string               `json:"type"`
 	AddressInfos [2]map[string]string `json:"address_infos"`
 	LinkIndex    int                  `json:"link_index"`
-	Enabled      bool                 `json:"enabled"`
 	CrossMachine bool                 `json:"cross_machine"`
 	Parameter    map[string]int64     `json:"parameter"`
 	NodeIndex    int                  `json:"node_index"`
+}
+
+func (l *LinkBase) SetState(newState bool) {
+	l.Enable = newState
 }
 
 func (l *LinkBase) GetLinkID() string {
@@ -62,10 +102,6 @@ func (l *LinkBase) GetLinkType() string {
 
 func (l *LinkBase) IsConnected() bool {
 	return l.Parameter[ConnectParameter] != 0
-}
-
-func (l *LinkBase) IsEnabled() bool {
-	return l.Enabled
 }
 
 func (l *LinkBase) IsCrossMachine() bool {

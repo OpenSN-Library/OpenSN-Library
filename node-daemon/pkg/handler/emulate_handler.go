@@ -138,6 +138,38 @@ func StartEmulationHandler(ctx *gin.Context) {
 				return
 			}
 		}
+		linkList, err := synchronizer.GetLinkList(nodeInfo.NodeIndex)
+
+		if err != nil {
+			errMsg := fmt.Sprintf("Start Emulation Error: get link list of %d error: %s", nodeInfo.NodeIndex, err.Error())
+			logrus.Error(errMsg)
+			resp := ginmodel.JsonResp{
+				Code:    -1,
+				Message: errMsg,
+			}
+			ctx.JSON(http.StatusInternalServerError, resp)
+			return
+		}
+		for _, linkInfo := range linkList {
+			err := synchronizer.UpdateLinkInfo(
+				nodeInfo.NodeIndex,
+				linkInfo.GetLinkID(),
+				func(i *model.LinkBase) error {
+					i.Enable = true
+					return nil
+				},
+			)
+			if err != nil {
+				errMsg := fmt.Sprintf("Start Emulation Error: update link %s state error: %s", linkInfo.GetLinkID(), err.Error())
+				logrus.Error(errMsg)
+				resp := ginmodel.JsonResp{
+					Code:    -1,
+					Message: errMsg,
+				}
+				ctx.JSON(http.StatusInternalServerError, resp)
+				return
+			}
+		}
 	}
 	err = synchronizer.UpdateEmulationInfo(func(ei *model.EmulationInfo) error {
 		ei.Running = true
@@ -194,6 +226,38 @@ func StopEmulationHandler(ctx *gin.Context) {
 					return nil
 				},
 			)
+		}
+		linkList, err := synchronizer.GetLinkList(nodeInfo.NodeIndex)
+
+		if err != nil {
+			errMsg := fmt.Sprintf("Stop Emulation Error: get link list of %d error: %s", nodeInfo.NodeIndex, err.Error())
+			logrus.Error(errMsg)
+			resp := ginmodel.JsonResp{
+				Code:    -1,
+				Message: errMsg,
+			}
+			ctx.JSON(http.StatusInternalServerError, resp)
+			return
+		}
+		for _, linkInfo := range linkList {
+			err := synchronizer.UpdateLinkInfo(
+				nodeInfo.NodeIndex,
+				linkInfo.GetLinkID(),
+				func(i *model.LinkBase) error {
+					i.Enable = false
+					return nil
+				},
+			)
+			if err != nil {
+				errMsg := fmt.Sprintf("Stop Emulation Error: update link %s state error: %s", linkInfo.GetLinkID(), err.Error())
+				logrus.Error(errMsg)
+				resp := ginmodel.JsonResp{
+					Code:    -1,
+					Message: errMsg,
+				}
+				ctx.JSON(http.StatusInternalServerError, resp)
+				return
+			}
 		}
 	}
 
@@ -294,6 +358,7 @@ func AddTopologyHandler(ctx *gin.Context) {
 		linkID := uuid.NewString()[:8]
 		linkList = append(linkList, &model.LinkBase{
 			LinkID: linkID,
+			Enable: emulationConfig.Running,
 			EndInfos: [2]model.EndInfoType{
 				{
 					InstanceID:   instanceList[linkConfig.EndIndexes[0]].InstanceID,
@@ -319,6 +384,7 @@ func AddTopologyHandler(ctx *gin.Context) {
 		if instanceList[linkConfig.EndIndexes[0]].NodeIndex != instanceList[linkConfig.EndIndexes[1]].NodeIndex {
 			linkList = append(linkList, &model.LinkBase{
 				LinkID: linkID,
+				Enable: emulationConfig.Running,
 				EndInfos: [2]model.EndInfoType{
 					{
 						InstanceID:   instanceList[linkConfig.EndIndexes[0]].InstanceID,

@@ -70,11 +70,11 @@ func AllocLinkIndex() int {
 		if numStr != "" {
 			getIndex, err := strconv.Atoi(numStr)
 			if err != nil {
-				logrus.Errorf("Get next link index error: %s",err.Error())
+				logrus.Errorf("Get next link index error: %s", err.Error())
 			} else {
 				index = getIndex
 			}
-			
+
 		}
 
 		s.Put(key.NextLinkIndexKey, strconv.Itoa(index+1))
@@ -125,6 +125,8 @@ func ParseLinkFromBytes(seq []byte) (model.Link, error) {
 	realLink, err = ParseLinkFromBase(baseLink)
 	return realLink, err
 }
+
+
 
 func ParseLinkFromBase(config model.LinkBase) (model.Link, error) {
 	var realLink model.Link

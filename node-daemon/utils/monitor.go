@@ -1,7 +1,6 @@
 package utils
 
 import (
-	"NodeDaemon/model"
 	"bufio"
 	"fmt"
 	"io"
@@ -15,6 +14,53 @@ import (
 	"github.com/shirou/gopsutil/v3/net"
 	"github.com/sirupsen/logrus"
 )
+
+type HostResourceRaw struct {
+	CPUTotal    float64
+	CPUBusy     float64
+	MemByte     uint64
+	SwapMemByte uint64
+}
+
+type InstanceResouceRaw struct {
+	CPUBusy     float64
+	MemByte     uint64
+	SwapMemByte uint64
+}
+
+type LinkResourceRaw struct {
+	RecvByte     uint64
+	SendByte     uint64
+	RecvPack     uint64
+	SendPack     uint64
+	RecvErrPack  uint64
+	SendErrPack  uint64
+	RecvDropPack uint64
+	SendDropPack uint64
+}
+
+type HostResource struct {
+	CPUUsage    float64
+	MemByte     uint64
+	SwapMemByte uint64
+}
+
+type InstanceResouce struct {
+	CPUUsage    float64
+	MemByte     uint64
+	SwapMemByte uint64
+}
+
+type LinkResource struct {
+	RecvBps     float64
+	SendBps     float64
+	RecvPps     float64
+	SendPps     float64
+	RecvErrPps  float64
+	SendErrPps  float64
+	RecvDropPps float64
+	SendDropPps float64
+}
 
 func readCpuUsage(filePath string) (float64, error) {
 	found := false
@@ -69,8 +115,8 @@ func readUint64(filePath string) (uint64, error) {
 	return strconv.ParseUint(uint64Str, 10, 64)
 }
 
-func GetHostResourceInfo() (*model.HostResourceRaw, error) {
-	var ret = new(model.HostResourceRaw)
+func GetHostResourceInfo() (*HostResourceRaw, error) {
+	var ret = new(HostResourceRaw)
 
 	cpuStat, err := cpu.Times(false)
 
@@ -95,10 +141,32 @@ func GetHostResourceInfo() (*model.HostResourceRaw, error) {
 	return ret, nil
 }
 
-func GetInstanceResourceInfo(containerID string) (*model.InstanceResouceRaw, error) {
+func GetInstanceResourceInfo(instanceID string, pid int) (*InstanceResouceRaw, error) {
+	cgroupProc, err := os.Open(fmt.Sprintf("/proc/%d/cgroup", pid))
+	defer cgroupProc.Close()
+	if err != nil {
+		errMsg := fmt.Sprintf("Open Cgroup Mount Dir Record Of %s Error: %s", instanceID, err.Error())
+		logrus.Warn(errMsg)
+		return nil, err
+	}
+	bytes, err := io.ReadAll(cgroupProc)
+
+	if err != nil {
+		errMsg := fmt.Sprintf("Read Cgroup Mount Dir Of %s Error: %s", instanceID, err.Error())
+		logrus.Warn(errMsg)
+		return nil, err
+	}
+
+	splitedStr := strings.Split(string(bytes), "::")
+	if len(splitedStr) < 2 {
+		errMsg := fmt.Sprintf("Read Cgroup Mount Dir Of %s Error: invalid format: %s", instanceID, string(bytes))
+		logrus.Warn(errMsg)
+		return nil, err
+	}
+
 	pathBase := fmt.Sprintf(
-		"/sys/fs/cgroup/system.slice/docker-%s.scope/",
-		containerID,
+		"/sys/fs/cgroup/%s/",
+		splitedStr[1],
 	)
 	cpuPath := path.Join(pathBase, "cpu.stat")
 	memPath := path.Join(pathBase, "memory.current")
@@ -106,32 +174,32 @@ func GetInstanceResourceInfo(containerID string) (*model.InstanceResouceRaw, err
 
 	mem, err := readUint64(memPath)
 	if err != nil {
-		errMsg := fmt.Sprintf("Read Memory Usage Of Container %s Error: %s", containerID, err.Error())
+		errMsg := fmt.Sprintf("Read Memory Usage Of %s Error: %s", instanceID, err.Error())
 		logrus.Warn(errMsg)
 		return nil, err
 	}
 	swap, err := readUint64(swapPath)
 	if err != nil {
-		errMsg := fmt.Sprintf("Read Swap Usage Of Container %s Error: %s", containerID, err.Error())
+		errMsg := fmt.Sprintf("Read Swap Usage Of %s Error: %s", instanceID, err.Error())
 		logrus.Warn(errMsg)
 		return nil, err
 	}
 	cpuUsage, err := readCpuUsage(cpuPath)
 	if err != nil {
-		errMsg := fmt.Sprintf("Read Cpu Usage Of Container %s Error: %s", containerID, err.Error())
+		errMsg := fmt.Sprintf("Read Cpu Usage Of %s Error: %s", instanceID, err.Error())
 		logrus.Warn(errMsg)
 		return nil, err
 	}
 
-	return &model.InstanceResouceRaw{
+	return &InstanceResouceRaw{
 		CPUBusy:     cpuUsage / 1000,
 		MemByte:     mem,
 		SwapMemByte: swap,
 	}, nil
 }
 
-func GetInstanceLinkResourceInfo(pid int) (map[string]*model.LinkResourceRaw, error) {
-	ret := make(map[string]*model.LinkResourceRaw)
+func GetInstanceLinkResourceInfo(pid int) (map[string]*LinkResourceRaw, error) {
+	ret := make(map[string]*LinkResourceRaw)
 	filePath := fmt.Sprintf("/proc/%d/net/dev", pid)
 	devStat, err := net.IOCountersByFile(true, filePath)
 	if err != nil {
@@ -140,7 +208,7 @@ func GetInstanceLinkResourceInfo(pid int) (map[string]*model.LinkResourceRaw, er
 		return ret, err
 	}
 	for _, v := range devStat {
-		ret[v.Name] = &model.LinkResourceRaw{
+		ret[v.Name] = &LinkResourceRaw{
 			RecvByte:     v.BytesRecv,
 			SendByte:     v.BytesSent,
 			RecvPack:     v.PacketsRecv,

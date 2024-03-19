@@ -1,8 +1,7 @@
 package module
 
 import (
-	"NodeDaemon/model"
-	"NodeDaemon/pkg/synchronizer"
+	"NodeDaemon/data"
 	"NodeDaemon/share/key"
 	"NodeDaemon/share/signal"
 	"NodeDaemon/utils"
@@ -38,8 +37,8 @@ func CreateMonitorModule() *MonitorModule {
 }
 
 func uploadHostPerformanceData(
-	this *model.HostResourceRaw,
-	prev *model.HostResourceRaw,
+	this *utils.HostResourceRaw,
+	prev *utils.HostResourceRaw,
 	time time.Time,
 ) []*write.Point {
 	p := influxdb2.NewPoint(
@@ -47,7 +46,7 @@ func uploadHostPerformanceData(
 		map[string]string{
 			"node_index": strconv.Itoa(key.NodeIndex),
 		},
-		structs.Map(model.HostResource{
+		structs.Map(utils.HostResource{
 			CPUUsage:    (this.CPUBusy - prev.CPUBusy) / (this.CPUTotal - prev.CPUTotal),
 			MemByte:     (this.MemByte + prev.MemByte) / 2,
 			SwapMemByte: (this.SwapMemByte + prev.SwapMemByte) / 2,
@@ -59,8 +58,8 @@ func uploadHostPerformanceData(
 
 func uploadLinkStatusInfo(
 	instanceID, namespace string,
-	this map[string]*model.LinkResourceRaw,
-	prev map[string]*model.LinkResourceRaw,
+	this map[string]*utils.LinkResourceRaw,
+	prev map[string]*utils.LinkResourceRaw,
 	prevTime time.Time,
 	time time.Time,
 ) []*write.Point {
@@ -75,7 +74,7 @@ func uploadLinkStatusInfo(
 					"instance_id": instanceID,
 					"namespace":   namespace,
 				},
-				structs.Map(model.LinkResource{
+				structs.Map(utils.LinkResource{
 					SendBps:     (float64(thisInfo.RecvByte - prevInfo.RecvByte)) / (time.Sub(prevTime).Seconds()),
 					RecvBps:     (float64(thisInfo.RecvByte - prevInfo.RecvByte)) / (time.Sub(prevTime).Seconds()),
 					SendPps:     float64(thisInfo.SendPack-prevInfo.SendPack) / (time.Sub(prevTime).Seconds()),
@@ -94,8 +93,8 @@ func uploadLinkStatusInfo(
 
 func uploadInstancePerformanceInfo(
 	namespaceMap map[string]string,
-	this map[string]*model.InstanceResouceRaw,
-	prev map[string]*model.InstanceResouceRaw,
+	this map[string]*utils.InstanceResouceRaw,
+	prev map[string]*utils.InstanceResouceRaw,
 	totalTimeMs float64,
 	time time.Time,
 ) []*write.Point {
@@ -109,7 +108,7 @@ func uploadInstancePerformanceInfo(
 					"instance_id": instanceID,
 					"namespace":   namespaceMap[instanceID],
 				},
-				structs.Map(model.InstanceResouce{
+				structs.Map(utils.InstanceResouce{
 					CPUUsage:    (thisInfo.CPUBusy - prevInfo.CPUBusy) / (totalTimeMs),
 					MemByte:     (thisInfo.MemByte + prevInfo.MemByte) / 2,
 					SwapMemByte: (thisInfo.SwapMemByte + prevInfo.SwapMemByte) / 2,
@@ -123,9 +122,10 @@ func uploadInstancePerformanceInfo(
 }
 
 func captureNodeStatus(sigChan chan int, errChan chan error) {
-	var prevNodeResouce *model.HostResourceRaw
-	var prevInstanceLinkResource map[string]map[string]*model.LinkResourceRaw
-	var prevInstanceResource map[string]*model.InstanceResouceRaw
+	localLock := new(sync.Mutex)
+	var prevNodeResouce *utils.HostResourceRaw
+	var prevInstanceLinkResource map[string]map[string]*utils.LinkResourceRaw
+	var prevInstanceResource map[string]*utils.InstanceResouceRaw
 	var prevTime = time.Now()
 	withPrev := false
 	for {
@@ -140,43 +140,38 @@ func captureNodeStatus(sigChan chan int, errChan chan error) {
 
 		time := time.Now()
 		instanceNamespaceMap := make(map[string]string)
-		thisInstanceLinkResource := map[string]map[string]*model.LinkResourceRaw{}
-		thisInstanceResource := map[string]*model.InstanceResouceRaw{}
-		localLock := new(sync.Mutex)
+		thisInstanceLinkResource := map[string]map[string]*utils.LinkResourceRaw{}
+		thisInstanceResource := map[string]*utils.InstanceResouceRaw{}
 
 		thisNodeResouce, err := utils.GetHostResourceInfo()
 
 		if err != nil {
-			// logrus.Errorf("Get Host Performance Info of Node %d Error:%s", key.NodeIndex, err.Error())
+			logrus.Errorf("Get Host Performance Info of Node %d Error:%s", key.NodeIndex, err.Error())
 			errChan <- err
 		}
 
-		instanceList, err := synchronizer.GetInstanceRuntimeList(key.NodeIndex)
+		// instancePidPairs := data.GetAllPids()
+		instancePidPairs := []data.InstancePidPair{}
 
-		if err != nil {
-			// logrus.Errorf("Get Instance Runtime Info List of Node %d Error:%s", key.NodeIndex, err.Error())
-			errChan <- err
-		}
-
-		wg := utils.ForEachWithThreadPool[*model.InstanceRuntime](func(instanceInfo *model.InstanceRuntime) {
+		wg := utils.ForEachWithThreadPool[data.InstancePidPair](func(instanceInfo data.InstancePidPair) {
 			if instanceInfo.Pid == 0 {
 				return
 			}
-			instanceResouce, err := utils.GetInstanceResourceInfo(instanceInfo.ContainerID)
+			instanceResouce, err := utils.GetInstanceResourceInfo(instanceInfo.InstanceID, instanceInfo.Pid)
 			if err != nil {
-				// logrus.Errorf("Get Instance Performance of Instance %s Error: %s", instanceInfo.InstanceID, err.Error())
+				logrus.Errorf("Get Instance Performance of Instance %s Error: %s", instanceInfo.InstanceID, err.Error())
 				return
 			}
 			linkStatus, err := utils.GetInstanceLinkResourceInfo(instanceInfo.Pid)
 			if err != nil {
-				// logrus.Errorf("Get Link Performance of Instance %s Error: %s", instanceInfo.InstanceID, err.Error())
+				logrus.Errorf("Get Link Performance of Instance %s Error: %s", instanceInfo.InstanceID, err.Error())
 				return
 			}
 			localLock.Lock()
 			thisInstanceLinkResource[instanceInfo.InstanceID] = linkStatus
 			thisInstanceResource[instanceInfo.InstanceID] = instanceResouce
 			localLock.Unlock()
-		}, instanceList, 128)
+		}, instancePidPairs, 128)
 		wg.Wait()
 		if withPrev {
 			points := uploadHostPerformanceData(

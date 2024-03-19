@@ -10,6 +10,10 @@ func DelInstances(ctx *gin.Context) {
 
 }
 
+func GetInstanceList(ctx *gin.Context) {
+	
+}
+
 func StartInstance(ctx *gin.Context) {
 	
 }
