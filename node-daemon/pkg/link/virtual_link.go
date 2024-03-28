@@ -122,7 +122,7 @@ func (l *VethLink) Connect() error {
 		return fmt.Errorf("%s is not enabled", l.LinkID)
 	}
 
-	setLink, err := netlink.LinkByName(l.GetLinkID())
+	setLink, err := netlink.LinkByName(l.LinkID)
 	if err != nil {
 		err := fmt.Errorf("get sub device from name %s error: %s", l.LinkID, err.Error())
 		return err
@@ -181,6 +181,11 @@ func (l *VethLink) enableSameMachine(brIndex int) error {
 		err := netlink.LinkAdd(veth)
 		if err != nil {
 			logrus.Errorf("Add Veth Peer Link %v Error: %s", *l, err.Error())
+			continue
+		}
+		err = netlink.LinkSetUp(veth)
+		if err != nil {
+			logrus.Errorf("Set Veth Peer Link %v Up Error: %s", *l, err.Error())
 		}
 	}
 
@@ -217,6 +222,11 @@ func (l *VethLink) enableCrossMachine(brIndex int) error {
 				err = netlink.LinkAdd(&vxlanDev)
 				if err != nil {
 					logrus.Errorf("Add Vxlan Link %v Error: %s", *l, err.Error())
+					continue
+				}
+				err = netlink.LinkSetUp(&vxlanDev)
+				if err != nil {
+					logrus.Errorf("Set Veth Peer Link %v Up Error: %s", *l, err.Error())
 				}
 			} else {
 				instancePid := data.WatchInstancePid(v.InstanceID)
@@ -232,7 +242,11 @@ func (l *VethLink) enableCrossMachine(brIndex int) error {
 				err = netlink.LinkAdd(veth)
 				if err != nil {
 					logrus.Errorf("Add Veth Peer Link %v Error: %s", *l, err.Error())
-					return err
+					continue
+				}
+				err = netlink.LinkSetUp(veth)
+				if err != nil {
+					logrus.Errorf("Set Veth Peer Link %v Up Error: %s", *l, err.Error())
 				}
 			}
 		}
@@ -272,12 +286,13 @@ func (l *VethLink) Disable() error {
 		delLink, err := netlink.LinkByName(fmt.Sprintf("%s-%d", l.GetLinkID(), i))
 		if err != nil {
 			err := fmt.Errorf("get sub device from name %s error: %s", fmt.Sprintf("%s-%d", l.GetLinkID(), i), err.Error())
-			return err
+			logrus.Errorf("Disable Link %s Error: %s", l.LinkID, err.Error())
+			continue
 		}
 		err = netlink.LinkDel(delLink)
 		if err != nil {
 			err := fmt.Errorf("delete sub device %s error: %s", delLink.Attrs().Name, err.Error())
-			return err
+			logrus.Errorf("Disable Link %s Error: %s", l.LinkID, err.Error())
 		}
 	}
 

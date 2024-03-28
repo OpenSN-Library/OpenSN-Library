@@ -1,38 +1,5 @@
 package model
 
-/*
-Create Links:
-
-Link After Container (Fine)
-
-	Create Bridge
-	Add Veth1
-	Add Veth2
-
-Container After Link (Unable to Check Container)
-
-	Create Bridge
-
-	Waiting Routine
-
-
-
-Delete Links:
-
-Link After Container (Ok)
-
-	Delete Bridge
-	Delete Veth1
-	Delete Veth2
-
-Container After Link (Ok)
-
-	Delete Brdige
-	Delete Veth1
-	Delete Veth2
-
-*/
-
 const ConnectParameter = "connect"
 
 type ParameterInfo struct {

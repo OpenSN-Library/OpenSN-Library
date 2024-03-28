@@ -31,7 +31,7 @@ func GetNodeList() ([]*model.Node, error) {
 		err = json.Unmarshal(v.Value, nodeInfo)
 		if err != nil {
 			errMsg := fmt.Sprintf("Unable to parse node info from etcd value %s, Error:%s", string(v.Value), err.Error())
-			logrus.Debug(errMsg)
+			logrus.Error(errMsg)
 			continue
 		}
 		nodeList = append(nodeList, nodeInfo)

@@ -40,26 +40,26 @@ type LinkResourceRaw struct {
 }
 
 type HostResource struct {
-	CPUUsage    float64
-	MemByte     uint64
-	SwapMemByte uint64
+	CPUUsage    float64 `json:"cpu_usage"`
+	MemByte     uint64  `json:"mem_byte"`
+	SwapMemByte uint64  `json:"swap_mem_byte"`
 }
 
 type InstanceResouce struct {
-	CPUUsage    float64
-	MemByte     uint64
-	SwapMemByte uint64
+	CPUUsage    float64 `json:"cpu_usage"`
+	MemByte     uint64  `json:"mem_byte"`
+	SwapMemByte uint64  `json:"swap_mem_byte"`
 }
 
 type LinkResource struct {
-	RecvBps     float64
-	SendBps     float64
-	RecvPps     float64
-	SendPps     float64
-	RecvErrPps  float64
-	SendErrPps  float64
-	RecvDropPps float64
-	SendDropPps float64
+	RecvBps     float64 `json:"recv_bps"`
+	SendBps     float64 `json:"send_bps"`
+	RecvPps     float64 `json:"recv_pps"`
+	SendPps     float64 `json:"send_pps"`
+	RecvErrPps  float64 `json:"recv_err_pps"`
+	SendErrPps  float64 `json:"send_err_pps"`
+	RecvDropPps float64 `json:"recv_drop_pps"`
+	SendDropPps float64 `json:"send_drop_pps"`
 }
 
 func readCpuUsage(filePath string) (float64, error) {
@@ -166,7 +166,7 @@ func GetInstanceResourceInfo(instanceID string, pid int) (*InstanceResouceRaw, e
 
 	pathBase := fmt.Sprintf(
 		"/sys/fs/cgroup/%s/",
-		splitedStr[1],
+		strings.TrimSpace(splitedStr[1]),
 	)
 	cpuPath := path.Join(pathBase, "cpu.stat")
 	memPath := path.Join(pathBase, "memory.current")

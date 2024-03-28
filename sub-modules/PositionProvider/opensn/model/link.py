@@ -17,7 +17,7 @@ class LinkBase:
         self.type: str = ""
         self.address_infos: list[dict[str,str]] = []
         self.link_index: int = 0
-        self.enabled: bool = False
+        self.enable: bool = False
         self.cross_machine: bool = False
         self.parameter: dict[str,int] = {} 
         self.node_index: int = 0
@@ -69,7 +69,7 @@ def create_new_link(
         ret.cross_machine =  ret.end_infos[0].end_node_index !=  ret.end_infos[1].end_node_index
         ret.parameter = init_parameter
         ret.node_index = node_index
-        ret.enabled = False
+        ret.enable = True
         ret_array.append(ret)
     return ret_array
 

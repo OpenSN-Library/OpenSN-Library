@@ -1,7 +1,9 @@
 package module
 
 import (
+	"NodeDaemon/config"
 	"NodeDaemon/data"
+	"NodeDaemon/pkg/synchronizer"
 	"NodeDaemon/share/key"
 	"NodeDaemon/share/signal"
 	"NodeDaemon/utils"
@@ -16,8 +18,6 @@ import (
 	"github.com/influxdata/influxdb-client-go/v2/api/write"
 	"github.com/sirupsen/logrus"
 )
-
-var captureGap = 5 * time.Second
 
 type MonitorModule struct {
 	Base
@@ -134,7 +134,7 @@ func captureNodeStatus(sigChan chan int, errChan chan error) {
 			if sig == signal.STOP_SIGNAL {
 				return
 			}
-		case <-time.After(time.Duration(captureGap)):
+		case <-time.After(time.Duration(config.GlobalConfig.App.MonitorInterval) * time.Second):
 			// DO NOTHING, JUST FOR NO BLOCKING
 		}
 
@@ -150,9 +150,23 @@ func captureNodeStatus(sigChan chan int, errChan chan error) {
 			errChan <- err
 		}
 
-		// instancePidPairs := data.GetAllPids()
+		instances, err := synchronizer.GetInstanceList(key.NodeIndex)
+
+		if err != nil {
+			logrus.Errorf("Get Instance List of Node %d Error: %s", key.NodeIndex, err.Error())
+			errChan <- err
+		}
+
 		instancePidPairs := []data.InstancePidPair{}
 
+		for _, instance := range instances {
+			if pid, ok := data.TryGetInstancePid(instance.InstanceID); ok {
+				instancePidPairs = append(instancePidPairs, data.InstancePidPair{
+					InstanceID: instance.InstanceID,
+					Pid:        pid,
+				})
+			}
+		}
 		wg := utils.ForEachWithThreadPool[data.InstancePidPair](func(instanceInfo data.InstancePidPair) {
 			if instanceInfo.Pid == 0 {
 				return

@@ -16,12 +16,14 @@ const ( // Etcd Keys
 )
 
 const (
-	NodeInstanceListKeyTemplate       = "/node_%d/instances"
-	NodeInstanceRuntimeKeyTemplate    = "/node_%d/runtime"
-	NodeLinkListKeyTemplate           = "/node_%d/links"
-	NodeLinkParameterKeyTemplate      = "/node_%d/link_parameter"
-	NamespaceInstancePositionTemplate = "/positions/"
-	NodeInstanceConfigKeyTemplate     = "/instance_config/node_%d"
+	NodeWebshellRequestKeyTemplate = "/node_%d/webshell_request"
+	NodeWebshellInfoKeyTemplate    = "/node_%d/webshell_info"
+	NodeInstanceListKeyTemplate    = "/node_%d/instances"
+	NodeInstanceRuntimeKeyTemplate = "/node_%d/runtime"
+	NodeLinkListKeyTemplate        = "/node_%d/links"
+	NodeLinkParameterKeyTemplate   = "/node_%d/link_parameter"
+	InstancePositionKey            = "/position"
+	NodeInstanceConfigKeyTemplate  = "/instance_config/node_%d"
 )
 
 const ( // Redis Keys
@@ -31,6 +33,8 @@ const ( // Redis Keys
 )
 
 var (
+	NodeWebshellRequestKeySelf = ""
+	NodeWebshellInfoKeySelf    = ""
 	NodeInstanceListKeySelf    = ""
 	NodeInstanceRuntimeKeySelf = ""
 	NodeLinkListKeySelf        = ""
@@ -45,6 +49,8 @@ var (
 )
 
 func InitKeys() {
+	NodeWebshellRequestKeySelf = fmt.Sprintf(NodeWebshellRequestKeyTemplate, NodeIndex)
+	NodeWebshellInfoKeySelf = fmt.Sprintf(NodeWebshellInfoKeyTemplate, NodeIndex)
 	NodeInstanceListKeySelf = fmt.Sprintf(NodeInstanceListKeyTemplate, NodeIndex)
 	NodeLinkListKeySelf = fmt.Sprintf(NodeLinkListKeyTemplate, NodeIndex)
 	NodeLinkParameterKeySelf = fmt.Sprintf(NodeLinkParameterKeyTemplate, NodeIndex)

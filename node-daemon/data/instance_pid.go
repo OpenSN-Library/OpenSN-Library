@@ -3,6 +3,8 @@ package data
 import (
 	"sync"
 	"time"
+
+	"github.com/sirupsen/logrus"
 )
 
 type InstancePidPair struct {
@@ -13,18 +15,26 @@ type InstancePidPair struct {
 var ContainerInstancePidMap = new(sync.Map)
 
 func WatchInstancePid(instanceID string) int {
-	val, _ := ContainerInstancePidMap.LoadOrStore(instanceID, make(chan int))
+	val, _ := ContainerInstancePidMap.LoadOrStore(instanceID, make(chan int,2))
 	ch := val.(chan int)
 	res := <-ch
-	select {
-	case _, received := <-ch:
-		if received {
-			ch <- res
-		}
-	default:
-		ch <- res
-	}
+	ch <- res
 	return res
+}
+
+func TryGetInstancePid(instanceID string) (int, bool) {
+	val, ok := ContainerInstancePidMap.Load(instanceID)
+	if !ok {
+		return 0, false
+	}
+	ch := val.(chan int)
+	select {
+	case pid := <-ch:
+		ch <- pid
+		return pid, true
+	default:
+		return 0, false
+	}
 }
 
 func DeleteInstancePid(instanceID string, timeout time.Duration) {
@@ -32,31 +42,18 @@ func DeleteInstancePid(instanceID string, timeout time.Duration) {
 }
 
 func SetInstancePid(instanceID string, pid int) {
-	val, _ := ContainerInstancePidMap.LoadOrStore(instanceID, make(chan int))
+	val, _ := ContainerInstancePidMap.LoadOrStore(instanceID, make(chan int,2))
 	ch := val.(chan int)
 
 	select {
 	case <-ch:
 	default:
 	}
-	ch <- int(pid)
-}
-
-func GetAllPids() []InstancePidPair {
-	pairList := []InstancePidPair{}
-	ContainerInstancePidMap.Range(func(key, value any) bool {
-		id := key.(string)
-		ch := value.(chan int)
-		select {
-		case pid := <-ch:
-			pairList = append(pairList, InstancePidPair{
-				InstanceID: id,
-				Pid:        pid,
-			})
-			ch <- pid
-		default:
-		}
-		return true
-	})
-	return pairList
+	select {
+	case ch <- pid:
+	default:
+		<-ch
+		ch <- pid
+		logrus.Warnf("Blocked Write of Instance %s Pid", instanceID)
+	}
 }

@@ -4,14 +4,13 @@ from concurrent.futures import ThreadPoolExecutor
 from opensn.const.link_type import VLINK_TYPE
 from opensn.const.etcd_key import NEXT_LINK_INDEX_KEY
 from opensn.model.node import Node
-from opensn.model.instance import Instance,InstanceRuntime,ConnectionInfo
+from opensn.model.instance import Instance,ConnectionInfo
 from opensn.model.link import LinkBase,create_new_link
 from opensn.model.emulation_config import EmulationInfo
 from opensn.model.position import Position
 from opensn.synchronizer.sync_instance import get_instance,get_instance_map,put_instance
-from opensn.synchronizer.sync_instance import get_instance_runtime,get_instance_runtime_map
 from opensn.synchronizer.sync_instance import put_instance_config,put_instance_config_if_not_exist
-from opensn.synchronizer.sync_position import get_position,get_position_map
+from opensn.synchronizer.sync_position import get_position,get_position_map,put_position
 from opensn.synchronizer.sync_node import get_node_map,get_node
 from opensn.synchronizer.sync_link import get_link,get_link_map,put_link,put_link_parameter,remove_link
 from opensn.synchronizer.sync_config import get_emulation_config,put_emulation_config
@@ -88,17 +87,14 @@ class EmulatorOperator:
     def put_instance_async(self,instance:Instance):
         return self.__pool.submit(put_instance,self.etcd_client,instance)
 
-    def get_instance_runtime(self, node_index:int, instance_id: str):
-        return get_instance_runtime(self.etcd_client,node_index,instance_id)
-
-    def get_instance_runtime_map(self,node_index: int):
-        return get_instance_runtime_map(self.etcd_client,node_index)
-
     def get_position_map(self) -> dict[str,Position]:
         return get_position_map(self.etcd_client)
 
     def get_position(self, instance_id: str) -> Position:
         return get_position(self.etcd_client,instance_id)
+    
+    def put_position(self,instance_id:str,position:Position):
+        return put_position(self.etcd_client,instance_id,position)
     
     def put_instance_config(self,node_index:int,instance_id:str,config_seq:str):
         return put_instance_config(self.etcd_client,node_index,instance_id,config_seq)

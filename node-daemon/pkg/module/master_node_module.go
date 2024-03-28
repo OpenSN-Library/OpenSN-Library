@@ -29,6 +29,7 @@ func RegisterHandlers(r *gin.Engine) {
 	platform.GET("/address/etcd", handler.GetEtcdAddressHandler)
 	platform.GET("/address/influxdb", handler.GetInfluxDBAddressHandler)
 	platform.GET("/status", handler.GetPlatformStatus)
+
 	emulate := api.Group("/emulation")
 	emulate.POST("/update", handler.ConfigEmulationHandler)
 	emulate.POST("/start", handler.StartEmulationHandler)
@@ -36,21 +37,59 @@ func RegisterHandlers(r *gin.Engine) {
 	emulate.GET("/", handler.GetEmulationConfigHandler)
 	emulate.POST("/topology", handler.AddTopologyHandler)
 	emulate.POST("/reset", handler.ResetStatusHandler)
+
 	position := api.Group("/position")
-	position.GET("/", handler.GetInstancePostion)
+	position.GET("/:instance_id", handler.GetInstancePositionHandler)
+
 	node := api.Group("/node")
-	node.GET("/list", handler.GetNodeListHandler)
+	node.GET("/", handler.GetNodeListHandler)
 	node.GET("/:node_index", handler.GetNodeInfoHandler)
 
+	instance := api.Group("/instance")
+	instance.GET("/", handler.GetInstanceListHandler)
+	instance.GET("/:node_index/:instance_id", handler.GetInstanceInfoHandler)
+	instance.POST("/start", handler.StartInstanceHander)
+	instance.POST("/stop", handler.StopInstanceHandler)
+	instance.POST("/:instance_id", handler.AddInstanceHandler)
+	instance.DELETE("/:instance_id", handler.DelInstanceHandler)
+
+	link := api.Group("/link")
+	link.GET("/", handler.GetLinkListHandler)
+	link.GET("/:node_index/:link_id", handler.GetLinkInfoHandler)
+	link.POST("/", handler.AddLinkHandler)
+	link.DELETE("/:link_id", handler.DelLinkHandler)
+
+	linkParameter := api.Group("/link_parameter")
+	linkParameter.GET("/", handler.GetLinkParameterListHandler)
+	linkParameter.GET("/:link_id", handler.GetLinkParameterHandler)
+	linkParameter.POST("/:link_id", handler.UpdateLinkParameterHandler)
+
+	database := api.Group("/database")
+	database.GET("/items", handler.GetItemsWithPrefixHandler)
+	database.POST("/update", handler.UpdateDatabaseItemHandler)
+	database.POST("/delete", handler.DeleteDatabaseItemHandler)
+
+	resourceLast := api.Group("/resource/last")
+	resourceLast.GET("/node/:node_index", handler.GetNodeResourceDataHandler)
+	resourceLast.GET("/instance/:instance_id", handler.GetInstanceResourceDataHandler)
+	resourceLast.GET("/link/:link_id", handler.GetLinkResourceDataHander)
+
+	resourcePeriod := api.Group("/resource/period")
+	resourcePeriod.GET("/node/:node_index", handler.GetPeriodNodeResourceDataHandler)
+	resourcePeriod.GET("/instance/:instance_id", handler.GetPeriodInstanceResourceDataHandler)
+	resourcePeriod.GET("/link/:link_id", handler.GetPeriodLinkResourceDataHander)
+
+	webshell := api.Group("/webshell")
+	webshell.POST("/instance", handler.StartInstanceWebshellHandler)
+	webshell.POST("/link", handler.StartLinkWebshellHandler)
 }
 
 func RegisterStatics(r *gin.Engine) {
 	r.NoRoute(func(c *gin.Context) { // 当 API 不存在时，返回静态文件
-		path := c.Request.URL.Path                                          // 获取请求路径
-		s := strings.Split(path, ".")                                       // 分割路径，获取文件后缀
-		prefix := "ui"                                                      // 前缀路径
-		if data, err := static.Static.ReadFile(prefix + path); err != nil { // 读取文件内容
-			// 如果文件不存在，返回首页 index.html
+		path := c.Request.URL.Path
+		s := strings.Split(path, ".")
+		prefix := "ui"
+		if data, err := static.Static.ReadFile(prefix + path); err != nil {
 			if data, err = static.Static.ReadFile(prefix + "/index.html"); err != nil {
 				c.JSON(404, gin.H{
 					"err": err,
@@ -59,21 +98,17 @@ func RegisterStatics(r *gin.Engine) {
 				c.Data(200, mime.TypeByExtension(".html"), data)
 			}
 		} else {
-			// 如果文件存在，根据请求的文件后缀，设置正确的mime type，并返回文件内容
 			c.Data(200, mime.TypeByExtension(fmt.Sprintf(".%s", s[len(s)-1])), data)
 		}
 	})
 }
 
 func masterDaemonFunc(sigChann chan int, errChann chan error) {
-	// logger := logrus.New()
-	// logger.SetFormatter(&nested.Formatter{
-	// 	TimestampFormat: time.RFC3339,
-	// })
 	r := gin.Default()
 	if !config.GlobalConfig.App.Debug {
 		gin.SetMode(gin.ReleaseMode)
 	}
+
 	r.Use(cors.Default())
 	RegisterHandlers(r)
 	RegisterStatics(r)

@@ -13,6 +13,35 @@ import (
 	"go.etcd.io/etcd/client/v3/concurrency"
 )
 
+func GetInstanceInfo(index int, instanceID string) (*model.Instance, error) {
+	instanceInfoKeyBase := fmt.Sprintf(key.NodeInstanceListKeyTemplate, index)
+	instanceInfoKey := fmt.Sprintf("%s/%s", instanceInfoKeyBase, instanceID)
+	etcdLinkInfo, err := utils.EtcdClient.Get(
+		context.Background(),
+		instanceInfoKey,
+	)
+
+	if err != nil {
+		return nil, fmt.Errorf("get instance %s info from etcd error: %s", instanceInfoKey, err.Error())
+	}
+
+	if len(etcdLinkInfo.Kvs) <= 0 {
+		return nil, fmt.Errorf("instance info of %s not found", instanceInfoKey)
+	}
+
+	v := new(model.Instance)
+	err = json.Unmarshal(etcdLinkInfo.Kvs[0].Value, v)
+	if err != nil {
+		err := fmt.Errorf(
+			"unable to parse instance info from etcd value %s, Error:%s",
+			string(etcdLinkInfo.Kvs[0].Value),
+			err.Error(),
+		)
+		return nil, err
+	}
+	return v, nil
+}
+
 func GetInstanceList(nodeIndex int) ([]*model.Instance, error) {
 	var instanceList []*model.Instance
 	instanceInfoKeyBase := fmt.Sprintf(key.NodeInstanceListKeyTemplate, nodeIndex)
@@ -31,14 +60,13 @@ func GetInstanceList(nodeIndex int) ([]*model.Instance, error) {
 		err = json.Unmarshal(v.Value, instanceInfo)
 		if err != nil {
 			errMsg := fmt.Sprintf("Unable to parse instance info from etcd value %s, Error:%s", string(v.Value), err.Error())
-			logrus.Debug(errMsg)
+			logrus.Error(errMsg)
 			continue
 		}
 		instanceList = append(instanceList, instanceInfo)
 	}
 	return instanceList, nil
 }
-
 
 func AddInstanceInfo(nodeIndex int, instanceInfo *model.Instance) error {
 	instanceInfoKeyBase := fmt.Sprintf(key.NodeInstanceListKeyTemplate, nodeIndex)
@@ -85,7 +113,7 @@ func UpdateInstanceInfo(nodeIndex int, instanceID string, update func(*model.Ins
 func RemoveInstance(nodeIndex int, instanceID string) error {
 	instanceInfoKeyBase := fmt.Sprintf(key.NodeInstanceListKeyTemplate, nodeIndex)
 	instanceInfoKey := fmt.Sprintf("%s/%s", instanceInfoKeyBase, instanceID)
-	_,err := utils.EtcdClient.Delete(context.Background(),instanceInfoKey)
+	_, err := utils.EtcdClient.Delete(context.Background(), instanceInfoKey)
 	if err != nil {
 		return fmt.Errorf("remove instance of %s error: %s", instanceInfoKey, err.Error())
 	}

@@ -144,3 +144,55 @@ func RemoveLink(nodeIndex int, linkID string) error {
 	}
 	return nil
 }
+
+func GetLinkListParameters(nodeIndex int) (map[string]map[string]int64, error) {
+	parameterMap := map[string]map[string]int64{}
+	linkParameterKeyBase := fmt.Sprintf(key.NodeLinkParameterKeyTemplate, nodeIndex)
+	nodeListEtcd, err := utils.EtcdClient.Get(
+		context.Background(),
+		linkParameterKeyBase,
+		clientv3.WithPrefix(),
+	)
+	if err != nil {
+		err := fmt.Errorf("get link parameter list from etcd error:%s", err.Error())
+		return nil, err
+	}
+
+	for _, v := range nodeListEtcd.Kvs {
+		parameterInfo := make(map[string]int64)
+		err = json.Unmarshal(v.Value, &parameterInfo)
+		if err != nil {
+			errMsg := fmt.Sprintf("Unable to parse link parameter info from etcd value %s, Error:%s", string(v.Value), err.Error())
+			logrus.Error(errMsg)
+			continue
+		}
+		linkID, _ := utils.GetEtcdLastKey(string(v.Key))
+		parameterMap[linkID] = parameterInfo
+	}
+	return parameterMap, nil
+}
+
+func GetLinkParameter(nodeIndex int, linkID string) (map[string]int64, error) {
+	var parameter map[string]int64
+	linkParameterKeyBase := fmt.Sprintf(key.NodeLinkParameterKeyTemplate, nodeIndex)
+	linkParameterKey := fmt.Sprintf("%s/%s", linkParameterKeyBase, linkID)
+	etcdParameterInfo, err := utils.EtcdClient.Get(
+		context.Background(),
+		linkParameterKey,
+	)
+
+	if err != nil {
+		return nil, fmt.Errorf("get link %s info from etcd error: %s", linkID, err.Error())
+	}
+
+	if len(etcdParameterInfo.Kvs) <= 0 {
+		return nil, fmt.Errorf("link info of %s not found", linkID)
+	}
+	err = json.Unmarshal(etcdParameterInfo.Kvs[0].Value, &parameter)
+	if err != nil {
+		errMsg := fmt.Sprintf("Unable to parse link parameter info from etcd value %s, Error:%s", string(etcdParameterInfo.Kvs[0].Value), err.Error())
+		logrus.Error(errMsg)
+		return nil, err
+	}
+	return parameter, nil
+}

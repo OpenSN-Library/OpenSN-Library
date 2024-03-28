@@ -44,26 +44,6 @@ class Instance:
         self.connections: dict[str,ConnectionInfo] = []
         self.start: bool = False
 
-class InstanceRuntime:
-
-    def __init__(self) -> None:
-        instance_id: str = ""
-        state: str = ""
-        pid: int = 0
-        container_id: str = ""
-
-def instance_runtime_from_json(seq: str) -> InstanceRuntime:
-    if seq is None :
-        return InstanceRuntime()
-    dic = json.loads(seq)
-    instance_runtime = InstanceRuntime()
-    instance_runtime.__dict__ = dic
-    return instance_runtime
-    
-
-def instance_runtime_to_json(runtime: InstanceRuntime) -> str:
-    return json.dumps(runtime.__dict__)
-
 def instance_from_json(seq: str) -> Instance:
     if seq is None :
         return Instance()

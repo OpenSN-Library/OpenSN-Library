@@ -6,14 +6,13 @@ from opensn.model.link import LinkBase
 from config import ADDR,PORT
 from datetime import datetime
 from trajectory import calculate_postion,distance_meter,select_closest_satellite,get_propagation_delay_s
-from instance_types import TYPE_GROUND_STATION, TYPE_SATELLITE, EX_ORBIT_INDEX
+from instance_types import TYPE_GROUND_STATION, TYPE_SATELLITE, EX_ORBIT_INDEX,EX_ALTITUDE_KEY,EX_LATITUDE_KEY,EX_LONGITUDE_KEY
 from address_type import LINK_V4_ADDR_KEY
 from time import sleep
 from address_allocator import alloc_ipv4,format_ipv4
 from opensn.utils.tools import dec2ra
 from loguru import logger
-import json
-
+import json, math
 step_second = 5
 
 polar_threshold = dec2ra(66.5)
@@ -58,6 +57,11 @@ if __name__ == "__main__":
                 all_instance_map[instance_id] = instance
                 if instance.type == TYPE_GROUND_STATION:
                     ground_station_list.append(instance)
+                    gs_position = Position()
+                    gs_position.latitude = float(instance.extra[EX_LATITUDE_KEY]) / 180 * math.pi
+                    gs_position.longitude = float(instance.extra[EX_LONGITUDE_KEY]) / 180 * math.pi
+                    gs_position.altitude = float(instance.extra[EX_ALTITUDE_KEY])
+                    cli.put_position(instance_id,gs_position)
 
 
         address_map = {}
@@ -86,6 +90,7 @@ if __name__ == "__main__":
         for instance_id,instance_info in all_instance_map.items():
             if instance_info.start:
                 new_postion = calculate_postion(instance_info,time_now)
+                cli.put_position(instance_id,new_postion)
             else:
                 new_postion = Position()
             position_map[instance_id] = new_postion
@@ -159,16 +164,16 @@ if __name__ == "__main__":
             for link_id,link_info in link_map.items():
                 if link_info.parameter is None:
                     link_info.parameter = {}
-                if link_info.end_infos[0].instance_id=="" or link_info.end_infos[1].instance_id:
+                if link_info.end_infos[0].instance_id=="" or link_info.end_infos[1].instance_id == "":
                     continue
-                if not link_info.enabled:
+                if not link_info.enable:
                     continue
                 if link_info.end_infos[0].instance_type == TYPE_SATELLITE and \
                     link_info.end_infos[1].instance_type == TYPE_SATELLITE and \
-                    all_instance_map[link_info.end_infos[1].instance_id].extra[EX_ORBIT_INDEX] == \
+                    all_instance_map[link_info.end_infos[1].instance_id].extra[EX_ORBIT_INDEX] != \
                     all_instance_map[link_info.end_infos[0].instance_id].extra[EX_ORBIT_INDEX] and \
-                    abs(position_map[link_info.end_infos[0].instance_id].latitude) > polar_threshold or \
-                    abs(position_map[link_info.end_infos[1].instance_id].latitude) > polar_threshold:
+                    (abs(position_map[link_info.end_infos[0].instance_id].latitude) > polar_threshold or \
+                    abs(position_map[link_info.end_infos[1].instance_id].latitude) > polar_threshold):
                         # if PARAMETER_KEY_CONNECT in link_info.parameter.keys() and link_info.parameter[PARAMETER_KEY_CONNECT]==1:
                         #     logger.info("connect %s"%link_id)
                         link_info.parameter[PARAMETER_KEY_CONNECT] = 0
@@ -185,7 +190,6 @@ if __name__ == "__main__":
                 link_info.parameter[PARAMETER_KEY_DELAY] = delay
                 link_info.parameter[PARAMETER_KEY_BANDWIDTH] = 1000000
                 link_info.parameter[PARAMETER_KEY_LOSS] = 150
-                # logger.info("distance between %s and %s is %f, delay is %f"%(link_info.end_infos[0].instance_id,link_info.end_infos[1].instance_id,distance,delay))
                 cli.put_link_parameter(link_info.node_index,link_info.link_id,link_info.parameter)
                 
         for instance_id,instance_info in all_instance_map.items():

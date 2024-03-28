@@ -28,7 +28,15 @@ func UpdateLinkState(newLink model.Link, oldLink model.Link) error {
 		if shouldCreate {
 			err = newLink.Create()
 		} else {
+			err = oldLink.Disable()
+			if err != nil {
+				logrus.Errorf("update create state error: disable link error:%s", err.Error())
+			}
 			err = oldLink.Destroy()
+			if err != nil {
+				return fmt.Errorf("update create state error: %s", err.Error())
+			}
+			return nil
 		}
 	}
 
@@ -56,7 +64,6 @@ type LinkModule struct {
 
 func linkDaemonFunc(sigChan chan int, errChan chan error) {
 
-	// var keyLockMap sync.Map
 	ctx, cancel := context.WithCancel(context.Background())
 	watchChan := utils.EtcdClient.Watch(
 		ctx,
@@ -97,12 +104,6 @@ func linkDaemonFunc(sigChan chan int, errChan chan error) {
 							return
 						}
 					}
-					logrus.Debugf("Link %s Update Detected From %v to %v", etcdKey, oldLink, newLink)
-
-					// lockAny, _ := keyLockMap.LoadOrStore(etcdKey, new(sync.Mutex))
-					// lock := lockAny.(*sync.Mutex)
-					// lock.Lock()
-					// defer lock.Unlock()
 
 					err = UpdateLinkState(newLink, oldLink)
 					if err != nil {

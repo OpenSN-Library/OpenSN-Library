@@ -22,7 +22,6 @@ type LinkParameterModule struct {
 
 func linkParameterDaemonFunc(sigChan chan int, errChan chan error) {
 
-	var keyLockMap sync.Map
 	ctx, cancel := context.WithCancel(context.Background())
 	watchChan := utils.EtcdClient.Watch(
 		ctx,
@@ -63,10 +62,7 @@ func linkParameterDaemonFunc(sigChan chan int, errChan chan error) {
 							return
 						}
 					}
-					lockAny, _ := keyLockMap.LoadOrStore(etcdKey, new(sync.Mutex))
-					lock := lockAny.(*sync.Mutex)
-					lock.Lock()
-					defer lock.Unlock()
+					
 					linkID, _ := utils.GetEtcdLastKey(etcdKey)
 					linkBase, err := synchronizer.GetLinkInfo(key.NodeIndex, linkID)
 					if err != nil {

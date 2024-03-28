@@ -26,6 +26,7 @@ type AppConfigType struct {
 	EnableMonitor    bool   `json:"enable_monitor"`
 	Debug            bool   `json:"debug"`
 	InstanceCapacity int    `json:"instance_capacity"`
+	MonitorInterval  int    `json:"monitor_interval"`
 }
 
 type DependencyConfigType struct {
@@ -91,6 +92,9 @@ func InitConfig(jsonPath string) {
 	GlobalConfig.App.IsServant = GetConfigEnvBool("IS_SERVANT", GlobalConfig.App.IsServant)
 	GlobalConfig.App.Debug = GetConfigEnvBool("DEBUG", GlobalConfig.App.Debug)
 	GlobalConfig.App.InterfaceName = GetConfigEnvString("INTERFACE", GlobalConfig.App.InterfaceName)
+	GlobalConfig.App.ListenPort = GetConfigEnvNumber("LISTEN_PORT", GlobalConfig.App.ListenPort)
+	GlobalConfig.App.InstanceCapacity = GetConfigEnvNumber("INSTANCE_CAPACITY", GlobalConfig.App.InstanceCapacity)
+	GlobalConfig.App.MonitorInterval = GetConfigEnvNumber("MONITOR_INTERVAL", GlobalConfig.App.MonitorInterval)
 	if !GlobalConfig.App.IsServant {
 		link, err := netlink.LinkByName(GlobalConfig.App.InterfaceName)
 		if err != nil {

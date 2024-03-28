@@ -5,6 +5,7 @@ build:
 	mv ./NodeDaemon ./build/NodeDaemon
 	cp ./config/config.json ./build/config/
 	cp share/static/dist/version.txt ./build/
+	cp depend-bin/gotty ./build/
 	tar cvf satellite-emulator-daemon.tar.gz build/*
 clean:
 	-sudo rm -rf ./build
