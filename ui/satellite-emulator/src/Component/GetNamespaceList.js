@@ -1,12 +1,8 @@
 import { Button, Card, Divider, List,Typography } from "antd";
 import { useEffect, useState } from "react";
-import { GetNamespaceList,StartNamespace,StopNamespace } from "../Request/Namespace";
 export const NamespaceList = () => {
     let [namespaceList,setNamespaceList] = useState([])
     useEffect(()=>{
-        GetNamespaceList((response)=>{
-            setNamespaceList(response.data.data==null?[]:response.data.data)
-        })
     },[])
     return (
         <List
@@ -45,22 +41,7 @@ export const NamespaceList = () => {
                         <div>
                             <Button
                                 onClick={()=>{
-                                    if (item.running) {
-                                        StopNamespace(item.name,(response)=>{
-                                            console.log(response)
-                                            GetNamespaceList((response)=>{
-                                                setNamespaceList(response.data.data)
-                                            })
-                                        })
-                                    } else {
-                                        StartNamespace(item.name,(response)=>{
-                                            console.log(response)
-                                            GetNamespaceList((response)=>{
-                                                setNamespaceList(response.data.data)
-                                            })
-                                        })
-                        
-                                    }
+                                    
                                 }}
                             >
                                 {item.running?"停止":"启动"}

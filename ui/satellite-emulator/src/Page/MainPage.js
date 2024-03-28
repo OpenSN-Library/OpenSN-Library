@@ -3,20 +3,49 @@ import {Layout, Menu, theme } from 'antd';
 import { MdOutlineSatelliteAlt } from "react-icons/md";
 import { CreateNamespaceForm } from '../Component/CreateNamespaceForm';
 import { NamespaceList } from '../Component/GetNamespaceList';
-import { NodeList } from '../Component/GetNodeList';
-import { ConsoleItems } from './ConsolePage';
+import { NodeList } from './NodePage';
+import { ConsoleItems } from './OverviewPage';
 import { FileItems } from './FilePage';
+import { InstanceListPage } from './InstancePage';
+import { LinkListPage } from './LinkPage';
+import { Overview } from './OverviewPage';
 import ExportOutlined from '@ant-design/icons/ExportOutlined';
+import {Ion} from 'cesium';
+import { MonitorPage } from './MonitorPage';
+import { DatabasePage } from './DatabasePage';
 const { Header, Content, Sider } = Layout;
+
+//eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiIyZWFlNTU1MS1mOGE1LTRiZWEtODc0Zi05NTQ2NDc3Y2MyOWMiLCJpZCI6MTkxNzA5LCJpYXQiOjE3MDYxMDExOTR9.t-UUQ5k6vHbnAXbaF88oB5k0vCEROqeXbGgOktXk9xM
+// Ion.defaultAccessToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiIyMTg2ODQwZC00NTJiLTQ0MmUtOTM1Mi0yYTk3YTE4OGVlNGMiLCJpZCI6MTkxNzA5LCJpYXQiOjE3MTEyODE2NDR9.1dM1b_tT7qiFajlKeK4kLUFAvYrBMWq4-DlenYtUtJs"
 
 const topBarItems = [
     {
-        key:"console",
-        label: `控制台`,
+        key:"overview",
+        label: `概览`,
+    },
+    {
+      key:"instances",
+      label: `节点`,
+    },
+    {
+      key:"links",
+      label: `链路`,
     },
     {
         key:"mount_manager",
         label: `文件管理`,
+    },
+    {
+      key:"cluster",
+      label: `部署机器`,
+    },
+    {
+      key:"monitor",
+      label: `监控`,
+    },
+    {
+      key:"database",
+      label: `查看数据库`,
     },
     {
         key:"help",
@@ -32,27 +61,21 @@ const topBarItems = [
     }
 ];
 
-
-
-
-
-
-const componentMap = {
-    "add_namespace": <CreateNamespaceForm/>,
-    "namespace_list": <NamespaceList/>,
-    "node_list": <NodeList/>,
+const componentPage = {
+    "overview":<Overview/>,
+    "instances":<InstanceListPage/>,
+    "links":<LinkListPage/>,
+    "mount_manager":<div/>,
+    "cluster":<NodeList/>,
+    "monitor":<MonitorPage/>,
+    "database":<DatabasePage/>,
 }
 
-const siderMemuMap = {
-  "console": ConsoleItems,
-  "mount_manager": FileItems,
-}
 const App = () => {
   const {
     token: { colorBgContainer, borderRadiusLG },
   } = theme.useToken();
-  var [selectedTopBarItem,setSelectedTopBarItem] = useState("console");
-  var [selectedSiderItem,setSelectedSiderItem] = useState("add_namespace");
+  var [selectedTopBarItem,setSelectedTopBarItem] = useState("overview");
   return (
     <Layout style={{height: '100%'}}> 
       <Header
@@ -67,43 +90,19 @@ const App = () => {
         <Menu
           theme="dark"
           mode="horizontal"
-          defaultSelectedKeys={selectedSiderItem}
+          defaultSelectedKeys={selectedTopBarItem}
           items={topBarItems}
           style={{flex: 1, minWidth: 0}}
           onSelect={({key}) => {
-            if (key in siderMemuMap) {
+            console.log(key)
+            if (Object.keys(componentPage).indexOf(key) !== -1){
+              console.log(key)
               setSelectedTopBarItem(key);
-              if (siderMemuMap[key] != null && siderMemuMap[key].length > 0){
-                selectedSiderItem = siderMemuMap[key][0].key
-                setSelectedSiderItem(selectedSiderItem);
-              } else {
-                selectedSiderItem = ""
-                setSelectedSiderItem(selectedSiderItem);
-              }
             }
           }}
         />
       </Header>
       <Layout>
-        <Sider
-          width={200}
-          style={{
-            background: colorBgContainer,
-          }}
-        >
-          <Menu
-            mode="inline"
-            defaultSelectedKeys={selectedSiderItem}
-            style={{
-              height: '100%',
-              borderRight: 0,
-            }}
-            items={siderMemuMap[selectedTopBarItem]}
-            onSelect={({key}) => {
-              setSelectedSiderItem(key);
-            }}
-          />
-        </Sider>
         <Layout
           style={{
             padding: '0 24px 24px',
@@ -116,9 +115,10 @@ const App = () => {
               minHeight: 280,
               background: colorBgContainer,
               borderRadius: borderRadiusLG,
+              overflow: 'scroll'
             }}
           >
-            {componentMap[selectedSiderItem]}
+            {componentPage[selectedTopBarItem]}
           </Content>
         </Layout>
       </Layout>

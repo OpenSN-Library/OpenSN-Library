@@ -19,7 +19,7 @@ export const NodeList = () => {
                     <List.Item>
                     <Card>
                         <Card.Meta
-                            title={`节点编号: ${item.node_id}-${item.is_master_node?"主节点":"从节点"}`}
+                            title={`节点编号: ${item.node_index}-${item.is_master_node?"主节点":"从节点"}`}
                         />
                         <Divider/>
                         <div>
@@ -45,9 +45,9 @@ export const NodeList = () => {
                         </Typography.Paragraph>
                         </div>
                         
-                        <div>
+                        {/* <div>
                             <Button>详细信息</Button>
-                        </div>
+                        </div> */}
                     </Card>
                    
                     </List.Item>}

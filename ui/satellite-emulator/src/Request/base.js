@@ -1,2 +1,2 @@
 
-export const UrlBase = "http://172.16.208.128:8080"
+export const UrlBase = "http://10.134.148.56:8080/api"

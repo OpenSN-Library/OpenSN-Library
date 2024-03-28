@@ -6,16 +6,16 @@ import reportWebVitals from './reportWebVitals';
 import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import {HelpPage} from './Page/HelpPage';
 import {AboutPage} from './Page/AboutPage';
-import { NamespaceDetilPage } from './Page/NamespaceDetailPage.js';
-
+import { InstanceDetailPage } from './Page/InstanceDetailPage.js';
+import { LinkDetailPage } from './Page/LinkDetailPage.js';
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
   <BrowserRouter>
     <Routes>
       <Route path="/help" element={<HelpPage />} />
       <Route path="/about" element={<AboutPage />} />
-      <Route path="/namespace/:name/detail" element={<NamespaceDetilPage />} />
-      <Route path="/node/:index" element={<App />} />
+      <Route path="/instance/:node_index/:instance_id" element={<InstanceDetailPage/>} />
+      <Route path='/link/:node_index/:link_id' element={<LinkDetailPage />} />
       <Route path="/" element={<App />} />
     </Routes>
   </BrowserRouter>

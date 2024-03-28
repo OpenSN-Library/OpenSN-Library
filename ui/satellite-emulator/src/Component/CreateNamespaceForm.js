@@ -1,13 +1,13 @@
 
 import { Tabs, Typography, Divider, Button, notification} from "antd";
 import React, { useState, useRef } from "react";
-import { CreateNamespaceReq } from "../Model/Namespace";
 import { ConfigNamespaceBasic } from "./ConfigNamesapceBasic";
 import { ConfigNamespaceInstance } from "./ConfigNamespaceInstance";
 import { ConfigNamespaceLink } from "./ConfigNamespaceLink";
-import {CreateNamespace} from "../Request/Namespace"
 
 export function CreateNamespaceForm() {
+    const [dataBuf,setDataBuf] = useState({});
+
     const [api, contextHolder] = notification.useNotification();
     const NotificationWithIcon = (type,msg,detail) => {
         api[type]({
@@ -16,7 +16,6 @@ export function CreateNamespaceForm() {
         });
     };
     const inputRef = useRef(null);
-    var [dataBuf,setDataBuf] = useState(new CreateNamespaceReq());
     return (
         <div style={{height:"100%",overflowY:"scroll"}}>
             {contextHolder}
@@ -83,9 +82,9 @@ export function CreateNamespaceForm() {
                                 </div>
                             </div>,
                     "right":<Button onClick={()=>{
-                        CreateNamespace(dataBuf,(response)=>{
+                        
                             NotificationWithIcon("success","创建成功","成功创建命名空间")
-                        })
+                        
                     }}> 
                         确认
                     </Button>  
