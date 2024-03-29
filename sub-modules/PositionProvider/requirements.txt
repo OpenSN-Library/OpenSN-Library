@@ -1,5 +1,0 @@
-ephem
-etcd3
-loguru
-requests
-protobuf<=3.20.0

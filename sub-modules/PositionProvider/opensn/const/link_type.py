@@ -1,2 +1,0 @@
-
-VLINK_TYPE = "vlink"
