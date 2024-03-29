@@ -390,7 +390,7 @@ export const Overview = () => {
                                 <Entity key={item.link_id} name={item.link_id} description={`${item.connect_instance[0]}-${item.connect_instance[1]}`} 
                                     onDoubleClick={(e)=>{
                                         const w = window.open('_black')
-                                        let url = `/link/${item.link_id}`
+                                        let url = `/link/${item.link_id}/${item.link_id}`
                                         w.location.href = url
                                     }}
                                 >

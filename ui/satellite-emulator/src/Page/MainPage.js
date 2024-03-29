@@ -5,18 +5,17 @@ import { CreateNamespaceForm } from '../Component/CreateNamespaceForm';
 import { NamespaceList } from '../Component/GetNamespaceList';
 import { NodeList } from './NodePage';
 import { ConsoleItems } from './OverviewPage';
-import { FileItems } from './FilePage';
+import { FileItems, FilePage } from './FilePage';
 import { InstanceListPage } from './InstancePage';
 import { LinkListPage } from './LinkPage';
 import { Overview } from './OverviewPage';
 import ExportOutlined from '@ant-design/icons/ExportOutlined';
 import {Ion} from 'cesium';
-import { MonitorPage } from './MonitorPage';
 import { DatabasePage } from './DatabasePage';
+import { TopologyConfiguratorPage } from './TopologyConfiguratorPage';
 const { Header, Content, Sider } = Layout;
 
-//eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiIyZWFlNTU1MS1mOGE1LTRiZWEtODc0Zi05NTQ2NDc3Y2MyOWMiLCJpZCI6MTkxNzA5LCJpYXQiOjE3MDYxMDExOTR9.t-UUQ5k6vHbnAXbaF88oB5k0vCEROqeXbGgOktXk9xM
-// Ion.defaultAccessToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiIyMTg2ODQwZC00NTJiLTQ0MmUtOTM1Mi0yYTk3YTE4OGVlNGMiLCJpZCI6MTkxNzA5LCJpYXQiOjE3MTEyODE2NDR9.1dM1b_tT7qiFajlKeK4kLUFAvYrBMWq4-DlenYtUtJs"
+Ion.defaultAccessToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiIyMTg2ODQwZC00NTJiLTQ0MmUtOTM1Mi0yYTk3YTE4OGVlNGMiLCJpZCI6MTkxNzA5LCJpYXQiOjE3MTEyODE2NDR9.1dM1b_tT7qiFajlKeK4kLUFAvYrBMWq4-DlenYtUtJs"
 
 const topBarItems = [
     {
@@ -32,16 +31,16 @@ const topBarItems = [
       label: `链路`,
     },
     {
+      key:"topo_conf",
+      label: `运行配置器`,
+    },
+    {
         key:"mount_manager",
         label: `文件管理`,
     },
     {
       key:"cluster",
       label: `部署机器`,
-    },
-    {
-      key:"monitor",
-      label: `监控`,
     },
     {
       key:"database",
@@ -65,9 +64,9 @@ const componentPage = {
     "overview":<Overview/>,
     "instances":<InstanceListPage/>,
     "links":<LinkListPage/>,
-    "mount_manager":<div/>,
+    "mount_manager":<FilePage/>,
     "cluster":<NodeList/>,
-    "monitor":<MonitorPage/>,
+    "topo_conf":<TopologyConfiguratorPage/>,
     "database":<DatabasePage/>,
 }
 

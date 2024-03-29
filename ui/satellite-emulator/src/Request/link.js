@@ -12,3 +12,15 @@ export const GetLinkParameterList = (callback) => {
         callback(response)
     })
 }
+
+export const GetLinkParameter = (nodeIndex,linkID,callback) => {
+    axios.get(UrlBase+`/link_parameter/${nodeIndex}/${linkID}`).then((response)=>{
+        callback(response)
+    })
+}
+
+export const GetLinkInfo = (nodeIndex,linkID,callback) => {
+    axios.get(UrlBase+`/link/${nodeIndex}/${linkID}`).then((response)=>{
+        callback(response)
+    })
+}

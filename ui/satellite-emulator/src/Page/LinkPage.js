@@ -35,7 +35,7 @@ export const LinkListPage = () => {
                         <Button
                             onClick={()=>{
                                 const w = window.open('_black')
-                                let url = `/link/${item.link_id}`
+                                let url = `/link/${item.node_index}/${item.link_id}`
                                 w.location.href = url
                             }}
                         >查看详情</Button>,

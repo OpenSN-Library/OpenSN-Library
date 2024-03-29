@@ -1,10 +1,11 @@
 
-import { Card, Col, Descriptions, Divider, List, Row, Typography, Badge, Button,Tabs} from "antd"
+import { Card, Col, Descriptions, Divider, List, Row, Typography, Badge, Button,Tabs,Select} from "antd"
 import { useEffect, useState } from "react"
 import { useParams } from "react-router-dom"
 import ReactECharts from 'echarts-for-react'
 import { GetPeriodInstanceResource } from "../Request/metrics"
 import { GetInstanceDetail } from "../Request/instance"
+import { StartInstanceWebshell } from "../Request/webshell"
 
 export const InstanceDetailPage = () => {
     const instanceID = useParams().instance_id
@@ -98,7 +99,10 @@ export const InstanceDetailPage = () => {
             data:['CPU使用率']
         },
         xAxis: {
-            data: instanceResource[instanceID]?instanceResource[instanceID].map((item)=>item.Time):[]
+            data: instanceResource[instanceID]?instanceResource[instanceID].map((item)=>{
+                const time = Date.parse(item.Time)
+                return `${new Date(time).getHours()}:${new Date(time).getMinutes()}:${new Date(time).getSeconds()}`
+            }):[]
         },
         yAxis: {},
         series: [{
@@ -117,7 +121,10 @@ export const InstanceDetailPage = () => {
             data:['内存使用量','交换内存使用量']
         },
         xAxis: {
-            data: instanceResource[instanceID]?instanceResource[instanceID].map((item)=>item.Time):[]
+            data: instanceResource[instanceID]?instanceResource[instanceID].map((item)=>{
+                const time = Date.parse(item.Time)
+                return `${new Date(time).getHours()}:${new Date(time).getMinutes()}:${new Date(time).getSeconds()}`
+            }):[]
         },
         yAxis: {},
         series: [
@@ -151,8 +158,38 @@ export const InstanceDetailPage = () => {
                 
             </Row>
             <Divider/>
+            <Row justify="center"> <Typography.Title level={4}>资源监控</Typography.Title> </Row>
+            <Row justify="center"> 
+            <Select
+                defaultValue={resourcePeriod}
+                style={{ width: 120 }}
+                onChange={(value)=>{
+                    setResourcePeriod(value)
+                    GetPeriodInstanceResource(instanceID,resourcePeriod,(response)=>{
+                        setInstanceResource(response.data.data)
+                    })
+                }}
+                options={[
+                    { value: '1m', label: '过去一分钟' },
+                    { value: '5m', label: '过去五分钟' },
+                    { value: '10m', label: '过去十分钟' },
+                    { value: '30m', label: '过去三十分钟' },
+                    { value: '1h', label: '过去一小时' },
+                    { value: '3h', label: '过去三小时' },
+                    { value: '6h', label: '过去六小时' },
+                    { value: '12h', label: '过去十二小时' },
+                    { value: '24h', label: '过去二十四小时' },
+                ]}
+            />
+            <Button onClick={()=>{
+                GetPeriodInstanceResource(instanceID,resourcePeriod,(response)=>{
+                    setInstanceResource(response.data.data)
+                })
+            }
+            }>刷新</Button>
+            </Row>
             <Row justify="space-between">
-                
+
                     <Col style={{marginLeft:"5vw"}}>
                         <Card>
                             <ReactECharts
@@ -185,32 +222,25 @@ export const InstanceDetailPage = () => {
                     activeKey={activeKey}
                     onEdit={(targetKey, action)=>{
                         if (action === 'add') {
-                            console.log("add")
-                            const newKey = `${instanceID}-${items.length}`;
-                            setItems([...items, { 
-                                key: newKey,
-                                label: newKey,
-                                children: <Row justify="center" ><iframe style={{width:"80vw",height:"720px"}} src="http://10.134.148.56:8079"/></Row>
-                            }]);
-                            setActiveKey(newKey);
+                            StartInstanceWebshell(nodeIndex,instanceID,(response)=>{
+                                const webshellInfo = response.data.data
+                                const newKey = `${instanceID}-${items.length}`;
+                                const url = `http://${webshellInfo.addr}:${webshellInfo.port}`
+                                setItems([...items, { 
+                                    key: newKey,
+                                    label: newKey,
+                                    children: <Row justify="center" ><iframe style={{width:"80vw",height:"720px"}} src={url}/></Row>
+                                }]);
+                                setActiveKey(newKey);
+                            })
                         } else {
-                            let newActiveKey = activeKey;
-                            let lastIndex;
-                            items.forEach((item, i) => {
-                                if (item.title === targetKey) {
-                                    lastIndex = i - 1;
-                                }
-                            });
-                            const newPanes = items.filter(item => item.title !== targetKey);
-                            if (newPanes.length && newActiveKey === targetKey) {
-                                if (lastIndex >= 0) {
-                                    newActiveKey = newPanes[lastIndex].title;
-                                } else {
-                                    newActiveKey = newPanes[0].title;
-                                }
+                            const targetIndex = items.findIndex((pane) => pane.key === targetKey);
+                            const newPanes = items.filter((pane) => pane.key !== targetKey);
+                            if (newPanes.length && targetKey === activeKey) {
+                            const { key } = newPanes[targetIndex === newPanes.length ? targetIndex - 1 : targetIndex];
+                            setActiveKey(key);
                             }
                             setItems(newPanes);
-                            setActiveKey(newActiveKey);
                         }
                     }}
                     items={items}
