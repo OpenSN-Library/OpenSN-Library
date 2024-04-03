@@ -9,6 +9,7 @@ EX_SATELLITE_INDEX = "SatelliteIndex"
 
 
 TYPE_GROUND_STATION = "GroundStation"
+TYPE_GROUND_TERMINAL = "GroundTerminal"
 
 # Type GroundStation Extra Fields
 EX_LATITUDE_KEY = "latitude"

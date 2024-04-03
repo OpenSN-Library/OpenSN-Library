@@ -24,6 +24,7 @@ type AppConfigType struct {
 	InterfaceName    string `json:"interface_name"`
 	ListenPort       int    `json:"listen_port"`
 	EnableMonitor    bool   `json:"enable_monitor"`
+	EnableCodeServer bool   `json:"enable_code_server"`
 	Debug            bool   `json:"debug"`
 	InstanceCapacity int    `json:"instance_capacity"`
 	MonitorInterval  int    `json:"monitor_interval"`
@@ -38,6 +39,8 @@ type DependencyConfigType struct {
 	InfluxdbToken  string `json:"influxdb_token"`
 	InfluxdbOrg    string `json:"influxdb_org"`
 	InfluxdbBucket string `json:"influxdb_bucket"`
+	CodeServerAddr string `json:"code_server_addr"`
+	CodeServerPort int    `json:"code_server_port"`
 }
 
 type GlobalConfigType struct {
@@ -95,6 +98,7 @@ func InitConfig(jsonPath string) {
 	GlobalConfig.App.ListenPort = GetConfigEnvNumber("LISTEN_PORT", GlobalConfig.App.ListenPort)
 	GlobalConfig.App.InstanceCapacity = GetConfigEnvNumber("INSTANCE_CAPACITY", GlobalConfig.App.InstanceCapacity)
 	GlobalConfig.App.MonitorInterval = GetConfigEnvNumber("MONITOR_INTERVAL", GlobalConfig.App.MonitorInterval)
+	GlobalConfig.App.EnableCodeServer = GetConfigEnvBool("ENABLE_CODE_SERVER", GlobalConfig.App.EnableCodeServer)
 	if !GlobalConfig.App.IsServant {
 		link, err := netlink.LinkByName(GlobalConfig.App.InterfaceName)
 		if err != nil {
@@ -116,6 +120,7 @@ func InitConfig(jsonPath string) {
 		GlobalConfig.App.MasterAddress = addresses[0].IP.String()
 		GlobalConfig.Dependency.EtcdAddr = GlobalConfig.App.MasterAddress
 		GlobalConfig.Dependency.InfluxdbAddr = GlobalConfig.App.MasterAddress
+		GlobalConfig.Dependency.CodeServerAddr = GlobalConfig.App.MasterAddress
 	} else {
 		GlobalConfig.App.MasterAddress = GetConfigEnvString("MASTER_ADDRESS", GlobalConfig.App.MasterAddress)
 	}
@@ -136,6 +141,8 @@ func InitConfigMasterMode() error {
 	GlobalConfig.Dependency.InfluxdbToken = GetConfigEnvString("INFLUXDB_TOKEN", GlobalConfig.Dependency.InfluxdbToken)
 	GlobalConfig.Dependency.InfluxdbOrg = GetConfigEnvString("INFLUXDB_ORG", GlobalConfig.Dependency.InfluxdbOrg)
 	GlobalConfig.Dependency.InfluxdbBucket = GetConfigEnvString("INFLUXDB_BUCKET", GlobalConfig.Dependency.InfluxdbBucket)
+	GlobalConfig.Dependency.CodeServerAddr = GetConfigEnvString("CODE_SERVER_ADDR", GlobalConfig.Dependency.CodeServerAddr)
+	GlobalConfig.Dependency.CodeServerPort = GetConfigEnvNumber("CODE_SERVER_PORT", GlobalConfig.Dependency.CodeServerPort)
 	return nil
 }
 

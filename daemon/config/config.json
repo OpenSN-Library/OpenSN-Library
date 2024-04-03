@@ -2,8 +2,9 @@
   "app": {
     "is_servant": false,
     "master_address": "172.16.208.128",
-    "listen_port": 8080,
+    "listen_port": 80,
     "enable_monitor": true,
+    "enable_code_server": true,
     "interface_name": "ens160",
     "debug": false,
     "instance_capacity": 500,
@@ -17,6 +18,8 @@
     "influxdb_token": "1145141919810",
     "influxdb_org" : "satellite_emulator",
     "influxdb_bucket": "monitor",
+    "code_server_addr": "172.16.208.128",
+    "code_server_port": 8079,
     "docker_host_path": "/var/run/docker.sock"
   },
   "device": {

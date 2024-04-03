@@ -7,6 +7,12 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+const (
+	DirType    = 1
+	BinaryType = 2
+	TextType   = 3
+)
+
 func CreateDirNX(path string) error {
 	file, err := os.Stat(path)
 	if err != nil {
@@ -59,4 +65,30 @@ func DeleteFile(path string) error {
 		logrus.Errorf("Delete File %s Error: %s", path, err.Error())
 	}
 	return err
+}
+
+func CheckPathType(path string) (int, error) {
+	file, err := os.Stat(path)
+	if err != nil {
+
+	}
+	if file.IsDir() {
+		return DirType, nil
+	}
+	fd, err := os.Open(path)
+	if err != nil {
+		return 0, err
+	}
+	defer fd.Close()
+	buf := make([]byte, 8192)
+	n, err := fd.Read(buf)
+	if err != nil {
+		return 0, err
+	}
+	for i := 0; i < n; i++ {
+		if buf[i] == 0 {
+			return BinaryType, nil
+		}
+	}
+	return TextType, nil
 }

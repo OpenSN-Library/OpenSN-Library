@@ -196,3 +196,24 @@ func GetLinkParameter(nodeIndex int, linkID string) (map[string]int64, error) {
 	}
 	return parameter, nil
 }
+
+func UpdateLinkParameter(nodeIndex int, linkID string, parameter map[string]int64) error {
+	linkParameterKeyBase := fmt.Sprintf(key.NodeLinkParameterKeyTemplate, nodeIndex)
+	linkParameterKey := fmt.Sprintf("%s/%s", linkParameterKeyBase, linkID)
+	parameterSeq, err := json.Marshal(parameter)
+	if err != nil {
+		err = fmt.Errorf("format link parameter of %s error: %s", linkID, err.Error())
+		return err
+	}
+	_, err = utils.EtcdClient.Put(
+		context.Background(),
+		linkParameterKey,
+		string(parameterSeq),
+	)
+
+	if err != nil {
+		err := fmt.Errorf("add link %s parameter to etcd error:%s", linkID, err.Error())
+		return err
+	}
+	return nil
+}

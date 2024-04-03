@@ -22,6 +22,12 @@ type InstanceAbstract struct {
 	Extra      map[string]string `json:"extra"`
 }
 
+type AddInstanceRequest struct {
+	Type       string                             `json:"type"`
+	Extra      map[string]string                  `json:"extra"`
+	DeviceInfo map[string]model.DeviceRequireInfo `json:"device_need"`
+}
+
 type InstanceInfo struct {
 	InstanceID    string                          `json:"instance_id"`
 	Name          string                          `json:"name"`

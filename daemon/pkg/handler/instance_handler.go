@@ -14,7 +14,30 @@ import (
 )
 
 func AddInstanceHandler(ctx *gin.Context) {
+	var req ginmodel.AddInstanceRequest
+	if err := ctx.Bind(&req); err != nil {
+		jsonResp := ginmodel.JsonResp{
+			Code:    -1,
+			Message: fmt.Sprintf("Invalid Request Data: %s", err.Error()),
+		}
+		ctx.JSON(http.StatusBadRequest, jsonResp)
+		return
+	}
 
+	// err := synchronizer.AddInstance(req.NodeIndex, req.Instance)
+	// if err != nil {
+	// 	jsonResp := ginmodel.JsonResp{
+	// 		Code:    -1,
+	// 		Message: fmt.Sprintf("Add Instance Error: %s", err.Error()),
+	// 	}
+	// 	ctx.JSON(http.StatusInternalServerError, jsonResp)
+	// 	return
+	// }
+	jsonResp := ginmodel.JsonResp{
+		Code:    0,
+		Message: "Success",
+	}
+	ctx.JSON(http.StatusOK, jsonResp)
 }
 
 func DelInstanceHandler(ctx *gin.Context) {
@@ -186,9 +209,61 @@ func GetInstanceInfoHandler(ctx *gin.Context) {
 }
 
 func StartInstanceHander(ctx *gin.Context) {
+	var req ginmodel.SingleInstanceRequest
+	if err := ctx.Bind(&req); err != nil {
+		jsonResp := ginmodel.JsonResp{
+			Code:    -1,
+			Message: fmt.Sprintf("Invalid Request Data: %s", err.Error()),
+		}
+		ctx.JSON(http.StatusBadRequest, jsonResp)
+		return
+	}
 
+	err := synchronizer.UpdateInstanceInfo(req.NodeIndex, req.InstanceID,func(i *model.Instance) error {
+		i.Start = true
+		return nil
+	})
+	if err != nil {
+		jsonResp := ginmodel.JsonResp{
+			Code:    -1,
+			Message: fmt.Sprintf("Start Instance Error: %s", err.Error()),
+		}
+		ctx.JSON(http.StatusInternalServerError, jsonResp)
+		return
+	}
+	jsonResp := ginmodel.JsonResp{
+		Code:    0,
+		Message: "Success",
+	}
+	ctx.JSON(http.StatusOK, jsonResp)
 }
 
 func StopInstanceHandler(ctx *gin.Context) {
+	var req ginmodel.SingleInstanceRequest
+	if err := ctx.Bind(&req); err != nil {
+		jsonResp := ginmodel.JsonResp{
+			Code:    -1,
+			Message: fmt.Sprintf("Invalid Request Data: %s", err.Error()),
+		}
+		ctx.JSON(http.StatusBadRequest, jsonResp)
+		return
+	}
 
+	err := synchronizer.UpdateInstanceInfo(req.NodeIndex, req.InstanceID,func(i *model.Instance) error {
+		i.Start = false
+		return nil
+	})
+	if err != nil {
+		jsonResp := ginmodel.JsonResp{
+			Code:    -1,
+			Message: fmt.Sprintf("Stop Instance Error: %s", err.Error()),
+		}
+		ctx.JSON(http.StatusInternalServerError, jsonResp)
+		return
+	}
+	jsonResp := ginmodel.JsonResp{
+		Code:    0,
+		Message: "Success",
+	}
+	ctx.JSON(http.StatusOK, jsonResp)
 }

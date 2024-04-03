@@ -45,3 +45,27 @@ func GetPlatformStatus(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, resp)
 
 }
+
+func GetCodeServerAddress(ctx *gin.Context) {
+	if (config.GlobalConfig.Dependency.CodeServerAddr == "") {
+		resp := ginmodel.JsonResp{
+			Code:    0,
+			Message: "success",
+			Data: ginmodel.CodeServerConfiguration{
+				Address: "",
+				Port:    0,
+			},
+		}
+		ctx.JSON(http.StatusOK, resp)
+		return
+	}
+	resp := ginmodel.JsonResp{
+		Code:    0,
+		Message: "success",
+		Data: ginmodel.CodeServerConfiguration{
+			Address: config.GlobalConfig.Dependency.CodeServerAddr,
+			Port:    config.GlobalConfig.Dependency.CodeServerPort,
+		},
+	}
+	ctx.JSON(http.StatusOK, resp)
+}

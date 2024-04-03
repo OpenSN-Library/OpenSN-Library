@@ -310,7 +310,7 @@ func AddTopologyHandler(ctx *gin.Context) {
 	}
 	var instanceList []*model.Instance
 	var linkList []*model.LinkBase
-	for index, instance := range req.Instances {
+	for _, instance := range req.Instances {
 		typeConfig, ok := emulationConfig.TypeConfig[instance.Type]
 		if !ok {
 			errMsg := fmt.Sprintf("Add Topology Error: type %s not in type set", instance.Type)
@@ -321,9 +321,10 @@ func AddTopologyHandler(ctx *gin.Context) {
 			}
 			ctx.JSON(http.StatusBadRequest, resp)
 		}
+		instanceID := uuid.NewString()[:8]
 		instanceList = append(instanceList, &model.Instance{
-			InstanceID:  uuid.NewString()[:8],
-			Name:        fmt.Sprintf("%s_%d", instance.Type, index),
+			InstanceID:  instanceID,
+			Name:        fmt.Sprintf("%s_%s", instance.Type, instanceID),
 			Type:        instance.Type,
 			Image:       typeConfig.Image,
 			Extra:       instance.Extra,

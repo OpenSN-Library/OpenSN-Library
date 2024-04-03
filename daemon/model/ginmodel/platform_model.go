@@ -20,3 +20,8 @@ type InfluxDBConfiguration struct {
 	Bucket  string `json:"bucket"`
 	Token   string `json:"token"`
 }
+
+type CodeServerConfiguration struct {
+	Address string `json:"address"`
+	Port    int    `json:"port"`
+}

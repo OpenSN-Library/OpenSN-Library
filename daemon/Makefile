@@ -28,9 +28,9 @@ run-docker:
 run-sidecar:
 	cd ../sub-modules/PositionProvider/ && make run
 dep:
-	-sudo docker rm -f emulator_etcd
-	# -sudo docker rm -f emulator_redis
-	-sudo docker rm -f emulator_influxdb
-	sudo docker run -d --rm --name=emulator_etcd -p 2379:2379 satellite_emulator/etcd
-	# sudo docker run -d --rm --name=emulator_redis --cpus=0.25 -m 128m -p 6379:6379 satellite_emulator/redis
-	sudo docker run -d --rm --name=emulator_influxdb --cpus=0.5 -m 256m -p 8086:8086 satellite_emulator/influx_db
+	-sudo docker rm -f opensn_etcd
+	-sudo docker rm -f opensn_influxdb
+	-sudo docker rm -f opensn_codeserver
+	sudo docker run -d --rm --name=opensn_etcd -p 2379:2379 realssd/opensn_etcd
+	sudo docker run -d --rm --name=opensn_influxdb --cpus=0.5 -m 256m -p 8086:8086 realssd/opensn_influxdb
+	sudo docker run -d --rm --name=opensn_codeserver --cpus=1 -m 1g -p 8079:8443 realssd/opensn_codeserver

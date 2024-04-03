@@ -1,2 +1,2 @@
 build:
-	sudo docker build . -t satellite_emulator/influx_db
+	sudo docker build . -t realssd/opensn_influxdb

@@ -14,15 +14,85 @@ import (
 )
 
 func AddLinkHandler(ctx *gin.Context) {
-
+	var req ginmodel.AddLinkRequest
+	if err := ctx.Bind(&req); err != nil {
+		jsonResp := ginmodel.JsonResp{
+			Code:    -1,
+			Message: fmt.Sprintf("Invalid Request Data: %s", err.Error()),
+		}
+		ctx.JSON(http.StatusBadRequest, jsonResp)
+		return
+	}
+	// err := synchronizer.AddLink(req.NodeIndex, req.Link)
+	// if err != nil {
+	// 	jsonResp := ginmodel.JsonResp{
+	// 		Code:    -1,
+	// 		Message: fmt.Sprintf("Add Link Error: %s", err.Error()),
+	// 	}
+	// 	ctx.JSON(http.StatusInternalServerError, jsonResp)
+	// 	return
+	// }
+	jsonResp := ginmodel.JsonResp{
+		Code:    0,
+		Message: "Success",
+	}
+	ctx.JSON(http.StatusOK, jsonResp)
 }
 
 func DelLinkHandler(ctx *gin.Context) {
-
+	linkID := ctx.Param("link_id")
+	nodeIndexStr := ctx.Param("node_index")
+	nodeIndex, err := strconv.Atoi(nodeIndexStr)
+	if err != nil {
+		jsonResp := ginmodel.JsonResp{
+			Code:    -1,
+			Message: fmt.Sprintf("Invalid Node Index: %s", err.Error()),
+		}
+		ctx.JSON(http.StatusBadRequest, jsonResp)
+		return
+	}
+	linkInfo, err := synchronizer.GetLinkInfo(nodeIndex, linkID)
+	if err != nil {
+		errMsg := fmt.Sprintf("Get Link Info of %s in %d Error: %s", linkID, nodeIndex, err.Error())
+		jsonResp := ginmodel.JsonResp{
+			Code:    -1,
+			Message: errMsg,
+		}
+		ctx.JSON(http.StatusNotFound, jsonResp)
+		return
+	}
+	err = synchronizer.RemoveLink(linkInfo.EndInfos[0].EndNodeIndex, linkID)
+	if err != nil {
+		errMsg := fmt.Sprintf("Remove Link of %s in %d Error: %s", linkID, linkInfo.EndInfos[0].EndNodeIndex, err.Error())
+		jsonResp := ginmodel.JsonResp{
+			Code:    -1,
+			Message: errMsg,
+		}
+		ctx.JSON(http.StatusInternalServerError, jsonResp)
+		return
+	}
+	if linkInfo.EndInfos[0].EndNodeIndex != linkInfo.EndInfos[1].EndNodeIndex {
+		err = synchronizer.RemoveLink(linkInfo.EndInfos[1].EndNodeIndex, linkID)
+		if err != nil {
+			errMsg := fmt.Sprintf("Remove Link of %s in %d Error: %s", linkID, linkInfo.EndInfos[1].EndNodeIndex, err.Error())
+			jsonResp := ginmodel.JsonResp{
+				Code:    -1,
+				Message: errMsg,
+			}
+			ctx.JSON(http.StatusInternalServerError, jsonResp)
+			return
+		}
+	}
+	jsonResp := ginmodel.JsonResp{
+		Code:    0,
+		Message: "Success",
+	}
+	ctx.JSON(http.StatusOK, jsonResp)
 }
 
 func GetLinkListHandler(ctx *gin.Context) {
 	var req ginmodel.GetLinkListRequest
+	linkIDSet := map[string]bool{}
 	var linkList []model.Link
 	var respData []ginmodel.LinkAbstract
 	if err := ctx.Bind(&req); err != nil {
@@ -52,7 +122,10 @@ func GetLinkListHandler(ctx *gin.Context) {
 		}
 		for _, link := range nodeLinkList {
 			if req.KeyWord == "" || strings.Contains(link.GetLinkID(), req.KeyWord) {
-				linkList = append(nodeLinkList, link)
+				if !linkIDSet[link.GetLinkID()] {
+					linkIDSet[link.GetLinkID()] = true
+					linkList = append(linkList, link)
+				}
 			}
 		}
 	}
@@ -187,5 +260,38 @@ func GetLinkParameterHandler(ctx *gin.Context) {
 }
 
 func UpdateLinkParameterHandler(ctx *gin.Context) {
-
+	nodeIndexStr := ctx.Param("node_index")
+	linkID := ctx.Param("link_id")
+	nodeIndex, err := strconv.Atoi(nodeIndexStr)
+	if err != nil {
+		jsonResp := ginmodel.JsonResp{
+			Code:    -1,
+			Message: fmt.Sprintf("Invalid Node Index: %s", err.Error()),
+		}
+		ctx.JSON(http.StatusBadRequest, jsonResp)
+		return
+	}
+	var req map[string]int64
+	if err := ctx.Bind(&req); err != nil {
+		jsonResp := ginmodel.JsonResp{
+			Code:    -1,
+			Message: fmt.Sprintf("Invalid Request Data: %s", err.Error()),
+		}
+		ctx.JSON(http.StatusBadRequest, jsonResp)
+		return
+	}
+	err = synchronizer.UpdateLinkParameter(nodeIndex, linkID, req)
+	if err != nil {
+		jsonResp := ginmodel.JsonResp{
+			Code:    -1,
+			Message: fmt.Sprintf("Update Link Parameter of %s Error: %s", linkID, err.Error()),
+		}
+		ctx.JSON(http.StatusInternalServerError, jsonResp)
+		return
+	}
+	jsonResp := ginmodel.JsonResp{
+		Code:    0,
+		Message: "Success",
+	}
+	ctx.JSON(http.StatusOK, jsonResp)
 }

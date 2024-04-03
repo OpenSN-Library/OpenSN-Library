@@ -28,6 +28,7 @@ func RegisterHandlers(r *gin.Engine) {
 	platform := api.Group("/platform")
 	platform.GET("/address/etcd", handler.GetEtcdAddressHandler)
 	platform.GET("/address/influxdb", handler.GetInfluxDBAddressHandler)
+	platform.GET("/address/code_server", handler.GetCodeServerAddress)
 	platform.GET("/status", handler.GetPlatformStatus)
 
 	emulate := api.Group("/emulation")
@@ -82,13 +83,21 @@ func RegisterHandlers(r *gin.Engine) {
 	webshell := api.Group("/webshell")
 	webshell.POST("/instance", handler.StartInstanceWebshellHandler)
 	webshell.POST("/link", handler.StartLinkWebshellHandler)
+
+	file := api.Group("/file")
+	file.POST("/", handler.UploadFileHandler)
+	file.DELETE("/", handler.DeleteFileHandler)
+	file.GET("/list", handler.GetFileListHandler)
+	file.GET("/preview", handler.PreviewFileHandler)
+	file.GET("/download/:file_name", handler.DownloadFileHandler)
+
 }
 
 func RegisterStatics(r *gin.Engine) {
 	r.NoRoute(func(c *gin.Context) { // 当 API 不存在时，返回静态文件
 		path := c.Request.URL.Path
 		s := strings.Split(path, ".")
-		prefix := "ui"
+		prefix := "dist/build"
 		if data, err := static.Static.ReadFile(prefix + path); err != nil {
 			if data, err = static.Static.ReadFile(prefix + "/index.html"); err != nil {
 				c.JSON(404, gin.H{

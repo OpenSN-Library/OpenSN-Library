@@ -6,7 +6,7 @@ from opensn.model.link import LinkBase
 from config import ADDR,PORT
 from datetime import datetime
 from trajectory import calculate_postion,distance_meter,select_closest_satellite,get_propagation_delay_s
-from instance_types import TYPE_GROUND_STATION, TYPE_SATELLITE, EX_ORBIT_INDEX,EX_ALTITUDE_KEY,EX_LATITUDE_KEY,EX_LONGITUDE_KEY
+from instance_types import TYPE_GROUND_STATION, TYPE_SATELLITE, EX_ORBIT_INDEX,EX_ALTITUDE_KEY,EX_LATITUDE_KEY,EX_LONGITUDE_KEY, TYPE_GROUND_TERMINAL
 from address_type import LINK_V4_ADDR_KEY
 from time import sleep
 from address_allocator import alloc_ipv4,format_ipv4
@@ -62,7 +62,6 @@ if __name__ == "__main__":
                     gs_position.longitude = float(instance.extra[EX_LONGITUDE_KEY]) / 180 * math.pi
                     gs_position.altitude = float(instance.extra[EX_ALTITUDE_KEY])
                     cli.put_position(instance_id,gs_position)
-
 
         address_map = {}
         for node_index,node in node_list.items():

@@ -3,7 +3,9 @@ package handler
 import (
 	"NodeDaemon/model/ginmodel"
 	"NodeDaemon/share/dir"
+	"NodeDaemon/utils"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"path"
@@ -12,21 +14,68 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func GetFileList(ctx *gin.Context) {
-	var req ginmodel.OperateFileReq
-	err := ctx.Bind(&req)
+func PreviewFileHandler(ctx *gin.Context) {
+	relativePath := ctx.Query("path")
+	previewPath := path.Join(dir.UserDataDir, relativePath)
+	fileType, err := utils.CheckPathType(previewPath)
+	var previewText string
 	if err != nil {
-		errMsg := fmt.Sprintf("Parse File Operation Request Error: %s", err.Error())
+		errMsg := fmt.Sprintf("Check File Type Error: %s", err.Error())
 		logrus.Errorf(errMsg)
 		resp := ginmodel.JsonResp{
 			Code:    -1,
 			Message: errMsg,
 			Data:    nil,
 		}
-		ctx.JSON(http.StatusBadRequest, resp)
+		ctx.JSON(http.StatusInternalServerError, resp)
 		return
 	}
-	listPath := path.Join(dir.UserDataDir, req.RelativePath)
+	switch fileType {
+	case utils.DirType:
+		previewText = "不支持预览文件夹，请下载查看"
+	case utils.BinaryType:
+		previewText = "不支持预览二进制文件，请下载查看"
+	case utils.TextType:
+		f, err := os.Open(previewPath)
+		if err != nil {
+			errMsg := fmt.Sprintf("Open File %s Error: %s", previewPath, err.Error())
+			logrus.Errorf(errMsg)
+			resp := ginmodel.JsonResp{
+				Code:    -1,
+				Message: errMsg,
+				Data:    nil,
+			}
+			ctx.JSON(http.StatusInternalServerError, resp)
+			return
+		}
+		defer f.Close()
+		buf, err := io.ReadAll(f)
+		if err != nil {
+			errMsg := fmt.Sprintf("Read File %s Error: %s", previewPath, err.Error())
+			logrus.Errorf(errMsg)
+			resp := ginmodel.JsonResp{
+				Code:    -1,
+				Message: errMsg,
+				Data:    nil,
+			}
+			ctx.JSON(http.StatusInternalServerError, resp)
+			return
+		}
+		previewText = string(buf)
+	default:
+		previewText = "未知文件类型,请下载查看"
+	}
+	resp := ginmodel.JsonResp{
+		Code:    0,
+		Message: "success",
+		Data:    previewText,
+	}
+	ctx.JSON(http.StatusOK, resp)
+}
+
+func GetFileListHandler(ctx *gin.Context) {
+	relativePath := ctx.Query("path")
+	listPath := path.Join(dir.UserDataDir, relativePath)
 	var fileList []*ginmodel.FileNode
 	files, err := os.ReadDir(listPath)
 	if err != nil {
@@ -61,9 +110,9 @@ func GetFileList(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, resp)
 }
 
-func UploadFile(ctx *gin.Context) {
+func UploadFileHandler(ctx *gin.Context) {
 	// 单文件
-	relativePath := ctx.GetString("path")
+	relativePath := ctx.Query("path")
 	file, err := ctx.FormFile("file")
 	if err != nil {
 		errMsg := fmt.Sprintf("Get Upload File Error :%s", err.Error())
@@ -76,7 +125,7 @@ func UploadFile(ctx *gin.Context) {
 		ctx.JSON(http.StatusBadRequest, resp)
 		return
 	}
-	dst := path.Join(dir.UserDataDir, relativePath)
+	dst := path.Join(dir.UserDataDir, relativePath, file.Filename)
 	err = ctx.SaveUploadedFile(file, dst)
 	if err != nil {
 		errMsg := fmt.Sprintf("Save Upload File %s Error :%s", file.Filename, err.Error())
@@ -97,22 +146,10 @@ func UploadFile(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, resp)
 }
 
-func DeleteFile(ctx *gin.Context) {
-	var req ginmodel.OperateFileReq
-	err := ctx.Bind(&req)
-	if err != nil {
-		errMsg := fmt.Sprintf("Parse File Operation Request Error: %s", err.Error())
-		logrus.Errorf(errMsg)
-		resp := ginmodel.JsonResp{
-			Code:    -1,
-			Message: errMsg,
-			Data:    nil,
-		}
-		ctx.JSON(http.StatusBadRequest, resp)
-		return
-	}
-	removePath := path.Join(dir.UserDataDir, req.RelativePath)
-	err = os.RemoveAll(removePath)
+func DeleteFileHandler(ctx *gin.Context) {
+	relativePath := ctx.Query("path")
+	removePath := path.Join(dir.UserDataDir, relativePath)
+	err := os.RemoveAll(removePath)
 	if err != nil {
 		errMsg := fmt.Sprintf("Remove %s Error: %s", removePath, err.Error())
 		logrus.Errorf(errMsg)
@@ -132,26 +169,14 @@ func DeleteFile(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, resp)
 }
 
-func DownloadFile(ctx *gin.Context) {
-	var req ginmodel.OperateFileReq
-	err := ctx.Bind(&req)
-	if err != nil {
-		errMsg := fmt.Sprintf("Parse File Operation Request Error: %s", err.Error())
-		logrus.Errorf(errMsg)
-		resp := ginmodel.JsonResp{
-			Code:    -1,
-			Message: errMsg,
-			Data:    nil,
-		}
-		ctx.JSON(http.StatusBadRequest, resp)
-		return
-	}
-	downloadPath := path.Join(dir.UserDataDir, req.RelativePath)
+func DownloadFileHandler(ctx *gin.Context) {
+	relativePath := ctx.Query("path")
+	downloadPath := path.Join(dir.UserDataDir, relativePath)
 
 	fileStat, err := os.Stat(downloadPath)
 
 	if err != nil {
-		errMsg := fmt.Sprintf("Locate Download File %s Error: %s", req.RelativePath, err.Error())
+		errMsg := fmt.Sprintf("Locate Download File %s Error: %s", relativePath, err.Error())
 		logrus.Error(errMsg)
 		resp := ginmodel.JsonResp{
 			Code:    -1,

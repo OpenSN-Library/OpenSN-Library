@@ -1,2 +1,2 @@
 build:
-	sudo docker build . -t satellite_emulator/etcd
+	sudo docker build . -t realssd/opensn_etcd

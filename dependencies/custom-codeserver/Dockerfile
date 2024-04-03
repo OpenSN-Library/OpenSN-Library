@@ -3,7 +3,7 @@ FROM lscr.io/linuxserver/code-server:latest
 COPY materials/sources.list /etc/apt/sources.list
 COPY materials/extensions /config/extensions
 
-RUN /app/code-server/bin/code-server --install-extension /config/extensions/*
+COPY TopoConfigurator /workspace
 
 
 ENV SUDO_PASSWORD=opensn
