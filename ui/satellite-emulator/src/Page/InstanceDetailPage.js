@@ -23,6 +23,14 @@ export const InstanceDetailPage = () => {
         GetInstanceDetail(nodeIndex,instanceID,(response)=>{
             setInstanceInfo(response.data.data)
         })
+        setInterval(()=>{
+            GetPeriodInstanceResource(instanceID,resourcePeriod,(response)=>{
+                setInstanceResource(response.data.data)
+            })
+            GetInstanceDetail(nodeIndex,instanceID,(response)=>{
+                setInstanceInfo(response.data.data)
+            })
+        },1000)
     },[])
     
     const descriptionDetail = [
@@ -181,12 +189,12 @@ export const InstanceDetailPage = () => {
                     { value: '24h', label: '过去二十四小时' },
                 ]}
             />
-            <Button onClick={()=>{
+            {/* <Button onClick={()=>{
                 GetPeriodInstanceResource(instanceID,resourcePeriod,(response)=>{
                     setInstanceResource(response.data.data)
                 })
             }
-            }>刷新</Button>
+            }>刷新</Button> */}
             </Row>
             <Row justify="space-between">
 

@@ -1,5 +1,5 @@
 
-import { Card, Col, Descriptions, Divider, List, Row, Typography, Badge, Button,Tabs} from "antd"
+import { Card, Col, Descriptions, Divider, List, Row, Typography, Badge, Button,Select} from "antd"
 import { useEffect, useState } from "react"
 import { useParams } from "react-router-dom"
 import ReactECharts from 'echarts-for-react'
@@ -23,9 +23,20 @@ export const LinkDetailPage = () => {
         GetPeriodLinkResource(linkID,resourcePeriod,(response)=>{
             setLinkResource(response.data.data)
         })
-        // GetLinkParameter(nodeIndex,linkID,(response)=>{
-        //     setLinkParameter(response.data.data)
-        // })
+        GetLinkParameter(nodeIndex,linkID,(response)=>{
+            setLinkParameter(response.data.data)
+        })
+        setInterval(()=>{
+            GetLinkInfo(nodeIndex,linkID,(response)=>{
+                setLinkInfo(response.data.data)
+            })
+            GetPeriodLinkResource(linkID,resourcePeriod,(response)=>{
+                setLinkResource(response.data.data)
+            })
+            GetLinkParameter(nodeIndex,linkID,(response)=>{
+                setLinkParameter(response.data.data)
+            })
+        },1000)
     },[])
     
     const descriptionDetail = [
@@ -200,13 +211,36 @@ export const LinkDetailPage = () => {
                 
             </Row>
             <Divider/>
+            <Row justify="center"> <Typography.Title level={4}>资源监控</Typography.Title> </Row>
+            <Row justify="center"> 
+            <Select
+                defaultValue={resourcePeriod}
+                style={{ width: 120 }}
+                onChange={(value)=>{
+                    setResourcePeriod(value)
+                    GetPeriodLinkResource(linkID,resourcePeriod,(response)=>{
+                        setLinkResource(response.data.data)
+                    })
+                }}
+                options={[
+                    { value: '1m', label: '过去一分钟' },
+                    { value: '5m', label: '过去五分钟' },
+                    { value: '10m', label: '过去十分钟' },
+                    { value: '30m', label: '过去三十分钟' },
+                    { value: '1h', label: '过去一小时' },
+                    { value: '3h', label: '过去三小时' },
+                    { value: '6h', label: '过去六小时' },
+                    { value: '12h', label: '过去十二小时' },
+                    { value: '24h', label: '过去二十四小时' },
+                ]}
+            />
+            </Row>
             <Row justify="space-between">
-                
                     <Col style={{marginLeft:"5vw"}}>
                         <Card>
                             <ReactECharts
                                 option={cpuChartOption}
-                                style={{ height: "30vh",width:"40vw" }}
+                                style={{ height: "40vh",width:"40vw" }}
                             />
                         </Card>
                     </Col>
@@ -214,7 +248,7 @@ export const LinkDetailPage = () => {
                         <Card>
                             <ReactECharts
                                 option={memChartOption}
-                                style={{ height: "30vh",width:"40vw" }}
+                                style={{ height: "40vh",width:"40vw" }}
                             />
                         </Card>
                     </Col>

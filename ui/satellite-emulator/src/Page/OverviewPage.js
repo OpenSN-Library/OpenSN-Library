@@ -1,4 +1,4 @@
-import { Button, Descriptions, List } from "antd";
+import { Button, Descriptions, Divider, List } from "antd";
 import { useEffect,useState, useRef} from "react"
 import { Card, Typography, Badge, message } from "antd"
 import { Cartesian3, Color } from "cesium"
@@ -317,6 +317,7 @@ export const Overview = () => {
         <Typography.Title level={4}>运行状态</Typography.Title>
         <Descriptions bordered items={items} />
         </Card>
+        <Divider/>
         <Card>
         <List
             grid={{
@@ -340,6 +341,7 @@ export const Overview = () => {
             )}
         />
         </Card>
+        <Divider/>
         <Card style={{width:"100%"}}>
             <Typography.Title level={4}>3D可视化展示</Typography.Title>
             <Viewer timeline={false} homeButton={false} geocoder={false} animation={false} navigationHelpButton={false} fullscreenButton={false}>
@@ -390,7 +392,7 @@ export const Overview = () => {
                                 <Entity key={item.link_id} name={item.link_id} description={`${item.connect_instance[0]}-${item.connect_instance[1]}`} 
                                     onDoubleClick={(e)=>{
                                         const w = window.open('_black')
-                                        let url = `/link/${item.link_id}/${item.link_id}`
+                                        let url = `/link/${item.node_index}/${item.link_id}`
                                         w.location.href = url
                                     }}
                                 >

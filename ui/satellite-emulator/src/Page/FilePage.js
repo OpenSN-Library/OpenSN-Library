@@ -1,66 +1,42 @@
-import { useEffect,useState } from "react";
+import { useEffect,useState,useRef } from "react";
 import { GetDatabaseItems } from "../Request/databse";
 import { Button, Card, Col, Divider, Row, Typography,Tree } from "antd";
 
 import { DeleteDatabaseItem,UpdateDatabaseItem } from "../Request/databse";
 import TextArea from "antd/es/input/TextArea";
-
+import { UrlBase } from "../Request/base";
+import { DeleteFile, DownloadFile, GetFileList, PreivewFile, UploadFile } from "../Request/file";
+import { message } from "antd";
 
 export const FilePage = () => {
-  const [showLine, setShowLine] = useState(true);
-  const [showIcon, setShowIcon] = useState(false);
-  const [showLeafIcon, setShowLeafIcon] = useState(true);
-  const [databaseItems,setDatabaseItems] = useState({})
+  const inputRef = useRef(null)
+  const [messageApi, contextHolder] = message.useMessage();
   const [treeKeys,setTreeKeys] = useState([])
-  const [selectKey,setSelectKey] = useState("/")
-  const [editorContent,setEditorContent] = useState({
-      json:{},
-      text:""
-  })
+  const [selectPath,setSelectPath] = useState("")
+  const [previewContent,setPreviewContent] = useState("")
+  const [loadedKeys,setLoadedKeys] = useState([])
   useEffect(()=>{
-      GetDatabaseItems((response)=>{
-          const data = response.data.data
-          const tmpTreeKeys = {}
-          const items = {}
-          Object.keys(data).forEach((item)=>{
-              const keys = item.split("/")
-              let tmp = tmpTreeKeys
-              keys.forEach((key)=>{
-                  if(key===""){
-                      return
-                  }
-                  if(tmp[key]===undefined){
-                      tmp[key] = {
-                          realKey : keys.slice(0,keys.indexOf(key)+1).join("/"),
-                          children:{}
-                      }
-                  }
-                  tmp = tmp[key].children
-              })
-              items[item] = data[item]
-          })
-          console.log(tmpTreeKeys)
+      GetFileList(selectPath, (response)=>{
+          const data = response.data.data?response.data.data:[]
+          const tmpTreeKeys = [{
+            title:"",
+            key:"",
+            children:[],
+            isLeaf:false
+        }]
+
           setTreeKeys(tmpTreeKeys)
-          setDatabaseItems(items)      })
+        })
   },[])
 
-  const transTreeData = (data) => {
-      const res = []
-      Object.keys(data).forEach((key)=>{
-          const item = data[key]
-          res.push({
-              key:data[key].realKey,
-              title:key,
-              children:transTreeData(item.children)
-          })
-      })
-      return res
-  }
-
   const onSelect = (selectedKeys, info) => {
-      console.log('selected', selectedKeys, info);
-      setSelectKey(selectedKeys[0])
-      
+      if (selectedKeys.length!==1){
+          return
+      }
+      setSelectPath(selectedKeys[0])
+      PreivewFile(selectedKeys[0],(response)=>{
+            setPreviewContent(response.data.data)
+      })
   }
 
 
@@ -69,14 +45,62 @@ export const FilePage = () => {
           <Row justify="space-between" style={{height:"100%"}} >
               <Col style={{height:"100%"}}>
                   <Card style={{width:"20vw",height:"80vh"}}>
-                      <Typography.Title level={4}>数据库键列表</Typography.Title>
+                      <Typography.Title level={4}>文件列表</Typography.Title>
+                      <input type="file" ref={inputRef} style={{display:"none"}} onChange={(e)=>{
+                          const file = e.target.files[0]
+                          UploadFile(file,selectPath,(response)=>{
+                            messageApi.open({
+                                type: "success",
+                                content: "上传文件成功",
+                            })
+                          })
+                      } }/>
+                      <Button type="primary" style={{marginRight:"10px",marginLeft:"10px"}}
+                          onClick={()=>{
+                            inputRef.current.click()
+                          }}
+                      >上传</Button>
+                      <Button type="primary" style={{marginRight:"10px",marginLeft:"10px"}} 
+                        onClick={()=>{
+                          setSelectPath("")
+                          const tmpTreeKeys = [{
+                            title:"",
+                            key:"",
+                            children:[],
+                            isLeaf:false,
+                            loaded:false  
+                          }]
+                          setLoadedKeys([])
+                          setTreeKeys(tmpTreeKeys)
+                          
+                        }}
+                      >刷新</Button>
                       <Tree
+                          loadedKeys={loadedKeys}
                           style={{height:"65vh",overflowY:"auto"}}
-                          showLine={showLine ? { showLeafIcon } : false}
-                          showIcon={showIcon}
-                          defaultExpandedKeys={['/']}
+                          loadData={({key,children})=>{
+                            return new Promise((resolve) => {
+                                GetFileList(key, (response)=>{
+                                    const data = response.data.data?response.data.data:[]
+                                    const tmpTreeKeys = data.map((item)=>{
+                                          return({
+                                            title:item.name,
+                                            key:`${key}${item.name}${item.is_dir?"/":""}`,
+                                            children:[],
+                                            isLeaf:!item.is_dir
+                                          })
+                                    })
+                                    children.length = 0
+                                    children.push(...tmpTreeKeys)
+                                  
+                                    console.log(treeKeys)
+                                    setTreeKeys([...treeKeys])
+                                    resolve();
+                                })
+                              })
+                          }}
                           onSelect={onSelect}
-                          treeData={transTreeData(treeKeys)}
+                          treeData={treeKeys}
                       />
                   </Card>
               </Col>
@@ -85,24 +109,31 @@ export const FilePage = () => {
               <Card style={{width:"70vw",height:"80vh"}}>
               <Typography.Title level={4}>文件预览(仅文本文件)</Typography.Title>
               <Row justify="right"></Row>
-                  <Card style={{maxHeight:"60vh",overflowY:"scroll"}}>
-                  <Typography.Text style={{height:"80%",height:"80%"}} >
-                    
-                  </Typography.Text>
+                  <TextArea wrap="false" readOnly style={{height:"60vh"}} value={previewContent}/>
 
-                  </Card>
                   
                   <Divider/>
                   <Button type="primary" style={{marginRight:"10px",marginLeft:"10px"}}
                       onClick={()=>{
-                          UpdateDatabaseItem({
-                              key:selectKey,
-                              value:editorContent.text
-                          },(response)=>{
-                              console.log(response)
+                          
+                          const downloadUrl = UrlBase + `/file/download/${selectPath.split("/").pop()}?path=${selectPath}`
+                          window.open(downloadUrl)
+                          messageApi.open({
+                              type: "success",
+                              content: "下载文件成功",
                           })
                       }}
                   >下载</Button>
+                  <Button type="primary" style={{marginRight:"10px",marginLeft:"10px"}}
+                      onClick={()=>{
+                          DeleteFile(selectPath,(response)=>{
+                            messageApi.open({
+                                type: "success",
+                                content: "删除文件成功",
+                            })
+                          })
+                      }}
+                  >删除</Button>
               </Card>
               </Col>
           </Row>

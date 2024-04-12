@@ -1,12 +1,13 @@
 import { Row, Typography } from "antd"
 import { useState, useEffect } from "react"
+import { GetCodeServerConfiguration } from "../Request/platform"
 export const TopologyConfiguratorPage = () => {
 
     const [codeServerUrl,setCodeServerUrl] = useState("")
     useEffect(()=>{
-        // GetCodeServerUrl((response)=>{
-        //     setCodeServerUrl(response.data.data)
-        // })
+        GetCodeServerConfiguration((response)=>{
+            setCodeServerUrl(response.data.data.address!==""?`http://${response.data.data.address}:${response.data.data.port}`:"")
+        })
     },[])
     return (
        <Row justify="center">
