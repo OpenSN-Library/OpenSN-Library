@@ -2,9 +2,9 @@ FROM lscr.io/linuxserver/code-server:latest
 
 COPY materials/sources.list /etc/apt/sources.list
 COPY materials/extensions /config/extensions
-
+USER root
 COPY TopoConfigurator /workspace
-
+RUN chmod -R 766 /workspace
 
 ENV SUDO_PASSWORD=opensn
 ENV TZ=Asia/Shanghai
