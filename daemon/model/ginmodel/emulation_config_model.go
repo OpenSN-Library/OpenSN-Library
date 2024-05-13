@@ -30,6 +30,7 @@ type TopologyLink struct {
 	Type          string               `json:"type"`
 	InitParameter map[string]int64     `json:"init_parameter"`
 	AddressInfos  [2]map[string]string `json:"address_infos"`
+	Extra         map[string]string    `json:"extra"`
 }
 
 type TopologyInstance struct {

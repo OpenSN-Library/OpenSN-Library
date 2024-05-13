@@ -21,6 +21,7 @@ class LinkBase:
         self.cross_machine: bool = False
         self.parameter: dict[str,int] = {} 
         self.node_index: int = 0
+        self.extra: dict[str,str] = {}
 
 def link_from_json(seq: str) -> LinkBase:
     if seq is None :
@@ -70,6 +71,7 @@ def create_new_link(
         ret.parameter = init_parameter
         ret.node_index = node_index
         ret.enable = True
+        ret.extra = {}
         ret_array.append(ret)
     return ret_array
 

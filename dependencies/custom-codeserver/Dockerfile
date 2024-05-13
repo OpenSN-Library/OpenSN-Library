@@ -4,7 +4,7 @@ COPY materials/sources.list /etc/apt/sources.list
 COPY materials/extensions /config/extensions
 USER root
 COPY TopoConfigurator /workspace
-RUN chmod -R 766 /workspace
+RUN chmod -R 777 /workspace
 
 ENV SUDO_PASSWORD=opensn
 ENV TZ=Asia/Shanghai
@@ -18,6 +18,7 @@ RUN sudo apt update && sudo apt install -y \
     git \
     vim \
     tree 
+
 
 
 RUN sudo pip3 install -i https://pypi.tuna.tsinghua.edu.cn/simple \

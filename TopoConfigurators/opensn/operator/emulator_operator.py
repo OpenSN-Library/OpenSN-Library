@@ -158,11 +158,11 @@ class EmulatorOperator:
                 delete_list.append(link_id)
                 ret[link_id] = get_link(self.etcd_client,instance1.node_index,link_id)
         for del_id in delete_list:
-            remove_link(self.etcd_client,node_index1,link_id)
+            remove_link(self.etcd_client,node_index1,del_id)
             if instance1.node_index != instance2.node_index:
-                remove_link(self.etcd_client,node_index2,link_id)
-            del instance1.connections[link_id]
-            del instance2.connections[link_id]
+                remove_link(self.etcd_client,node_index2,del_id)
+            del instance1.connections[del_id]
+            del instance2.connections[del_id]
         put_instance(self.etcd_client,instance1)
         put_instance(self.etcd_client,instance2)
         return ret

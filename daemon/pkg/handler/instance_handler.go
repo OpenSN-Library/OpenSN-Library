@@ -148,6 +148,7 @@ func GetInstanceListHandler(ctx *gin.Context) {
 		respData = append(respData, ginmodel.InstanceAbstract{
 			InstanceID: instance.InstanceID,
 			Name:       instance.Name,
+			NodeIndex:  instance.NodeIndex,
 			Type:       instance.Type,
 			Start:      instance.Start,
 			Extra:      instance.Extra,
@@ -219,7 +220,7 @@ func StartInstanceHander(ctx *gin.Context) {
 		return
 	}
 
-	err := synchronizer.UpdateInstanceInfo(req.NodeIndex, req.InstanceID,func(i *model.Instance) error {
+	err := synchronizer.UpdateInstanceInfo(req.NodeIndex, req.InstanceID, func(i *model.Instance) error {
 		i.Start = true
 		return nil
 	})
@@ -249,7 +250,7 @@ func StopInstanceHandler(ctx *gin.Context) {
 		return
 	}
 
-	err := synchronizer.UpdateInstanceInfo(req.NodeIndex, req.InstanceID,func(i *model.Instance) error {
+	err := synchronizer.UpdateInstanceInfo(req.NodeIndex, req.InstanceID, func(i *model.Instance) error {
 		i.Start = false
 		return nil
 	})

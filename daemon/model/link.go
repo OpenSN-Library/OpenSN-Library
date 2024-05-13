@@ -53,6 +53,7 @@ type LinkBase struct {
 	CrossMachine bool                 `json:"cross_machine"`
 	Parameter    map[string]int64     `json:"parameter"`
 	NodeIndex    int                  `json:"node_index"`
+	Extra        map[string]string    `json:"extra"`
 }
 
 func (l *LinkBase) SetState(newState bool) {

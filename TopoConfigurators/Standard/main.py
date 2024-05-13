@@ -1,16 +1,16 @@
-from opensn.operator.emulator_operator import EmulatorOperator
-from opensn.model.instance import Instance
-from opensn.model.position import Position
-from opensn.const.dict_fields import PARAMETER_KEY_CONNECT,PARAMETER_KEY_DELAY,PARAMETER_KEY_BANDWIDTH,PARAMETER_KEY_LOSS
-from opensn.model.link import LinkBase
+from ..opensn.operator.emulator_operator import EmulatorOperator
+from ..opensn.model.instance import Instance
+from ..opensn.model.position import Position
+from ..opensn.const.dict_fields import PARAMETER_KEY_CONNECT,PARAMETER_KEY_DELAY,PARAMETER_KEY_BANDWIDTH,PARAMETER_KEY_LOSS
+from ..opensn.model.link import LinkBase
+from ..opensn.utils.tools import dec2ra
 from config import ADDR,PORT
 from datetime import datetime
 from trajectory import calculate_postion,distance_meter,select_closest_satellite,get_propagation_delay_s
-from instance_types import TYPE_GROUND_STATION, TYPE_SATELLITE, EX_ORBIT_INDEX,EX_ALTITUDE_KEY,EX_LATITUDE_KEY,EX_LONGITUDE_KEY, TYPE_GROUND_TERMINAL
+from instance_types import TYPE_GROUND_STATION, TYPE_SATELLITE, EX_ORBIT_INDEX,EX_ALTITUDE_KEY,EX_LATITUDE_KEY,EX_LONGITUDE_KEY, EX_AREA_KEY
 from address_type import LINK_V4_ADDR_KEY
 from time import sleep
 from address_allocator import alloc_ipv4,format_ipv4
-from opensn.utils.tools import dec2ra
 from loguru import logger
 import json, math
 step_second = 5
@@ -24,6 +24,8 @@ def genenrate_config(cli:EmulatorOperator,node_index:int,instance_id:str):
         "link_infos": {},
         "end_infos": {},
     }
+    if instance_info.type == TYPE_SATELLITE:
+        config_map['area'] = instance_info.extra[EX_AREA_KEY]
     for k,v in instance_info.connections.items():
         instance_index = -1
         link_info = cli.get_link(node_index,k)
@@ -32,11 +34,14 @@ def genenrate_config(cli:EmulatorOperator,node_index:int,instance_id:str):
                 instance_index = end_index
         if instance_index < 0:
             return {}
+        another_instance_info = cli.get_instance(link_info.end_infos[1-instance_index].end_node_index,link_info.end_infos[1-instance_index].instance_id)
         config_map["link_infos"][k] = link_info.address_infos[instance_index]
         config_map["end_infos"][k] = {
             "instance_id": v.instance_id,
-            "type": v.instance_type
+            "type": v.instance_type,
         }
+        if another_instance_info.type == TYPE_SATELLITE:
+            config_map["end_infos"][k]['area'] = another_instance_info.extra[EX_AREA_KEY]
     return config_map
 
 if __name__ == "__main__":

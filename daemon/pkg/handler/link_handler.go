@@ -147,6 +147,7 @@ func GetLinkListHandler(ctx *gin.Context) {
 				link.GetLinkBasePtr().EndInfos[0].InstanceID,
 				link.GetLinkBasePtr().EndInfos[1].InstanceID,
 			},
+			NodeIndex: link.GetLinkBasePtr().NodeIndex,
 		}
 		respData = append(respData, linkAbstract)
 	}
@@ -185,6 +186,8 @@ func GetLinkInfoHandler(ctx *gin.Context) {
 	respData.LinkID = link.GetLinkID()
 	respData.Type = link.GetLinkType()
 	respData.Enable = link.GetLinkBasePtr().Enable
+	respData.Extra = link.GetLinkBasePtr().Extra
+	respData.NodeIndex = link.NodeIndex
 	for i := 0; i < len(link.AddressInfos); i++ {
 		respData.ConnectIntance[i] = link.EndInfos[i].InstanceID
 		respData.AddressInfos[i] = link.AddressInfos[i]

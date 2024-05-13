@@ -2,7 +2,7 @@
   "app": {
     "is_servant": false,
     "master_address": "172.16.208.128",
-    "listen_port": 80,
+    "listen_port": 8080,
     "enable_monitor": true,
     "enable_code_server": true,
     "interface_name": "ens160",

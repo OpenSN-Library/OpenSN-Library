@@ -10,6 +10,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 	clientv3 "go.etcd.io/etcd/client/v3"
+	"go.etcd.io/etcd/client/v3/concurrency"
 )
 
 func GetNodeList() ([]*model.Node, error) {
@@ -101,4 +102,24 @@ func GetNode(index int) (*model.Node, error) {
 		return nil, err
 	}
 	return v, nil
+}
+
+func UpdateNode(nodeIndex int, update func(*model.Node) error) error {
+	nodeInfoKey := fmt.Sprintf("%s/%d", key.NodeIndexListKey, nodeIndex)
+	_, err := concurrency.NewSTM(utils.EtcdClient, func(s concurrency.STM) error {
+		etcdOldNode := s.Get(nodeInfoKey)
+		instance := new(model.Node)
+		json.Unmarshal([]byte(etcdOldNode), instance)
+		err := update(instance)
+		if err != nil {
+			return fmt.Errorf("update local new instance of %s error: %s", nodeInfoKey, err.Error())
+		}
+		etcdNewNode, err := json.Marshal(instance)
+		if err != nil {
+			return fmt.Errorf("format local new instance of %s error: %s", nodeInfoKey, err.Error())
+		}
+		s.Put(nodeInfoKey, string(etcdNewNode))
+		return nil
+	})
+	return err
 }

@@ -6,6 +6,7 @@ EX_TLE1_KEY = "TLE_1"
 EX_TLE2_KEY = "TLE_2"
 EX_ORBIT_INDEX = "OrbitIndex"
 EX_SATELLITE_INDEX = "SatelliteIndex"
+EX_AREA_KEY = "Area"
 
 
 TYPE_GROUND_STATION = "GroundStation"
