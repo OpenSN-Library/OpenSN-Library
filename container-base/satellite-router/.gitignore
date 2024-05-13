@@ -1,2 +1,2 @@
-scripts/daemon
+scripts/entrypoint
 daemon/satellite
