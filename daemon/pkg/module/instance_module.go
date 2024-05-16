@@ -4,7 +4,6 @@ import (
 	"NodeDaemon/data"
 	"NodeDaemon/model"
 	"encoding/json"
-	"time"
 
 	"NodeDaemon/share/dir"
 	"NodeDaemon/share/key"
@@ -20,7 +19,7 @@ import (
 	clientv3 "go.etcd.io/etcd/client/v3"
 )
 
-var StopTimeoutSecond = 3
+var StopTimeoutSecond = 20
 
 func CreateContainer(instance *model.Instance) error {
 	containerID := fmt.Sprintf("%s_%s", instance.Type, instance.InstanceID)
@@ -59,7 +58,7 @@ func CreateContainer(instance *model.Instance) error {
 		}
 
 		return err
-	}, 2)
+	}, 4)
 
 	if err != nil {
 		return fmt.Errorf("create container %s Error: %s", containerID, err.Error())
@@ -77,8 +76,7 @@ func StartContainer(instance *model.Instance) (int, error) {
 			containerID,
 			types.ContainerStartOptions{},
 		)
-
-	}, 2)
+	}, 4)
 	if err != nil {
 		return pid, fmt.Errorf("start container %s error: %s", containerID, err.Error())
 	}
@@ -90,7 +88,7 @@ func StartContainer(instance *model.Instance) (int, error) {
 		}
 		pid = info.State.Pid
 		return nil
-	}, 2)
+	}, 4)
 
 	if err != nil {
 		return pid, fmt.Errorf("get pid of container %s error: %s", containerID, err.Error())
@@ -105,7 +103,7 @@ func StopContainer(instance *model.Instance) error {
 
 	err := utils.DoWithRetry(func() error {
 		return utils.DockerClient.ContainerStop(context.Background(), containerID, container.StopOptions{})
-	}, 2)
+	}, 4)
 
 	if err != nil {
 		err := fmt.Errorf(
@@ -127,7 +125,7 @@ func RemoveContainer(instance *model.Instance) error {
 			containerID,
 			types.ContainerRemoveOptions{Force: true},
 		)
-	}, 2)
+	}, 4)
 
 	if err != nil {
 		err := fmt.Errorf(
@@ -153,8 +151,9 @@ func UpdateInstanceState(oldInstance, newInstance *model.Instance) error {
 		if shouldCreate {
 			err = CreateContainer(newInstance)
 		} else {
+			StopContainer(oldInstance)
+			data.DeleteInstancePid(oldInstance.InstanceID)
 			err = RemoveContainer(oldInstance)
-			data.DeleteInstancePid(oldInstance.InstanceID, 10*time.Millisecond)
 		}
 	}
 
@@ -169,7 +168,7 @@ func UpdateInstanceState(oldInstance, newInstance *model.Instance) error {
 			data.SetInstancePid(newInstance.InstanceID, pid)
 		} else if shouldCreate {
 			err = StopContainer(oldInstance)
-			data.DeleteInstancePid(oldInstance.InstanceID, 10*time.Millisecond)
+			data.DeleteInstancePid(oldInstance.InstanceID)
 		}
 	}
 	if err != nil {
@@ -187,7 +186,6 @@ type InstanceModule struct {
 func watchInstanceDaemon(sigChan chan int, errChan chan error) {
 	for {
 		ctx, cancel := context.WithCancel(context.Background())
-		// var keyLockMap sync.Map
 		watchChan := utils.EtcdClient.Watch(ctx, key.NodeInstanceListKeySelf, clientv3.WithPrefix(), clientv3.WithPrevKV())
 		
 		for {
@@ -221,12 +219,6 @@ func watchInstanceDaemon(sigChan chan int, errChan chan error) {
 								return
 							}
 						}
-						// logrus.Debugf("Instance %s Update Detected From %v to %v",etcdKey,oldInstance,newInstance)
-
-						// lockAny, _ := keyLockMap.LoadOrStore(etcdKey, new(sync.Mutex))
-						// lock := lockAny.(*sync.Mutex)
-						// lock.Lock()
-						// defer lock.Unlock()
 						err := UpdateInstanceState(oldInstance, newInstance)
 						if err != nil {
 							errMsg := fmt.Sprintf("Update Instance %s State Error: %s", etcdKey, err.Error())
