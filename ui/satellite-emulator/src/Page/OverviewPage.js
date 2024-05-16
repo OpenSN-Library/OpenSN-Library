@@ -48,7 +48,7 @@ export const Overview = () => {
                 allMem += item.mem_byte;
                 allSwapMem += item.swap_mem_byte;
             })
-            setResourcePercent(`CPU:${allCPU.toFixed(3)}%\n 内存:${(allMem / (1<<20)).toFixed(2)}MB\n 交换内存:${(allSwapMem / (1<<20)).toFixed(2)}MB`)
+            setResourcePercent(`CPU:${(allCPU*100).toFixed(2)}%\n 内存:${(allMem / (1<<20)).toFixed(2)}MB\n 交换内存:${(allSwapMem / (1<<20)).toFixed(2)}MB`)
         })
         GetAllPosition((response)=>{
             setInstancePosition(response.data.data?response.data.data:{})

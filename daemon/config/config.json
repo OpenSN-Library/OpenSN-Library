@@ -8,7 +8,8 @@
     "interface_name": "ens160",
     "debug": false,
     "instance_capacity": 500,
-    "monitor_interval": 1
+    "monitor_interval": 1,
+    "parallel_num": 1
   },
   "dependency": {
     "etcd_addr": "172.16.208.128",
