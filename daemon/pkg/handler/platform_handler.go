@@ -4,6 +4,7 @@ import (
 	"NodeDaemon/config"
 	"NodeDaemon/model/ginmodel"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -47,7 +48,7 @@ func GetPlatformStatus(ctx *gin.Context) {
 }
 
 func GetCodeServerAddress(ctx *gin.Context) {
-	if (config.GlobalConfig.Dependency.CodeServerAddr == "") {
+	if config.GlobalConfig.Dependency.CodeServerAddr == "" {
 		resp := ginmodel.JsonResp{
 			Code:    0,
 			Message: "success",
@@ -68,4 +69,12 @@ func GetCodeServerAddress(ctx *gin.Context) {
 		},
 	}
 	ctx.JSON(http.StatusOK, resp)
+}
+
+// GetUnixTimestampMillis is a handler function that returns the current Unix timestamp in milliseconds.
+// For synchronous calls, the function returns the current Unix timestamp in milliseconds.
+// When call this interface, please record the cost of the request and response time.
+// And set the system time to the response time plus half of the request-response time.
+func GetUnixTimestampMillis(ctx *gin.Context) {
+	ctx.String(http.StatusOK, "%d", time.Now().UnixMicro())
 }

@@ -3,8 +3,6 @@ package data
 import (
 	"sync"
 	"time"
-
-	"github.com/sirupsen/logrus"
 )
 
 type InstancePidPair struct {
@@ -12,48 +10,37 @@ type InstancePidPair struct {
 	Pid        int
 }
 
-var ContainerInstancePidMap = new(sync.Map)
+const checkGap = 500 * time.Millisecond
+var containerInstancePidMap = make(map[string] int)
+var dataPoolLock = new(sync.RWMutex)
 
 func WatchInstancePid(instanceID string) int {
-	val, _ := ContainerInstancePidMap.LoadOrStore(instanceID, make(chan int,2))
-	ch := val.(chan int)
-	res := <-ch
-	ch <- res
-	return res
+	for {
+		dataPoolLock.RLock()
+		pid, ok := containerInstancePidMap[instanceID]
+		dataPoolLock.RUnlock()
+		if ok {
+			return pid
+		}
+		time.Sleep(checkGap)
+	}
 }
 
 func TryGetInstancePid(instanceID string) (int, bool) {
-	val, ok := ContainerInstancePidMap.Load(instanceID)
-	if !ok {
-		return 0, false
-	}
-	ch := val.(chan int)
-	select {
-	case pid := <-ch:
-		ch <- pid
-		return pid, true
-	default:
-		return 0, false
-	}
+	dataPoolLock.RLock()
+	pid, ok := containerInstancePidMap[instanceID]
+	dataPoolLock.RUnlock()
+	return pid, ok
 }
 
-func DeleteInstancePid(instanceID string, timeout time.Duration) {
-	ContainerInstancePidMap.Delete(instanceID)
+func DeleteInstancePid(instanceID string) {
+	dataPoolLock.Lock()
+	delete(containerInstancePidMap, instanceID)
+	dataPoolLock.Unlock()
 }
 
 func SetInstancePid(instanceID string, pid int) {
-	val, _ := ContainerInstancePidMap.LoadOrStore(instanceID, make(chan int,2))
-	ch := val.(chan int)
-
-	select {
-	case <-ch:
-	default:
-	}
-	select {
-	case ch <- pid:
-	default:
-		<-ch
-		ch <- pid
-		logrus.Warnf("Blocked Write of Instance %s Pid", instanceID)
-	}
+	dataPoolLock.Lock()
+	containerInstancePidMap[instanceID] = pid
+	dataPoolLock.Unlock()
 }

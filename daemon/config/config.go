@@ -5,9 +5,12 @@ import (
 	"NodeDaemon/utils"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"strconv"
+	"syscall"
+	"time"
 
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
@@ -16,6 +19,7 @@ import (
 const (
 	InfluxDBConfigurationUrl = "/api/platform/address/influxdb"
 	EtcdConfigurationUrl     = "/api/platform/address/etcd"
+	TimestampUrl             = "/api/platform/time"
 )
 
 type AppConfigType struct {
@@ -149,8 +153,42 @@ func InitConfigMasterMode() error {
 func InitConfigServantMode(masterAddr string) error {
 	etcdReqUrl := fmt.Sprintf("http://%s:%d%s", masterAddr, GlobalConfig.App.ListenPort, EtcdConfigurationUrl)
 	influxDBUrl := fmt.Sprintf("http://%s:%d%s", masterAddr, GlobalConfig.App.ListenPort, InfluxDBConfigurationUrl)
+	timestampUrl := fmt.Sprintf("http://%s:%d%s", masterAddr, GlobalConfig.App.ListenPort, TimestampUrl)
 
 	err := utils.DoWithRetry(func() error {
+		start := time.Now().UnixMicro()
+		timestampResp, err := http.Get(timestampUrl)
+		if err != nil {
+			return err
+		}
+		buf, err := io.ReadAll(timestampResp.Body)
+		if err != nil {
+			return err
+		}
+		getTime, err := strconv.ParseInt(string(buf), 10, 64)
+		if err != nil {
+			return err
+		}
+		end := time.Now().UnixMicro()
+		setTime := getTime + ((end - start) >> 1)
+		err = syscall.Settimeofday(&syscall.Timeval{
+			Sec:  setTime / 1000000,
+			Usec: setTime % 1000000,
+		})
+		if err != nil {
+			return err
+		}
+		logrus.Infof("Time Sync Success, Time is %v", time.UnixMicro(setTime))
+		return nil
+	}, 4)
+
+	if err != nil {
+		errMsg := fmt.Sprintf("Time Sync Error: %s", err.Error())
+		logrus.Error(errMsg)
+		return err
+	}
+
+	err = utils.DoWithRetry(func() error {
 		var obj ginmodel.JsonResp
 		etcdResp, err := http.Get(etcdReqUrl)
 		if err != nil {

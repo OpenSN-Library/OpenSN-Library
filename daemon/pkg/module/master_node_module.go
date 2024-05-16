@@ -30,6 +30,7 @@ func RegisterHandlers(r *gin.Engine) {
 	platform.GET("/address/influxdb", handler.GetInfluxDBAddressHandler)
 	platform.GET("/address/code_server", handler.GetCodeServerAddress)
 	platform.GET("/status", handler.GetPlatformStatus)
+	platform.GET("/time", handler.GetUnixTimestampMillis)
 
 	emulate := api.Group("/emulation")
 	emulate.POST("/update", handler.ConfigEmulationHandler)
