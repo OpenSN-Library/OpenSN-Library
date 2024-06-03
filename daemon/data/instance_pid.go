@@ -10,8 +10,9 @@ type InstancePidPair struct {
 	Pid        int
 }
 
-const checkGap = 500 * time.Millisecond
-var containerInstancePidMap = make(map[string] int)
+const checkGap = 100 * time.Millisecond
+
+var containerInstancePidMap = make(map[string]int)
 var dataPoolLock = new(sync.RWMutex)
 
 func WatchInstancePid(instanceID string) int {

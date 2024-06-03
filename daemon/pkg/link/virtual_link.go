@@ -74,7 +74,12 @@ func (l *VethLink) IsCreated() bool {
 }
 
 func (l *VethLink) IsEnabled() bool {
-	_, err := netlink.LinkByName(fmt.Sprintf("%s-%d", l.LinkID, 1))
+	_, err := netlink.LinkByName(fmt.Sprintf("%s-%d", l.LinkID, 0))
+
+	if err == nil {
+		return true
+	}
+	_, err = netlink.LinkByName(fmt.Sprintf("%s-%d", l.LinkID, 1))
 	return err == nil
 }
 
@@ -102,7 +107,7 @@ func (l *VethLink) Create() error {
 }
 
 func (l *VethLink) Destroy() error {
-	logrus.Infof("Disabling Link %s, Type: Single Machine %s", l.LinkID, l.Type)
+
 	bridge, err := netlink.LinkByName(l.GetLinkID())
 	if err != nil {
 		err := fmt.Errorf("get bridge device from name %s error: %s", l.LinkID, err.Error())
@@ -113,6 +118,7 @@ func (l *VethLink) Destroy() error {
 		err := fmt.Errorf("delete bridge device %s error: %s", l.LinkID, err.Error())
 		return err
 	}
+	logrus.Infof("Distory Link %s, Type: Single Machine %s Success", l.LinkID, l.Type)
 	return nil
 }
 
@@ -278,10 +284,6 @@ func (l *VethLink) Enable() error {
 }
 func (l *VethLink) Disable() error {
 
-	if !l.IsEnabled() {
-		return nil
-	}
-
 	for i := range l.EndInfos {
 		delLink, err := netlink.LinkByName(fmt.Sprintf("%s-%d", l.GetLinkID(), i))
 		if err != nil {
@@ -295,7 +297,7 @@ func (l *VethLink) Disable() error {
 			logrus.Errorf("Disable Link %s Error: %s", l.LinkID, err.Error())
 		}
 	}
-
+	logrus.Infof("Disable Link %s, Type: Single Machine %s Success", l.LinkID, l.Type)
 	return nil
 }
 
