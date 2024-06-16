@@ -32,6 +32,7 @@ type AppConfigType struct {
 	Debug            bool   `json:"debug"`
 	InstanceCapacity int    `json:"instance_capacity"`
 	MonitorInterval  int    `json:"monitor_interval"`
+	ParallelNum      int    `json:"parallel_num"`
 }
 
 type DependencyConfigType struct {

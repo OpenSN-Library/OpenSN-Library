@@ -5,6 +5,7 @@ import (
 	"NodeDaemon/pkg/synchronizer"
 	"container/list"
 	"fmt"
+
 	"github.com/sirupsen/logrus"
 )
 
@@ -47,7 +48,7 @@ func ArrangeInstances(instances []*model.Instance) error {
 				instance.NodeIndex = nodeVal.NodeIndex
 				nodeVal.FreeInstance -= 1
 				nodeList.Remove(node)
-				nodeList.PushBack(nodeVal)
+				nodeList.PushFront(nodeVal)
 				success = true
 				break
 			}
@@ -56,7 +57,7 @@ func ArrangeInstances(instances []*model.Instance) error {
 			return fmt.Errorf("unable to allocate instances")
 		}
 	}
-	
+
 	for _, v := range nodes {
 		err := synchronizer.AddNode(v)
 		if err != nil {

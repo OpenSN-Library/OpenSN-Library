@@ -1,6 +1,7 @@
 package module
 
 import (
+	"NodeDaemon/config"
 	"NodeDaemon/model"
 	"NodeDaemon/pkg/link"
 	"NodeDaemon/share/key"
@@ -15,6 +16,8 @@ import (
 	clientv3 "go.etcd.io/etcd/client/v3"
 )
 
+var LinkParallelLimitChan chan uint8
+
 func UpdateLinkState(newLink model.Link, oldLink model.Link) error {
 
 	var err error
@@ -28,6 +31,10 @@ func UpdateLinkState(newLink model.Link, oldLink model.Link) error {
 		if shouldCreate {
 			err = newLink.Create()
 		} else {
+			LinkParallelLimitChan <- 1
+			defer func() {
+				<-LinkParallelLimitChan
+			}()
 			err = oldLink.Disable()
 			if err != nil {
 				logrus.Errorf("update create state error: disable link error:%s", err.Error())
@@ -120,6 +127,7 @@ func linkDaemonFunc(sigChan chan int, errChan chan error) {
 }
 
 func CreateLinkManagerModule() *LinkModule {
+	LinkParallelLimitChan = make(chan uint8, config.GlobalConfig.App.ParallelNum*8)
 	return &LinkModule{
 		Base{
 			sigChan:    make(chan int),

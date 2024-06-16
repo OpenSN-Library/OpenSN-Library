@@ -1,6 +1,7 @@
 package module
 
 import (
+	"NodeDaemon/config"
 	"NodeDaemon/data"
 	"NodeDaemon/model"
 	"encoding/json"
@@ -20,6 +21,7 @@ import (
 )
 
 var StopTimeoutSecond = 20
+var InstanceParallelLimitChan chan uint8
 
 func CreateContainer(instance *model.Instance) error {
 	containerID := fmt.Sprintf("%s_%s", instance.Type, instance.InstanceID)
@@ -141,8 +143,12 @@ func RemoveContainer(instance *model.Instance) error {
 
 func UpdateInstanceState(oldInstance, newInstance *model.Instance) error {
 	var err error
-	isRunning := oldInstance.IsRunning() || newInstance.IsRunning()
-	isCreated := oldInstance.IsCreated() || newInstance.IsCreated()
+	InstanceParallelLimitChan <- 1
+	defer func() {
+		<-InstanceParallelLimitChan
+	}()
+	isRunning := oldInstance.IsRunning()
+	isCreated := oldInstance.IsCreated()
 
 	shouldRunning := newInstance.Start
 	shouldCreate := newInstance.InstanceID != ""
@@ -187,7 +193,7 @@ func watchInstanceDaemon(sigChan chan int, errChan chan error) {
 	for {
 		ctx, cancel := context.WithCancel(context.Background())
 		watchChan := utils.EtcdClient.Watch(ctx, key.NodeInstanceListKeySelf, clientv3.WithPrefix(), clientv3.WithPrevKV())
-		
+
 		for {
 			select {
 			case sig := <-sigChan:
@@ -235,6 +241,7 @@ func watchInstanceDaemon(sigChan chan int, errChan chan error) {
 }
 
 func CreateInstanceManagerModule() *InstanceModule {
+	InstanceParallelLimitChan = make(chan uint8, config.GlobalConfig.App.ParallelNum)
 	return &InstanceModule{
 		Base{
 			sigChan:    make(chan int),

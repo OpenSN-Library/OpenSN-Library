@@ -7,9 +7,9 @@
     "enable_code_server": true,
     "interface_name": "ens160",
     "debug": false,
-    "instance_capacity": 500,
+    "instance_capacity": 1800,
     "monitor_interval": 1,
-    "parallel_num": 1
+    "parallel_num": 64
   },
   "dependency": {
     "etcd_addr": "172.16.208.128",
