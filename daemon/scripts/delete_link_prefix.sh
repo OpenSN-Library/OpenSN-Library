@@ -1,6 +1,4 @@
 #!/bin/bash
-set +e
-sudo docker rm -f `sudo docker ps -aq`
 links=`ip link | grep "-" | grep qlen | awk '{print $2}' | awk '{split($1,arr,"@"); print arr[1]}'`
 for link in ${links[@]} 
 do

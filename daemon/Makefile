@@ -1,32 +1,16 @@
 build:
-	mkdir -p build/config
+	mkdir -p opensn-daemon/config
 	echo "Build Commit:"`git rev-parse HEAD`", Build Time:"`date`", Arch:"`go env GOARCH`"-"`go env GOOS` > share/static/dist/version.txt
 	go build
-	mv ./NodeDaemon ./build/NodeDaemon
-	cp ./config/config.json ./build/config/
-	cp share/static/dist/version.txt ./build/
-	cp depend-bin/gotty ./build/
-	tar cvf satellite-emulator-daemon.tar.gz build/*
+	mv ./NodeDaemon ./opensn-daemon/NodeDaemon
+	cp ./config/config.json ./opensn-daemon/config/
+	cp share/static/dist/version.txt ./opensn-daemon/
+	cp depend-bin/gotty ./opensn-daemon/
+	cp -r scripts ./opensn-daemon/
+	tar cvf opensn-daemon.tar.gz opensn-daemon/*
 clean:
-	-sudo rm -rf ./build
-	-sudo rm satellite-emulator-daemon.tar.gz
-wrap: build
-	-sudo docker rmi -f satellite_emulator/node-daemon
-	sudo docker build . -t satellite_emulator/node-daemon
-run:
-	cd build && sudo ./NodeDaemon
-run-docker:
-	-sudo docker rm -f node-daemon
-	sudo docker run \
-		--net=host \
-		-p 8080:8080 \
-		-v /var/run/docker.sock:/var/run/docker.sock \
-		-v /home/satellite/Workspace/satellite-emulator/node-daemon/build/runtime:/runtime/runtime \
-		--privileged=true \
-		--name=node-daemon \
-		satellite_emulator/node-daemon
-run-sidecar:
-	cd ../sub-modules/PositionProvider/ && make run
+	-sudo rm -rf ./opensn-daemon
+	-sudo rm opensn-daemon.tar.gz
 dep:
 	-sudo docker rm -f opensn_etcd
 	-sudo docker rm -f opensn_influxdb
