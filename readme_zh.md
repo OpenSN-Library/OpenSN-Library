@@ -1,5 +1,9 @@
 # OpenSN
 
+[Engilish Version](readme.md) 
+
+[TOC]
+
 ## 1. 声明
 
 ## 2. 环境准备

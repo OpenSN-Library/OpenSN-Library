@@ -1,5 +1,11 @@
 # OpenSN
 
+> To Be Done
+
+[中文版本](readme_zh.md)
+
+[TOC]
+
 ## Disclaimer
 
 ## Preparation
