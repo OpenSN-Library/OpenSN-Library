@@ -41,8 +41,9 @@ func CreateContainer(instance *model.Instance) error {
 				fmt.Sprintf("%s:%s", dir.MountShareData, "/share"),
 			},
 			Resources: container.Resources{
-				NanoCPUs: instance.Resource.NanoCPU,
-				Memory:   instance.Resource.MemoryByte,
+				CpusetCpus: instance.Resource.CpusetCpus,
+				NanoCPUs:   instance.Resource.NanoCPU,
+				Memory:     instance.Resource.MemoryByte,
 			},
 		}
 

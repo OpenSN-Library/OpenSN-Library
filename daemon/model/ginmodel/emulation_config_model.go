@@ -35,6 +35,7 @@ type TopologyLink struct {
 
 type TopologyInstance struct {
 	Type       string                             `json:"type"`
+	Cpuset     string                             `json:"cpuset"`
 	Extra      map[string]string                  `json:"extra"`
 	DeviceInfo map[string]model.DeviceRequireInfo `json:"device_need"`
 }

@@ -343,6 +343,7 @@ func AddTopologyHandler(ctx *gin.Context) {
 			Start:       emulationConfig.Running,
 			Connections: make(map[string]model.ConnectionInfo),
 		})
+		instanceList[len(instanceList)-1].Resource.CpusetCpus = instance.Cpuset
 	}
 
 	err = arranger.ArrangeInstances(instanceList)

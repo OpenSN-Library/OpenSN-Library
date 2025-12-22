@@ -3,6 +3,7 @@ package model
 type ResourceLimit struct {
 	NanoCPU    int64 `json:"nano_cpu"`
 	MemoryByte int64 `json:"memory_byte"`
+	CpusetCpus string `json:"cpuset_cpus"`
 }
 
 type InstanceTypeConfig struct {
