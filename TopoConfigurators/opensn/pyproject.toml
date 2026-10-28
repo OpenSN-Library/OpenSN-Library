@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "opensn"
+version = "0.1.0"
+description = "OpenSN Python SDK (etcd-only, no daemon HTTP calls)"
+requires-python = ">=3.9"
+dependencies = ["etcd3>=0.12"]
+
+[project.optional-dependencies]
+satellite = ["ephem"]
+
+[tool.setuptools.packages.find]
+include = ["opensn*"]
