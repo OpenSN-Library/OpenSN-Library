@@ -33,3 +33,6 @@ opensn_build
 #[Experiment]
 TopoConfigurators/opensn-go
 TopoConfigurators/opensn-rust
+
+#[Agent Development Task Spec]
+task-spec
